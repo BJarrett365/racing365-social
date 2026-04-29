@@ -1,0 +1,143 @@
+# PLEXA App UI Kit
+
+## Product feel
+
+PLEXA should feel clean, fast, smart, and premium.
+
+Design tone:
+
+* dark mode first
+* modern sports-tech feel
+* simple layouts
+* smooth motion
+* clear hierarchy
+* mobile first
+
+## Brand core
+
+* Brand name: PLEXA
+* Meaning: Precision + Experience + Platform
+* Style: premium tech, minimal, confident
+* Suggested line: Built for speed. Designed for scale.
+
+## Colour palette
+
+### Core
+
+* Background: `#2B2B2B`
+* Surface: `#343434`
+* Surface 2: `#3F3F3F`
+* Border: `#4B4B4B`
+* Text primary: `#F5F5F5`
+* Text secondary: `#BDBDBD`
+* Muted text: `#8A8A8A`
+
+### Accent options
+
+Use Electric Green as default primary accent.
+
+* Primary accent: `#22C55E`
+* Primary accent hover: `#16A34A`
+* Primary accent soft: `#DCFCE7`
+
+Optional alt accents:
+
+* Neon Blue: `#3B82F6`
+* Ice White: `#F5F5F5`
+
+### Status
+
+* Success: `#22C55E`
+* Warning: `#F59E0B`
+* Error: `#EF4444`
+* Info: `#3B82F6`
+
+## Typography
+
+Use:
+
+* Headings: Inter or Sora
+* Body: Inter
+* Mono/data: JetBrains Mono
+
+Type scale:
+
+* Display: 48/56 semibold
+* H1: 36/44 semibold
+* H2: 30/38 semibold
+* H3: 24/32 medium
+* H4: 20/28 medium
+* Body large: 18/28 regular
+* Body: 16/24 regular
+* Small: 14/20 regular
+* Caption: 12/16 medium
+
+Rules:
+
+* headings can use slight letter spacing
+* avoid dense paragraphs
+* numbers and data should be highly readable
+
+## Spacing
+
+Use an 8px grid.
+
+* 4, 8, 12, 16, 24, 32, 40, 48, 64
+
+## Radius
+
+* cards: 20px
+* buttons: 14px
+* inputs: 14px
+* modal: 24px
+* pill tags: 999px
+
+## Shadows
+
+Soft only.
+
+* Card shadow: `0 8px 24px rgba(0,0,0,0.18)`
+* Hover shadow: `0 10px 30px rgba(0,0,0,0.22)`
+
+## Layout system
+
+### Mobile
+
+* single column
+* sticky bottom nav
+* large tap targets
+* cards stacked with clear spacing
+
+### Tablet/Desktop
+
+* left sidebar
+* top command/search bar
+* content cards in 12-column grid
+* right rail optional for alerts/activity
+
+## Core UI components
+
+### Buttons
+
+Variants:
+
+* Primary
+* Secondary
+* Ghost
+* Danger
+* Icon button
+
+Button rules:
+
+* height: 44 to 52px
+* strong label contrast
+* subtle hover glow on primary
+* smooth 180ms transition
+
+### Inputs
+
+* dark surface background
+* clear border
+* focus ring in primary accent
+* support icons left or right
+* error and helper

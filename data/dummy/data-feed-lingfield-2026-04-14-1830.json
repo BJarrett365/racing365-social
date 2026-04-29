@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 1,
+  "kind": "racing365-data-feed",
+  "format": "racecard",
+  "contentId": "rc-lingfield-follow-attheraces-instagram-handicap-2026-04-14-1830",
+  "headline": "Lingfield 18:30 — Follow @AtTheRaces On Instagram Handicap",
+  "sceneCaptions": {
+    "board-1": "Racecard 1 of 1",
+    "mover": "Market leader",
+    "cta": "Racing365"
+  },
+  "outputs": {
+    "shortCaption": "Lingfield 18:30 — Follow @AtTheRaces On Instagram Handicap. 11 runners declared. Top picks: Mr Baloo, Helm Rock, Arctician. Market leader: Mr Baloo at 9/2.",
+    "voiceoverScript": "Racecard snapshot: Lingfield at 6.30. Watch Mr Baloo, Helm Rock and Arctician. Mr Baloo heads the betting at nine to two.",
+    "versionA": "",
+    "versionB": "",
+    "versionC": ""
+  },
+  "race": {
+    "id": "race-lingfield-1830-2026-04-14",
+    "course": "Lingfield Park",
+    "raceTime": "18:30",
+    "title": "Follow @AtTheRaces On Instagram Handicap",
+    "distance": "1m 1y",
+    "going": "Standard",
+    "surface": "AW",
+    "runnersCount": 11,
+    "listedRunnersIncludingNonRunners": 12,
+    "nonRunnersCount": 1,
+    "class": 4,
+    "ageBand": "4yo+",
+    "ratingBand": "0-80",
+    "prizeGbp": 5234
+  },
+  "topPicks": ["Mr Baloo", "Helm Rock", "Arctician"],
+  "runners": [
+    {
+      "number": 1,
+      "draw": 10,
+      "horse": "Helm Rock",
+      "odds": "11/2",
+      "jockey": "Alec Voikhansky",
+      "trainer": "Daniel & Claire Kubler",
+      "form": "95810-621",
+      "daysSinceRun": 8,
+      "stars": 4,
+      "movement": "steady",
+      "officialRating": 84,
+      "weight": "9-13",
+      "status": "declared",
+      "silks": {
+        "silkCode": "timeform-silk-333",
+        "provider": "Timeform",
+        "imageRefId": 333,
+        "altText": "Alec Voikhansky silk"
+      }
+    },
+    {
+      "number": 2,
+      "draw": 1,
+      "horse": "Mr Baloo",
+      "odds": "9/2",
+      "jockey": "Joe Leavy",
+      "trainer": "Richard Hannon",
+      "form": "9976-6482",
+      "daysSinceRun": 8,
+      "stars": 5,
+      "movement": "steady",
+      "officialRating": 79,
+      "weight": "9-8",
+      "status": "declared",
+      "silks": {
+        "silkCode": "timeform-silk-344",
+        "provider": "Timeform",
+        "imageRefId": 344,
+        "altText": "Joe Leavy silk"
+      }
+    },
+    {
+      "number": 3,
+      "draw": 7,
+      "horse": "Epictetus",
+      "odds": "7/1",
+      "jockey": "Saffie Osborne",
+      "trainer": "Jamie Osborne",
+      "form": "78-730324",
+      "daysSinceRun": 16,
+      "stars": 3,
+      "movement": "steady",
+      "officialRating": 79,
+      "weight": "9-8",
+      "status": "declared",
+      "silks": {
+        "silkCode": "timeform-silk-355",
+        "provider": "Timeform",
+        "imageRefId": 355,
+        "altText": "Saffie Osborne silk"
+      }
+    },
+    {
+      "number": 4,
+      "draw": 6,
+      "horse": "Arctician",
+      "odds": "6/1",
+      "jockey": "Paddy Bradley",
+      "trainer": "Simon Dow",
+      "form": "4192914-3",
+      "daysSinceRun": 25,
+      "stars": 4,
+      "movement": "steady",
+      "officialRating": 79,
+      "weight": "9-8",
+      "status": "declared",
+      "silks": {
+        "silkCode": "timeform-silk-366",
+        "provider": "Timeform",
+        "imageRefId": 366,
+        "altText": "Paddy Bradley silk"
+      }
+    },
+    {
+      "number": 6,
+      "draw": 2,
+      "horse": "Big Sip",
+      "odds": "9/1",
+      "jockey": "Jack Gilligan",
+      "trainer": "Marco Botti",
+      "form": "8/1762681-",
+      "daysSinceRun": 178,
+      "stars": 3,
+      "movement": "steady",
+      "officialRating": 78,
+      "weight": "9-7",
+      "status": "declared",
+      "silks": {
+        "silkCode": "timeform-silk-388",
+        "provider": "Timeform",
+        "imageRefId": 388,
+        "altText": "Jack Gilligan silk"
+      }
+    },
+    {
+      "number": 7,
+      "draw": 3,
+      "horse": "Warning Sign",
+      "odds": "40/1",
+      "jockey": "Callum Shepherd",
+      "trainer": "Gary & Josh Moore",
+      "form": "5/021123-9",
+      "daysSinceRun": 25,
+      "stars": 1,
+      "movement": "steady",
+      "officialRating": 77,
+      "weight": "9-6",
+      "status": "declared",
+      "silks": {
+        "silkCode": "timeform-silk-399",
+        "provider": "Timeform",
+        "imageRefId": 399,
+        "altText": "Callum Shepherd silk"
+      }
+    },
+    {
+      "number": 8,
+      "draw": 8,
+      "horse": "Panama Black",
+      "odds": "10/1",
+      "jockey": "Luke Morris",
+      "trainer": "Laura Mongan",
+      "form": "5668-4534",
+      "daysSinceRun": 21,
+      "stars": 2,
+      "movement": "steady",
+      "officialRating": 75,
+      "weight": "9-4",
+      "status": "declared",
+      "silks": {
+        "silkCode": "timeform-silk-410",
+        "provider": "Timeform",
+        "imageRefId": 410,
+        "altText": "Luke Morris silk"
+      }
+    },
+    {
+      "number": 9,
+      "draw": 9,
+      "horse": "Newfangled",
+      "odds": "16/1",
+      "jockey": "Rob Hornby",
+      "trainer": "Jonathan Portman",
+      "form": "20263917-",
+      "daysSinceRun": 182,
+      "stars": 2,
+      "movement": "steady",
+      "officialRating": 75,
+      "weight": "9-4",
+      "status": "declared",
+      "silks": {
+        "silkCode": "timeform-silk-421",
+        "provider": "Timeform",
+        "imageRefId": 421,
+        "altText": "Rob Hornby silk"
+      }
+    },
+    {
+      "number": 10,
+      "draw": 4,
+      "horse": "Good Speed",
+      "odds": "80/1",
+      "jockey": "Rhys Clutterbuck",
+      "trainer": "Gary & Josh Moore",
+      "form": "43372-090",
+      "daysSinceRun": 25,
+      "stars": 1,
+      "movement": "steady",
+      "officialRating": 74,
+      "weight": "9-3",
+      "status": "declared",
+      "silks": {
+        "silkCode": "timeform-silk-432",
+        "provider": "Timeform",
+        "imageRefId": 432,
+        "altText": "Rhys Clutterbuck silk"
+      }
+    },
+    {
+      "number": 11,
+      "draw": 12,
+      "horse": "Criminal",
+      "odds": "20/1",
+      "jockey": "Finley Marsh",
+      "trainer": "Richard Hughes",
+      "form": "34233-790",
+      "daysSinceRun": 15,
+      "stars": 2,
+      "movement": "steady",
+      "officialRating": 72,
+      "weight": "9-1",
+      "status": "declared",
+      "silks": {
+        "silkCode": "timeform-silk-443",
+        "provider": "Timeform",
+        "imageRefId": 443,
+        "altText": "Finley Marsh silk"
+      }
+    },
+    {
+      "number": 12,
+      "draw": 5,
+      "horse": "Elouise's Prince",
+      "odds": "33/1",
+      "jockey": "Jude Fernandes",
+      "trainer": "Luke Dace",
+      "form": "09-787140",
+      "daysSinceRun": 41,
+      "stars": 1,
+      "movement": "steady",
+      "officialRating": 71,
+      "weight": "9-0",
+      "status": "declared",
+      "silks": {
+        "silkCode": "timeform-silk-454",
+        "provider": "Timeform",
+        "imageRefId": 454,
+        "altText": "Jude Fernandes silk"
+      }
+    }
+  ],
+  "nonRunners": [
+    {
+      "number": 5,
+      "horse": "Bravo Zulu",
+      "status": "non-runner",
+      "trainer": "David Loughnane"
+    }
+  ]
+}

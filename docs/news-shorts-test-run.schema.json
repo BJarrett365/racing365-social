@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://racing365.local/schemas/news-shorts-test-run.json",
+  "title": "News Shorts test run record",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "testId": { "type": "string", "description": "Unique id for this run (e.g. date + sequence)." },
+    "articleUrl": { "type": "string", "format": "uri" },
+    "contentId": { "type": "string" },
+    "stepsCompleted": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "fetch_parse",
+          "voiceover_script",
+          "voice_settings",
+          "scene_timings",
+          "burn_ass",
+          "background_video",
+          "render_scenes",
+          "build_video",
+          "backing_music"
+        ]
+      }
+    },
+    "flags": {
+      "type": "object",
+      "properties": {
+        "burnSubtitles": { "type": "boolean" },
+        "burnSubtitlesReplaceSlideText": { "type": "boolean" },
+        "useVideoAudio": { "type": "boolean" },
+        "backingMusicEnabled": { "type": "boolean" }
+      }
+    },
+    "outcome": { "type": "string", "enum": ["pass", "fail", "partial"] },
+    "notes": { "type": "string" },
+    "screenshotPaths": { "type": "array", "items": { "type": "string" } }
+  }
+}

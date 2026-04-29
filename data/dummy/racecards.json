@@ -1,0 +1,269 @@
+[
+  {
+    "id": "rc-doyen-handicap",
+    "race": {
+      "id": "race-doyen-1335",
+      "course": "Leopardstown",
+      "raceTime": "13:35",
+      "raceDate": "2026-04-14",
+      "title": "Doyen Memorial Handicap",
+      "distance": "1m4f",
+      "going": "Yielding",
+      "runnersCount": 16
+    },
+    "runners": [
+      {
+        "number": 1,
+        "horse": "Sir Doyen",
+        "jockey": "J. Smith",
+        "trainer": "A. O'Brien",
+        "form": "121-",
+        "odds": "5/4",
+        "stars": 5,
+        "movement": "backed",
+        "movementText": "Backed from 6/4",
+        "bestOdds": "5/4",
+        "silks": {
+          "silkCode": "00887104",
+          "body": "#1d4ed8",
+          "secondary": "#f8fafc",
+          "cap": "#eab308",
+          "pattern": "halves"
+        }
+      },
+      {
+        "number": 2,
+        "horse": "Noble Doyen",
+        "jockey": "R. Moore",
+        "trainer": "W. Haggas",
+        "form": "3241",
+        "odds": "3/1",
+        "stars": 4,
+        "movement": "steady",
+        "movementText": "Steady in the market",
+        "bestOdds": "3/1",
+        "silks": {
+          "silkCode": "00830215",
+          "body": "#991b1b",
+          "secondary": "#fde047",
+          "cap": "#0f172a",
+          "pattern": "stripes"
+        }
+      },
+      {
+        "number": 3,
+        "horse": "Doyen Boy",
+        "jockey": "W. Buick",
+        "trainer": "C. Appleby",
+        "form": "15-42",
+        "odds": "7/1",
+        "stars": 3,
+        "movement": "drift",
+        "movementText": "Drifted from 5/1",
+        "bestOdds": "7/1",
+        "silks": {
+          "silkCode": "00833060",
+          "body": "#166534",
+          "secondary": "#ffffff",
+          "cap": "#166534",
+          "pattern": "quarters"
+        }
+      },
+      {
+        "number": 4,
+        "horse": "Golden Cob",
+        "jockey": "L. Dettori",
+        "trainer": "J. Gosden",
+        "form": "2-331",
+        "odds": "4/1",
+        "stars": 4,
+        "movement": "backed",
+        "movementText": "Strong support",
+        "bestOdds": "4/1",
+        "silks": {
+          "silkCode": "00854661",
+          "body": "#c2410c",
+          "secondary": "#fef3c7",
+          "cap": "#1e293b",
+          "pattern": "stripes"
+        }
+      },
+      {
+        "number": 5,
+        "horse": "Doyen Star",
+        "jockey": "H. Doyle",
+        "trainer": "R. Varian",
+        "form": "0-087",
+        "odds": "9/2",
+        "stars": 2,
+        "movement": "drift",
+        "movementText": "Weak in the ring",
+        "bestOdds": "9/2",
+        "silks": {
+          "silkCode": "00871773",
+          "body": "#475569",
+          "secondary": "#f1f5f9",
+          "cap": "#0ea5e9",
+          "pattern": "solid"
+        }
+      }
+    ],
+    "topPicks": ["Sir Doyen", "Noble Doyen", "Golden Cob"],
+    "marketMover": {
+      "number": 1,
+      "horse": "Sir Doyen",
+      "jockey": "J. Smith",
+      "trainer": "A. O'Brien",
+      "form": "121-",
+      "odds": "5/4",
+      "stars": 5,
+      "movement": "backed",
+      "movementText": "Backed from 6/4 into 5/4",
+      "bestOdds": "5/4",
+      "silks": {
+        "silkCode": "00887104",
+        "body": "#1d4ed8",
+        "secondary": "#f8fafc",
+        "cap": "#eab308",
+        "pattern": "halves"
+      }
+    }
+  },
+  {
+    "id": "rc-sprint-cup",
+    "race": {
+      "id": "race-york-1605",
+      "course": "York",
+      "raceTime": "16:05",
+      "title": "City Sprint Cup",
+      "distance": "5f",
+      "going": "Good",
+      "runnersCount": 18
+    },
+    "runners": [
+      {
+        "number": 7,
+        "horse": "Flash Point",
+        "jockey": "O. Murphy",
+        "trainer": "K. Burke",
+        "form": "111",
+        "odds": "2/1",
+        "stars": 5,
+        "movement": "backed",
+        "movementText": "Firm favourite",
+        "bestOdds": "2/1",
+        "silks": {
+          "silkCode": "00877506",
+          "body": "#0f766e",
+          "secondary": "#fef08a",
+          "cap": "#134e4a",
+          "pattern": "halves"
+        }
+      },
+      {
+        "number": 12,
+        "horse": "Velvet Thunder",
+        "jockey": "T. Marquand",
+        "trainer": "W. Knight",
+        "form": "142",
+        "odds": "7/2",
+        "stars": 4,
+        "movement": "steady",
+        "movementText": "Holding steady",
+        "bestOdds": "7/2",
+        "silks": {
+          "silkCode": "00886099",
+          "body": "#7c2d12",
+          "secondary": "#fecaca",
+          "cap": "#1c1917",
+          "pattern": "stripes"
+        }
+      },
+      {
+        "number": 3,
+        "horse": "Crimson Edge",
+        "jockey": "J. Crowley",
+        "trainer": "A. Balding",
+        "form": "523",
+        "odds": "8/1",
+        "stars": 3,
+        "movement": "drift",
+        "movementText": "Drifted from 6/1",
+        "bestOdds": "8/1",
+        "silks": {
+          "silkCode": "00887925",
+          "body": "#4c1d95",
+          "secondary": "#e9d5ff",
+          "cap": "#312e81",
+          "pattern": "quarters"
+        }
+      }
+    ],
+    "topPicks": ["Flash Point", "Velvet Thunder"],
+    "marketMover": {
+      "number": 7,
+      "horse": "Flash Point",
+      "jockey": "O. Murphy",
+      "trainer": "K. Burke",
+      "form": "111",
+      "odds": "2/1",
+      "stars": 5,
+      "movement": "backed",
+      "movementText": "Money down all morning",
+      "bestOdds": "2/1",
+      "silks": {
+        "silkCode": "00877506",
+        "body": "#0f766e",
+        "secondary": "#fef08a",
+        "cap": "#134e4a",
+        "pattern": "halves"
+      }
+    }
+  },
+  {
+    "id": "rc-cheltenham-1530",
+    "race": {
+      "id": "race-cheltenham-1530",
+      "course": "Cheltenham",
+      "raceTime": "15:30",
+      "title": "Mare Novices' Hurdle (Example Field)",
+      "distance": "2m",
+      "going": "Good",
+      "runnersCount": 22
+    },
+    "eachWayPlaces": 4,
+    "topPicks": ["LIARI", "NDAAWI", "EAGLE FANG"],
+    "marketMover": {
+      "number": 1,
+      "horse": "LIARI",
+      "odds": "11/4",
+      "movement": "backed",
+      "movementText": "Firmed — board favourite",
+      "silks": { "silkCode": "00887104" }
+    },
+    "runners": [
+      { "number": 1, "horse": "LIARI", "odds": "11/4", "movement": "backed", "movementText": "11/4 from 3/1", "silks": { "silkCode": "00887104" } },
+      { "number": 2, "horse": "NDAAWI", "odds": "13/2", "movement": "steady", "movementText": "Holding", "silks": { "silkCode": "00830215" } },
+      { "number": 3, "horse": "BATMAN GIRAC", "odds": "7/1", "movement": "steady", "movementText": "Steady", "silks": { "silkCode": "00833060" } },
+      { "number": 4, "horse": "MISS MANZOR", "odds": "15/2", "movement": "drift", "movementText": "6/1 out to 15/2", "silks": { "silkCode": "00854661" } },
+      { "number": 5, "horse": "EAGLE FANG", "odds": "8/1", "movement": "backed", "movementText": "Supported", "silks": { "silkCode": "00871773" } },
+      { "number": 6, "horse": "KARTA DES BLAISES", "odds": "25/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00877506" } },
+      { "number": 7, "horse": "MILAN TINO", "odds": "20/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00886099" } },
+      { "number": 8, "horse": "AN BRADAN FEASA", "odds": "9/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00887925" } },
+      { "number": 9, "horse": "OSE PARTIR", "odds": "10/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00887949" } },
+      { "number": 10, "horse": "NARA", "odds": "14/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00890553A" } },
+      { "number": 11, "horse": "MORDOR", "odds": "14/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00891428" } },
+      { "number": 12, "horse": "PIGEON HOUSE", "odds": "50/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00828816A" } },
+      { "number": 13, "horse": "EAGLES REIGN", "odds": "25/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00887104" } },
+      { "number": 14, "horse": "BALBOA", "odds": "50/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00830215" } },
+      { "number": 15, "horse": "LARK IN THE LEE", "odds": "18/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00833060" } },
+      { "number": 16, "horse": "LES LOYAUTES", "odds": "18/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00854661" } },
+      { "number": 17, "horse": "ROARING LEGEND", "odds": "18/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00871773" } },
+      { "number": 18, "horse": "PALAMON", "odds": "16/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00877506" } },
+      { "number": 19, "horse": "HARSH", "odds": "19/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00886099" } },
+      { "number": 20, "horse": "BRIGHT LEGEN", "odds": "12/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00887925" } },
+      { "number": 21, "horse": "LATIN VERSE", "odds": "14/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00887949" } },
+      { "number": 22, "horse": "TEORIE", "odds": "22/1", "movement": "steady", "movementText": "Unchanged", "silks": { "silkCode": "00890553A" } }
+    ]
+  }
+]

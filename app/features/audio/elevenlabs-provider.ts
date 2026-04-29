@@ -1,0 +1,64 @@
+import fs from "fs/promises";
+import path from "path";
+import { outputAudioDir } from "@/app/lib/paths";
+import { getServerSecret, getStoredVoiceOption } from "@/app/lib/server-secrets";
+import { applyAudioTempoInPlace } from "./audio-tempo";
+import type { AudioProvider, VoiceTrackOptions } from "./types";
+
+const DEFAULT_FEMALE_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
+/** Premade male voice (Adam) — override with ELEVENLABS_VOICE_ID_MALE */
+const DEFAULT_MALE_VOICE_ID = "pNInz6obpgDQGcFmaJgB";
+
+export class ElevenLabsAudioProvider implements AudioProvider {
+  async resolveVoiceTrack(
+    script: string,
+    contentId: string,
+    options?: VoiceTrackOptions,
+  ): Promise<string> {
+    const key = getServerSecret("ELEVENLABS_API_KEY");
+    if (!key) {
+      throw new Error("ELEVENLABS_API_KEY is required for ElevenLabs TTS");
+    }
+
+    const storedFemale =
+      getStoredVoiceOption("ELEVENLABS_VOICE_ID", "elevenlabsVoiceId") || DEFAULT_FEMALE_VOICE_ID;
+    const voiceId =
+      options?.voiceId?.trim() ||
+      (options?.gender === "male"
+        ? process.env.ELEVENLABS_VOICE_ID_MALE?.trim() || DEFAULT_MALE_VOICE_ID
+        : options?.gender === "female"
+          ? process.env.ELEVENLABS_VOICE_ID_FEMALE?.trim() || storedFemale
+          : storedFemale);
+    const model =
+      getStoredVoiceOption("ELEVENLABS_MODEL", "elevenlabsModel") || "eleven_multilingual_v2";
+    const text = script.trim().slice(0, 2500);
+
+    const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "xi-api-key": key,
+        "Content-Type": "application/json",
+        Accept: "audio/mpeg",
+      },
+      body: JSON.stringify({
+        text: text || " ",
+        model_id: model,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`ElevenLabs TTS failed (${res.status}): ${err.slice(0, 500)}`);
+    }
+
+    const buf = Buffer.from(await res.arrayBuffer());
+    const dir = outputAudioDir();
+    await fs.mkdir(dir, { recursive: true });
+    const out = path.join(dir, `${contentId}-elevenlabs.mp3`);
+    await fs.writeFile(out, buf);
+    const speed = options?.speed ?? 1;
+    await applyAudioTempoInPlace(out, speed);
+    return out;
+  }
+}

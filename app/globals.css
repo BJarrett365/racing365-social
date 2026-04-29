@@ -1,0 +1,377 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — light (:root) / dark (html.dark).
+ * Aliases: --background/--bg, semantic surfaces, --accent for green CTAs, --primary for indigo UI chrome.
+ */
+:root {
+  --background: #f8fafc;
+  --bg: var(--background);
+  --bg-elevated: #f1f5f9;
+  --surface: #ffffff;
+  /* Slightly deeper grey so panels read clearly against white cards */
+  --surface-muted: #e8edf4;
+  --surface-elevated: #ffffff;
+  --surface-hover: #eef2f7;
+
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-inverse: #f8fafc;
+
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --divider: #e2e8f0;
+
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-soft: color-mix(in srgb, var(--primary) 14%, var(--background));
+  --accent-gradient: linear-gradient(135deg, #4f46e5, #0ea5e9);
+
+  --accent: #22c55e;
+  --accent-hover: #4ade80;
+  --accent-foreground: #052e16;
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, var(--surface));
+
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --danger-foreground: #fef2f2;
+  --danger-soft: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  --info: #2563eb;
+
+  --overlay: rgb(15 23 42 / 0.45);
+  --shadow: 0 1px 2px rgb(15 23 42 / 0.05), 0 4px 12px rgb(15 23 42 / 0.06);
+  --shadow-lg: 0 8px 24px rgb(15 23 42 / 0.1), 0 20px 40px rgb(15 23 42 / 0.12);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.06), 0 6px 16px rgb(15 23 42 / 0.06);
+
+  --ring: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent);
+  --focus: #6366f1;
+
+  --r365-gold: #eab308;
+  --heading-brand: var(--r365-gold);
+  --media-backdrop: #020617;
+}
+
+html.dark {
+  --background: #0f172a;
+  --bg: var(--background);
+  --bg-elevated: #020617;
+  --surface: #111827;
+  --surface-muted: #1e293b;
+  --surface-elevated: #1e293b;
+  --surface-hover: #1e293b;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-inverse: #0f172a;
+
+  --border: #334155;
+  --border-strong: #475569;
+  --divider: #334155;
+
+  --primary: #818cf8;
+  --primary-hover: #a5b4fc;
+  --primary-soft: color-mix(in srgb, var(--primary) 22%, var(--surface));
+  --accent-gradient: linear-gradient(135deg, #818cf8, #22d3ee);
+
+  --accent: #4ade80;
+  --accent-hover: #86efac;
+  --accent-foreground: #052e16;
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--surface));
+
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #f87171;
+  --danger-foreground: #450a0a;
+  --danger-soft: color-mix(in srgb, var(--danger) 14%, var(--surface));
+  --info: #38bdf8;
+
+  --overlay: rgb(0 0 0 / 0.62);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.22), 0 8px 20px rgb(0 0 0 / 0.2);
+  --shadow-lg: 0 12px 28px rgb(0 0 0 / 0.35), 0 24px 48px rgb(0 0 0 / 0.28);
+  --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.06);
+
+  --ring: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+  --focus: #a5b4fc;
+
+  --r365-gold: #eab308;
+  --heading-brand: var(--r365-gold);
+  --media-backdrop: #020617;
+}
+
+body {
+  background: var(--background);
+  color: var(--text-primary);
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  font-feature-settings: "tnum" 1;
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.app-nav-link:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary) !important;
+}
+
+/*
+ * In dark mode only, map common Tailwind utilities to theme tokens so the editor shell
+ * tracks ThemeProvider. Light mode keeps real Tailwind colors so marketing pages + cards
+ * keep contrast (avoid “plain HTML” look).
+ */
+html.dark .text-white {
+  color: var(--text-primary) !important;
+}
+html.dark .text-slate-200,
+html.dark .text-slate-300 {
+  color: var(--text-secondary) !important;
+}
+html.dark .text-slate-400,
+html.dark .text-slate-500,
+html.dark .text-slate-600 {
+  color: var(--text-muted) !important;
+}
+html.dark .border-\[\#1f2d26\] {
+  border-color: var(--border) !important;
+}
+html.dark .bg-\[\#0a0e0c\],
+html.dark .bg-\[\#0a0e0c\]\/95,
+html.dark .bg-\[\#121a16\],
+html.dark .bg-black {
+  background-color: var(--surface) !important;
+}
+
+/* Reusable design-system classes */
+.ui-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  border-radius: 12px;
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    background-color 200ms ease;
+}
+
+.ui-card:hover {
+  border-color: var(--border-strong);
+}
+
+.ui-modal-overlay {
+  background: var(--overlay);
+}
+
+.ds-section-heading {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--heading-brand);
+}
+
+.ds-link-accent {
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 200ms ease;
+}
+
+.ds-link-accent:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+.ds-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875em;
+  color: var(--text-muted);
+}
+
+/* Asset library (and similar): guaranteed token backgrounds — avoids Tailwind arbitrary var() gaps */
+.library-tablist {
+  background-color: var(--surface-muted);
+}
+
+.library-tab {
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background-color: transparent;
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.library-tab:hover {
+  background-color: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.library-tab[aria-selected="true"] {
+  color: var(--text-primary);
+  background-color: var(--surface);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.library-card {
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background-color: var(--surface-muted);
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease;
+}
+
+.library-media-chrome {
+  border-radius: 0.375rem;
+  border: 1px solid var(--border);
+  background-color: var(--surface-muted);
+}
+
+.panel-title-row {
+  border-bottom: 1px solid var(--border);
+  background-color: var(--surface-muted);
+  padding: 0.75rem 1rem;
+}
+
+.panel-title-row h2 {
+  color: var(--text-primary);
+}
+
+.ui-input,
+.ui-textarea,
+.ui-select {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.ui-input:focus,
+.ui-textarea:focus,
+.ui-select:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: var(--ring);
+}
+
+.ui-button-primary {
+  background: var(--primary);
+  color: var(--text-inverse);
+  border: 1px solid color-mix(in srgb, var(--primary) 78%, #0000);
+}
+
+.ui-button-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.ui-button-primary:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.ui-button-primary:disabled {
+  opacity: 0.4;
+}
+
+.ui-button-ghost {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.ui-button-ghost:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.ui-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.ui-table th,
+.ui-table td {
+  border-bottom: 1px solid var(--divider);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.ui-table th {
+  color: var(--text-secondary);
+  background: var(--surface-muted);
+}
+
+.ui-alert {
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.ui-alert-success {
+  border-color: color-mix(in srgb, var(--success) 50%, var(--border));
+}
+
+.ui-alert-warning {
+  border-color: color-mix(in srgb, var(--warning) 50%, var(--border));
+}
+
+.ui-alert-danger {
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--border));
+}
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.ui-modal {
+  border: 1px solid var(--border);
+  background: var(--surface-elevated);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    background-color 200ms ease;
+}
+
+.ui-empty-state {
+  border: 1px dashed var(--border);
+  background: var(--surface-muted);
+  border-radius: 12px;
+  color: var(--text-muted);
+}

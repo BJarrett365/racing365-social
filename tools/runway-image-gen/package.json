@@ -1,0 +1,27 @@
+{
+  "name": "@racing365/runway-image-gen",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reusable RunwayML text-to-image generator for sports media brands (Racing365, TEAMtalk, PlanetF1).",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "example": "tsx examples/run.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@runwayml/sdk": "^3.19.0"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.2"
+  }
+}

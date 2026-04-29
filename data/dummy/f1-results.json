@@ -1,0 +1,42 @@
+[
+  {
+    "id": "f1-japanese-gp-results",
+    "title": "RACE RESULTS",
+    "subtitle": "JAPANESE GP",
+    "rowsPerPage": 11,
+    "footerBrand": "PLANETF1.com",
+    "introLine": "Classification — full race results.",
+    "outroLine": "Thanks for watching — follow every session on PLANETF1.com",
+    "drivers": [
+      { "position": 1, "name": "KIMI ANTONELLI", "team": "Mercedes", "time": "1:32.432", "stops": 1, "teamColor": "#00D2BE" },
+      { "position": 2, "name": "OSCAR PIASTRI", "team": "McLaren", "time": "+ 13.722", "stops": 1, "teamColor": "#FF8700", "image": "/grid/drivers/oscar-piastri.png" },
+      { "position": 3, "name": "CHARLES LECLERC", "team": "Ferrari", "time": "+ 15.270", "stops": 1, "teamColor": "#DC0000", "image": "/grid/drivers/charles-leclerc.png" },
+      { "position": 4, "name": "GEORGE RUSSELL", "team": "Mercedes", "time": "+ 15.754", "stops": 1, "teamColor": "#00D2BE", "image": "/grid/drivers/george-russell.png" },
+      { "position": 5, "name": "LANDO NORRIS", "team": "McLaren", "time": "+ 23.479", "stops": 1, "teamColor": "#FF8700", "image": "/grid/drivers/lando-norris.png" },
+      { "position": 6, "name": "LEWIS HAMILTON", "team": "Ferrari", "time": "+ 25.037", "stops": 1, "teamColor": "#DC0000", "image": "/grid/drivers/lewis-hamilton.png" },
+      { "position": 7, "name": "PIERRE GASLY", "team": "Alpine", "time": "+ 32.340", "stops": 1, "teamColor": "#0090FF", "image": "/grid/drivers/pierre-gasly.png" },
+      { "position": 8, "name": "MAX VERSTAPPEN", "team": "Red Bull", "time": "+ 32.677", "stops": 1, "teamColor": "#0600EF", "image": "/grid/drivers/max-verstappen.png" },
+      { "position": 9, "name": "LIAM LAWSON", "team": "Racing Bulls", "time": "+ 50.180", "stops": 1, "teamColor": "#1E41FF" },
+      { "position": 10, "name": "ESTEBAN OCON", "team": "Haas", "time": "+ 51.216", "stops": 1, "teamColor": "#E10600", "image": "/grid/drivers/esteban-ocon.png" },
+      { "position": 11, "name": "NICO HULKENBERG", "team": "Audi", "time": "+ 52.280", "stops": 1, "teamColor": "#D50000", "image": "/grid/drivers/nico-hulkenberg.png" },
+      { "position": 12, "name": "ISACK HADJAR", "team": "Red Bull", "time": "+ 56.154", "stops": 1, "teamColor": "#0600EF" },
+      { "position": 13, "name": "GABRIEL BORTOLETO", "team": "Audi", "time": "+ 59.078", "stops": 1, "teamColor": "#D50000" },
+      { "position": 14, "name": "ARVID LINDBLAD", "team": "Racing Bulls", "time": "+ 59.848", "stops": 1, "teamColor": "#1E41FF" },
+      { "position": 15, "name": "CARLOS SAINZ", "team": "Williams", "time": "+ 65.008", "stops": 1, "teamColor": "#005AFF", "image": "/grid/drivers/carlos-sainz.png" },
+      { "position": 16, "name": "FRANCO COLAPINTO", "team": "Alpine", "time": "+ 65.773", "stops": 1, "teamColor": "#0090FF", "image": "/grid/drivers/franco-colapinto.png" },
+      { "position": 17, "name": "SERGIO PEREZ", "team": "Cadillac", "time": "+ 92.453", "stops": 1, "teamColor": "#C9A227", "image": "/grid/drivers/sergio-perez.png" },
+      { "position": 18, "name": "FERNANDO ALONSO", "team": "Aston Martin", "time": "+ 1 LAP", "stops": 2, "teamColor": "#006F62", "image": "/grid/drivers/fernando-alonso.png" },
+      { "position": 19, "name": "VALTTERI BOTTAS", "team": "Cadillac", "time": "+ 1 LAP", "stops": 1, "teamColor": "#C9A227", "image": "/grid/drivers/valtteri-bottas.png" },
+      { "position": 20, "name": "ALEX ALBON", "team": "Williams", "time": "+ 2 LAPS", "stops": 6, "teamColor": "#005AFF", "image": "/grid/drivers/alex-albon.png" },
+      { "position": 21, "positionLabel": "R", "name": "OLIVER BEARMAN", "team": "Haas", "time": "+ 33 LAPS", "stops": 1, "teamColor": "#E10600", "image": "/grid/drivers/oliver-bearman.png" },
+      { "position": 22, "positionLabel": "R", "name": "LANCE STROLL", "team": "Aston Martin", "time": "+ 23 LAPS", "stops": 3, "teamColor": "#006F62", "image": "/grid/drivers/lance-stroll.png" }
+    ],
+    "fastestLap": {
+      "driverName": "KIMI ANTONELLI",
+      "team": "Mercedes",
+      "time": "1:32.432",
+      "stops": 1,
+      "teamColor": "#00D2BE"
+    }
+  }
+]

@@ -1,0 +1,127 @@
+[
+  {
+    "id": "fast-ken-1210",
+    "result": {
+      "race": {
+        "id": "race-ken-1210",
+        "course": "Kenilworth",
+        "raceTime": "12:10",
+        "title": "Maiden Stakes",
+        "distance": "7f",
+        "going": "Good",
+        "runnersCount": 11
+      },
+      "winner": "Iona Castle",
+      "sp": "4/1",
+      "placings": [
+        {
+          "position": 1,
+          "horse": "Iona Castle",
+          "sp": "4/1",
+          "silks": {
+            "body": "#facc15",
+            "secondary": "#7f1d1d",
+            "cap": "#facc15",
+            "pattern": "silks_icon"
+          }
+        },
+        {
+          "position": 2,
+          "horse": "Swift Serenity",
+          "sp": "9/1",
+          "silks": {
+            "body": "#15803d",
+            "secondary": "#eab308",
+            "cap": "#0f172a",
+            "pattern": "silks_icon"
+          }
+        },
+        {
+          "position": 3,
+          "horse": "Scandalize",
+          "sp": "6/1",
+          "silks": {
+            "body": "#7c3aed",
+            "secondary": "#f472b6",
+            "cap": "#fafafa",
+            "pattern": "silks_icon"
+          }
+        },
+        {
+          "position": 4,
+          "horse": "Rock The Road",
+          "sp": "10/1",
+          "silks": {
+            "body": "#b45309",
+            "secondary": "#1c1917",
+            "cap": "#fef3c7",
+            "pattern": "silks_icon"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "fast-new-1425",
+    "result": {
+      "race": {
+        "id": "race-new-1425",
+        "course": "Newmarket",
+        "raceTime": "14:25",
+        "raceDate": "2026-04-14",
+        "title": "Novice Stakes",
+        "distance": "1m",
+        "going": "Good to Soft",
+        "runnersCount": 9
+      },
+      "winner": "Northern Lights",
+      "sp": "5/2",
+      "placings": [
+        {
+          "position": 1,
+          "horse": "Northern Lights",
+          "sp": "5/2",
+          "silks": {
+            "body": "#0f172a",
+            "secondary": "#22c55e",
+            "cap": "#eab308",
+            "pattern": "silks_icon"
+          }
+        },
+        {
+          "position": 2,
+          "horse": "Eclipse Boy",
+          "sp": "7/1",
+          "silks": {
+            "body": "#dc2626",
+            "secondary": "#ffffff",
+            "cap": "#1e3a8a",
+            "pattern": "silks_icon"
+          }
+        },
+        {
+          "position": 3,
+          "horse": "Silver Fern",
+          "sp": "11/2",
+          "silks": {
+            "body": "#64748b",
+            "secondary": "#f8fafc",
+            "cap": "#0ea5e9",
+            "pattern": "silks_icon"
+          }
+        },
+        {
+          "position": 4,
+          "horse": "Dawn Patrol",
+          "sp": "14/1",
+          "silks": {
+            "body": "#a16207",
+            "secondary": "#1c1917",
+            "cap": "#fef9c3",
+            "pattern": "silks_icon"
+          }
+        }
+      ]
+    }
+  }
+]

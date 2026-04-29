@@ -1,0 +1,46 @@
+{
+  "name": "racing365-social",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "clean": "node -e \"const fs=require('fs');for(const d of ['.next','.next-dev','.next-prod'])fs.rmSync(d,{recursive:true,force:true});\"",
+    "verify:dev": "node scripts/verify-dev.cjs",
+    "dev:kill-port": "node scripts/run-dev.cjs --kill-port-only",
+    "dev:restart": "npm run dev:kill-port && npm run dev",
+    "dev": "node scripts/run-dev.cjs",
+    "dev:incremental": "sh -c \"WATCHPACK_POLLING=true next dev -p 8081 -H \\\"$(node scripts/print-default-listen-host.cjs)\\\"\"",
+    "dev:turbo": "USE_TURBO=1 node scripts/run-dev.cjs",
+    "dev:fresh": "node scripts/run-dev.cjs",
+    "dev:webpack": "sh -c \"WATCHPACK_POLLING=true next dev -p 8081 -H \\\"$(node scripts/print-default-listen-host.cjs)\\\"\"",
+    "build": "NEXT_DIST_DIR=.next-prod next build",
+    "start": "NEXT_DIST_DIR=.next-prod node scripts/ensure-next-build.cjs && NEXT_DIST_DIR=.next-prod node scripts/run-start.cjs",
+    "lint": "next lint",
+    "typegen": "next typegen",
+    "install-ffmpeg-static": "node node_modules/ffmpeg-static/install.js",
+    "puppeteer:install": "npx puppeteer browsers install chrome",
+    "runway:image-gen": "npm run example --prefix tools/runway-image-gen"
+  },
+  "dependencies": {
+    "@runwayml/sdk": "^3.19.0",
+    "@supabase/supabase-js": "^2.49.1",
+    "deepl-node": "^1.27.0",
+    "fast-xml-parser": "^5.7.2",
+    "ffmpeg-static": "^5.2.0",
+    "next": "^15.2.4",
+    "puppeteer": "^24.4.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@tailwindcss/postcss": "^4.0.17",
+    "@types/node": "^22.13.14",
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.4",
+    "eslint": "^9.23.0",
+    "eslint-config-next": "^15.2.4",
+    "tailwindcss": "^4.0.17",
+    "typescript": "^5.8.2"
+  }
+}

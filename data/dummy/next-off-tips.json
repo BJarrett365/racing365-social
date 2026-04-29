@@ -1,0 +1,108 @@
+[
+  {
+    "id": "next-off-ken-1250",
+    "race": {
+      "id": "race-ken-1250",
+      "course": "Kenilworth",
+      "raceTime": "12:50",
+      "title": "Racing365 Handicap",
+      "distance": "1m2f",
+      "going": "Good",
+      "runnersCount": 12
+    },
+    "tips": [
+      {
+        "horse": "Loving Prague",
+        "odds": "4/1",
+        "stars": 5,
+        "reason": "Strong course form and pace to dominate.",
+        "silks": {
+          "silkCode": "00887104",
+          "body": "#1e3a8a",
+          "secondary": "#dc2626",
+          "cap": "#f8fafc",
+          "pattern": "halves"
+        }
+      },
+      {
+        "horse": "Amatchmadeinheaven",
+        "odds": "5/1",
+        "stars": 4,
+        "reason": "Each-way value with a sharp jockey booking.",
+        "silks": {
+          "silkCode": "00830215",
+          "body": "#15803d",
+          "secondary": "#eab308",
+          "cap": "#0f172a",
+          "pattern": "stripes"
+        }
+      },
+      {
+        "horse": "Fern Hill",
+        "odds": "4/1",
+        "stars": 4,
+        "reason": "Consistent in this grade; handles cut in the ground.",
+        "silks": {
+          "silkCode": "00833060",
+          "body": "#7c3aed",
+          "secondary": "#f8fafc",
+          "cap": "#1e293b",
+          "pattern": "quarters"
+        }
+      }
+    ]
+  },
+  {
+    "id": "next-off-asc-1510",
+    "race": {
+      "id": "race-asc-1510",
+      "course": "Ascot",
+      "raceTime": "15:10",
+      "title": "Sprint Series Qualifier",
+      "distance": "6f",
+      "going": "Good to Firm",
+      "runnersCount": 14
+    },
+    "tips": [
+      {
+        "horse": "Midnight Arrow",
+        "odds": "11/4",
+        "stars": 5,
+        "reason": "Speed figure leader on recent AW runs.",
+        "silks": {
+          "silkCode": "00854661",
+          "body": "#0d9488",
+          "secondary": "#1e293b",
+          "cap": "#fef08a",
+          "pattern": "halves"
+        }
+      },
+      {
+        "horse": "Blue Horizon",
+        "odds": "5/1",
+        "stars": 3,
+        "reason": "Draw dependent but has the turn of foot.",
+        "silks": {
+          "silkCode": "00871773",
+          "body": "#2563eb",
+          "secondary": "#ffffff",
+          "cap": "#dc2626",
+          "pattern": "stripes"
+        }
+      },
+      {
+        "horse": "Royal Crest",
+        "odds": "6/1",
+        "stars": 3,
+        "reason": "Stays the trip well; each-way angle.",
+        "silks": {
+          "silkCode": "00877506",
+          "body": "#991b1b",
+          "secondary": "#fbbf24",
+          "cap": "#f8fafc",
+          "pattern": "solid"
+        }
+      }
+    ]
+  }
+]

@@ -57,17 +57,16 @@ Netlify does not use `vercel.json` crons. For now, schedule this with an externa
 
 Netlify serverless functions do not provide durable writable filesystem storage.
 
-Plexa uses Netlify Blobs for hosted auth users, so the first admin and invited users persist on Netlify without writing to `data/local/plexa-auth-users.json`.
+Plexa uses Netlify Blobs for hosted auth users, admin settings, and Language Studio records, so these persist on Netlify without writing to `data/local`.
 
-Before production use, move the remaining generated app data to durable storage:
+Before production use, move the remaining generated media data to durable storage:
 
-- `data/local/language-studio.json`
 - generated Library images under `output/`
 
 Recommended production setup:
 
 - Users/auth data: Netlify Blobs for Netlify hosting, or Supabase/PostgreSQL for a database-backed install
-- Language Studio data: Supabase/PostgreSQL
+- Language Studio data: Netlify Blobs for Netlify hosting, or Supabase/PostgreSQL for a database-backed install
 - Images/output assets: S3, Cloudflare R2, or Netlify Blobs
 
 The current local JSON setup is useful for local testing, but it should not be used as writable storage in Netlify functions.

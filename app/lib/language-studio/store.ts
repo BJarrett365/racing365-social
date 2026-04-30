@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { getStore } from "@netlify/blobs";
 import { projectRoot } from "@/app/lib/paths";
 import type {
   LanguageArticle,
@@ -32,6 +33,12 @@ import {
 } from "@/app/lib/language-studio/default-governance";
 
 const STORE_FILE = path.join(projectRoot(), "data", "local", "language-studio.json");
+const BLOB_STORE_NAME = "plexa-language-studio";
+const BLOB_STORE_KEY = "language-studio.json";
+
+function shouldUseNetlifyBlobStore(): boolean {
+  return process.env.NETLIFY === "true" || Boolean(process.env.NETLIFY_BLOBS_CONTEXT);
+}
 
 function emptyData(): LanguageStudioData {
   return {
@@ -71,6 +78,15 @@ export function newLanguageId(prefix: string): string {
 }
 
 export async function readLanguageStudioData(): Promise<LanguageStudioData> {
+  if (shouldUseNetlifyBlobStore()) {
+    try {
+      const data = (await getStore(BLOB_STORE_NAME).get(BLOB_STORE_KEY, { type: "json" })) as Partial<LanguageStudioData> | null;
+      return seedGovernance({ ...emptyData(), ...(data ?? {}) });
+    } catch {
+      return seedGovernance(emptyData());
+    }
+  }
+
   try {
     const raw = await fs.readFile(STORE_FILE, "utf-8");
     const parsed = JSON.parse(raw) as Partial<LanguageStudioData>;
@@ -81,6 +97,11 @@ export async function readLanguageStudioData(): Promise<LanguageStudioData> {
 }
 
 export async function writeLanguageStudioData(data: LanguageStudioData): Promise<void> {
+  if (shouldUseNetlifyBlobStore()) {
+    await getStore(BLOB_STORE_NAME).setJSON(BLOB_STORE_KEY, data);
+    return;
+  }
+
   await fs.mkdir(path.dirname(STORE_FILE), { recursive: true });
   await fs.writeFile(STORE_FILE, JSON.stringify(data, null, 2), "utf-8");
 }

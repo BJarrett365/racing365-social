@@ -352,11 +352,19 @@ export function LanguageStudioClient() {
       });
       const data = await readJsonResponse(res);
       if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Translation failed");
-      const createdTranslations = Array.isArray(data.translations) ? data.translations as Translation[] : [];
+      const createdTranslations = Array.isArray(data.translations)
+        ? (data.translations as Translation[]).map(normaliseTranslation)
+        : [];
+      if (createdTranslations.length > 0) {
+        setTranslations((rows) => {
+          const existingIds = new Set(createdTranslations.map((row) => row.id));
+          return [...createdTranslations, ...rows.filter((row) => !existingIds.has(row.id))];
+        });
+      }
       setSelectedTranslationId(createdTranslations[0]?.id ?? "");
       setMessage(`${createdTranslations.length} translation(s) created from ${translationArticleIds.length} article(s).`);
       setTab("Review Queue");
-    });
+    }, { reload: false });
 
   const saveTranslation = () =>
     run(async () => {

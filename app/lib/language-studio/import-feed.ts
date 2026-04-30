@@ -1,11 +1,9 @@
 import { enrichLanguageArticlesFromPages, extractSocialEmbedsFromBody } from "@/app/lib/language-studio/article-pages";
 import { saveLanguageArticleImagesToLibrary } from "@/app/lib/language-studio/library-images";
 import {
-  addAuditLog,
   newLanguageId,
   readLanguageStudioData,
-  upsertArticles,
-  upsertImport,
+  writeLanguageStudioData,
 } from "@/app/lib/language-studio/store";
 import { parseLanguageXmlFeed } from "@/app/lib/language-studio/xml";
 import type { LanguageArticle, LanguageCode, LanguageImport } from "@/app/lib/language-studio/types";
@@ -114,14 +112,18 @@ export async function importLanguageFeed(input: ImportLanguageFeedInput): Promis
     articleIds: articles.map((article) => article.id),
     createdAt: now,
   };
-  await upsertImport(row);
-  await upsertArticles(articles);
-  await addAuditLog({
+  existing.imports[row.id] = row;
+  for (const article of articles) existing.articles[article.id] = article;
+  const auditId = newLanguageId("laudit");
+  existing.auditLogs[auditId] = {
+    id: auditId,
+    createdAt: now,
     entityType: "language_import",
     entityId: importId,
     action: input.sourceUrl === DEFAULT_LANGUAGE_FEED_URL ? "cron_import_feed" : "import_xml",
     detail: `${articles.length} article(s) checked from ${sourceBrand}; ${createdCount} new; ${updatedCount} updated; ${articles.filter((article) => article.imageLibraryRel).length} image(s) saved to Library`,
-  });
+  };
+  await writeLanguageStudioData(existing);
 
   return {
     import: row,

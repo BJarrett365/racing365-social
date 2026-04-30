@@ -227,13 +227,13 @@ export function LanguageStudioClient() {
     void loadAll().catch((e) => setError(e instanceof Error ? e.message : "Failed to load Language Studio"));
   }, []);
 
-  const run = async (fn: () => Promise<void>) => {
+  const run = async (fn: () => Promise<void>, options: { reload?: boolean } = {}) => {
     setBusy(true);
     setError(null);
     setMessage(null);
     try {
       await fn();
-      await loadAll();
+      if (options.reload !== false) await loadAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action failed");
     } finally {
@@ -268,7 +268,7 @@ export function LanguageStudioClient() {
         `${importedArticles.length} article(s) imported (${data.createdCount ?? 0} new, ${data.updatedCount ?? 0} updated). ${savedImages} image(s) saved to Library.`,
       );
       setTab("Translations");
-    });
+    }, { reload: false });
 
   const translateSelected = () =>
     run(async () => {

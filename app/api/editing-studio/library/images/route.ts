@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
-import { outputDir } from "@/app/lib/paths";
+import { scanLibraryBackgroundImageRels } from "@/app/lib/scan-library-background-images";
 
 export type LibraryImageItem = {
   relPath: string;
@@ -12,36 +10,13 @@ const MAX_ITEMS = 80;
 
 export async function GET() {
   try {
-    const root = outputDir();
-    const libraryRoot = path.join(root, "images", "library");
-    const items: LibraryImageItem[] = [];
-
-    async function walk(dir: string): Promise<void> {
-      if (items.length >= MAX_ITEMS) return;
-      let entries;
-      try {
-        entries = await fs.readdir(dir, { withFileTypes: true });
-      } catch {
-        return;
-      }
-      for (const e of entries) {
-        if (items.length >= MAX_ITEMS) break;
-        const full = path.join(dir, e.name);
-        if (e.isDirectory()) {
-          await walk(full);
-        } else if (/\.(png|jpe?g|webp|gif)$/i.test(e.name)) {
-          const relPath = path.relative(root, full).split(path.sep).join("/");
-          items.push({
-            relPath,
-            label: relPath.split("/").slice(-2).join("/"),
-          });
-        }
-      }
-    }
-
-    await walk(libraryRoot);
-
-    items.sort((a, b) => a.relPath.localeCompare(b.relPath));
+    const items = (await scanLibraryBackgroundImageRels())
+      .filter((relPath) => relPath.startsWith("images/library/"))
+      .slice(0, MAX_ITEMS)
+      .map((relPath) => ({
+        relPath,
+        label: relPath.split("/").slice(-2).join("/"),
+      }));
     return NextResponse.json({ items });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Library read failed";

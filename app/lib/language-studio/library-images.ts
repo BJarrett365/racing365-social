@@ -1,6 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
 import { normalizeContentIdForFilename } from "@/app/lib/editor-upload";
+import { readLibraryBlobAsset, writeLibraryBlobAsset } from "@/app/lib/library-blob-assets";
+import { shouldUseNetlifyBlobStore } from "@/app/lib/netlify-blob-json";
 import { libraryBackgroundImagesDir, outputDir } from "@/app/lib/paths";
 import { upsertLibraryMetadata } from "@/app/lib/library-metadata";
 import { LANGUAGE_LABELS, type LanguageArticle, type LanguageTranslation } from "@/app/lib/language-studio/types";
@@ -27,6 +29,13 @@ function extensionFor(url: string, contentType: string): string {
   return ".jpg";
 }
 
+function contentTypeForExtension(ext: string): string {
+  if (ext === ".png") return "image/png";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".gif") return "image/gif";
+  return "image/jpeg";
+}
+
 function fileSafeSlug(input: string): string {
   return normalizeContentIdForFilename(input.toLowerCase().replace(/\s+/g, "-")) || `article-${Date.now()}`;
 }
@@ -49,12 +58,16 @@ export async function saveLanguageArticleImageToLibrary(article: LanguageArticle
 
   const contentId = normalizeContentIdForFilename(`language-${article.sourceBrand}-${article.importId}`);
   const dir = libraryBackgroundImagesDir(contentId);
-  await fs.mkdir(dir, { recursive: true });
   const ext = extensionFor(imageUrl, contentType);
   const filename = `${fileSafeSlug(article.title).slice(0, 56)}-${article.id.slice(-6)}${ext}`;
   const abs = path.join(dir, filename);
-  await fs.writeFile(abs, bytes);
   const rel = path.relative(outputDir(), abs).split(path.sep).join("/");
+  if (shouldUseNetlifyBlobStore()) {
+    await writeLibraryBlobAsset(rel, bytes, contentType || contentTypeForExtension(ext));
+  } else {
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(abs, bytes);
+  }
 
   await upsertLibraryMetadata(contentId, {
     title: `Language Studio images — ${article.sourceBrand}`,
@@ -96,23 +109,30 @@ export async function copyLanguageArticleImageForExport(
   const normalizedRoot = path.normalize(root);
   if (!sourceAbs.startsWith(normalizedRoot + path.sep)) return undefined;
 
+  let sourceBytes: Buffer | null = null;
   try {
-    await fs.access(sourceAbs);
+    sourceBytes = await fs.readFile(sourceAbs);
   } catch {
-    return undefined;
+    const blobAsset = await readLibraryBlobAsset(sourceRel);
+    sourceBytes = blobAsset?.bytes ?? null;
   }
+  if (!sourceBytes) return undefined;
 
   const contentId = normalizeContentIdForFilename(
     `language-${article.sourceBrand}-${translation.targetLanguage}`,
   );
   const dir = libraryBackgroundImagesDir(contentId);
-  await fs.mkdir(dir, { recursive: true });
   const ext = path.extname(sourceAbs).toLowerCase() || ".jpg";
   const slug = fileSafeSlug(translation.slug || translation.title || article.title).slice(0, 70);
   const filename = `${slug}-${translation.targetLanguage}-${translation.id.slice(-6)}${ext}`;
   const destAbs = path.join(dir, filename);
-  await fs.copyFile(sourceAbs, destAbs);
   const rel = path.relative(root, destAbs).split(path.sep).join("/");
+  if (shouldUseNetlifyBlobStore()) {
+    await writeLibraryBlobAsset(rel, sourceBytes, contentTypeForExtension(ext));
+  } else {
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(destAbs, sourceBytes);
+  }
 
   await upsertLibraryMetadata(contentId, {
     title: `Language Studio images — ${LANGUAGE_LABELS[translation.targetLanguage]}`,

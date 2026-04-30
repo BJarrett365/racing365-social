@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { listLibraryBlobAssetRels } from "@/app/lib/library-blob-assets";
 import { outputDir } from "@/app/lib/paths";
 
 const IMAGE_EXT = /\.(png|jpe?g|webp|gif)$/i;
@@ -33,6 +34,13 @@ export async function scanLibraryBackgroundImageRels(): Promise<string[]> {
     }
   } catch {
     /* images/library missing */
+  }
+
+  const blobImages = await listLibraryBlobAssetRels();
+  for (const item of blobImages) {
+    if (!IMAGE_EXT.test(item.rel) || seen.has(item.rel)) continue;
+    seen.add(item.rel);
+    out.push(item);
   }
 
   const uploadsRoot = path.join(outputDir(), "uploads");

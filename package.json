@@ -21,6 +21,7 @@
     "runway:image-gen": "npm run example --prefix tools/runway-image-gen"
   },
   "dependencies": {
+    "@netlify/blobs": "^10.7.4",
     "@runwayml/sdk": "^3.19.0",
     "@supabase/supabase-js": "^2.49.1",
     "deepl-node": "^1.27.0",

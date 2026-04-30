@@ -13,6 +13,7 @@
 
 # next
 /.next/
+/.next-prod/
 /out/
 
 # production

@@ -1,12 +1,19 @@
 import fs from "fs/promises";
 import path from "path";
+import { getStore } from "@netlify/blobs";
 import { projectRoot } from "@/app/lib/paths";
 import type { PlexaAuthData, PlexaUser, PublicPlexaUser } from "@/app/lib/auth/types";
 
 const STORE_FILE = path.join(projectRoot(), "data", "local", "plexa-auth-users.json");
+const BLOB_STORE_NAME = "plexa-auth";
+const BLOB_STORE_KEY = "plexa-auth-users.json";
 
 function emptyData(): PlexaAuthData {
   return { users: {} };
+}
+
+function shouldUseNetlifyBlobStore(): boolean {
+  return process.env.NETLIFY === "true" || Boolean(process.env.NETLIFY_BLOBS_CONTEXT);
 }
 
 export function newAuthId(prefix: string): string {
@@ -14,6 +21,15 @@ export function newAuthId(prefix: string): string {
 }
 
 export async function readAuthData(): Promise<PlexaAuthData> {
+  if (shouldUseNetlifyBlobStore()) {
+    try {
+      const data = await getStore(BLOB_STORE_NAME).get(BLOB_STORE_KEY, { type: "json" }) as Partial<PlexaAuthData> | null;
+      return { ...emptyData(), ...(data ?? {}) };
+    } catch {
+      return emptyData();
+    }
+  }
+
   try {
     const raw = await fs.readFile(STORE_FILE, "utf-8");
     const parsed = JSON.parse(raw) as Partial<PlexaAuthData>;
@@ -24,6 +40,11 @@ export async function readAuthData(): Promise<PlexaAuthData> {
 }
 
 export async function writeAuthData(data: PlexaAuthData): Promise<void> {
+  if (shouldUseNetlifyBlobStore()) {
+    await getStore(BLOB_STORE_NAME).setJSON(BLOB_STORE_KEY, data);
+    return;
+  }
+
   await fs.mkdir(path.dirname(STORE_FILE), { recursive: true });
   await fs.writeFile(STORE_FILE, JSON.stringify(data, null, 2), "utf-8");
 }

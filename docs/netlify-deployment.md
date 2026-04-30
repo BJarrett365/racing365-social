@@ -53,20 +53,21 @@ The existing cron endpoint is:
 
 Netlify does not use `vercel.json` crons. For now, schedule this with an external cron service or Netlify Scheduled Functions later. The request must include the cron secret expected by the endpoint.
 
-## Storage Warning
+## Storage Notes
 
 Netlify serverless functions do not provide durable writable filesystem storage.
 
-Before production use, move these to durable storage:
+Plexa uses Netlify Blobs for hosted auth users, so the first admin and invited users persist on Netlify without writing to `data/local/plexa-auth-users.json`.
+
+Before production use, move the remaining generated app data to durable storage:
 
 - `data/local/language-studio.json`
-- `data/local/plexa-auth-users.json`
 - generated Library images under `output/`
 
 Recommended production setup:
 
-- Users/auth data: Supabase/PostgreSQL
+- Users/auth data: Netlify Blobs for Netlify hosting, or Supabase/PostgreSQL for a database-backed install
 - Language Studio data: Supabase/PostgreSQL
 - Images/output assets: S3, Cloudflare R2, or Netlify Blobs
 
-The current local JSON setup is useful for local testing and demo deploys, but not for permanent production data.
+The current local JSON setup is useful for local testing, but it should not be used as writable storage in Netlify functions.

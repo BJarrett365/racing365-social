@@ -1,10 +1,10 @@
-import { readRestreamTokens, writeRestreamTokens, type RestreamStoredTokens } from "@/features/live-control/services/restream-token-store";
+import { readRestreamTokensAsync, writeRestreamTokensAsync, type RestreamStoredTokens } from "@/features/live-control/services/restream-token-store";
 import { refreshRestreamAccessToken } from "@/features/live-control/services/restream-oauth";
 
 const BASE = "https://api.restream.io";
 
 async function getValidTokens(): Promise<RestreamStoredTokens> {
-  const cur = readRestreamTokens();
+  const cur = await readRestreamTokensAsync();
   if (!cur) {
     throw new Error("Restream is not connected. Complete OAuth from Live Control.");
   }
@@ -22,10 +22,10 @@ async function fetchWithRefresh(
   const headers = { Accept: "application/json", ...init.headers, Authorization: `Bearer ${t.accessToken}` };
   let res = await fetch(`${BASE}${path}`, { ...init, headers });
   if (res.status === 401) {
-    const cur = readRestreamTokens();
+    const cur = await readRestreamTokensAsync();
     if (!cur) throw new Error("Restream session lost");
     const next = await refreshRestreamAccessToken(cur.refreshToken);
-    writeRestreamTokens(next);
+    await writeRestreamTokensAsync(next);
     const headers2 = { Accept: "application/json", ...init.headers, Authorization: `Bearer ${next.accessToken}` };
     res = await fetch(`${BASE}${path}`, { ...init, headers: headers2 });
   }

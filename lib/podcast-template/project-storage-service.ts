@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
 import {
   PODCAST_DEFAULT_GENERATION_SETTINGS,
   PODCAST_DEFAULT_SCRIPT_CONVERSION_PROMPT,
@@ -15,6 +16,8 @@ import type {
 type PodcastProjectsFile = {
   projects: Record<string, PodcastProject>;
 };
+const BLOB_STORE_NAME = "plexa-podcast-template";
+const BLOB_STORE_KEY = "podcast-template-projects.json";
 
 function nowIso() {
   return new Date().toISOString();
@@ -29,6 +32,11 @@ function absFile() {
 }
 
 async function readRaw(): Promise<PodcastProjectsFile> {
+  if (shouldUseNetlifyBlobStore()) {
+    const data = await readJsonBlob<PodcastProjectsFile>(BLOB_STORE_NAME, BLOB_STORE_KEY);
+    return data && data.projects ? data : { projects: {} };
+  }
+
   try {
     const raw = await fs.readFile(absFile(), "utf-8");
     const parsed = JSON.parse(raw) as PodcastProjectsFile;
@@ -39,6 +47,11 @@ async function readRaw(): Promise<PodcastProjectsFile> {
 }
 
 async function writeRaw(data: PodcastProjectsFile): Promise<void> {
+  if (shouldUseNetlifyBlobStore()) {
+    await writeJsonBlob(BLOB_STORE_NAME, BLOB_STORE_KEY, data);
+    return;
+  }
+
   const full = absFile();
   await fs.mkdir(path.dirname(full), { recursive: true });
   await fs.writeFile(full, JSON.stringify(data, null, 2), "utf-8");

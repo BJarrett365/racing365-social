@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSecretAsync } from "@/app/lib/server-secrets";
-import { readGuardRails, type GuardRailFormat } from "@/app/lib/guard-rails-store";
+import { readGuardRailsAsync, type GuardRailFormat } from "@/app/lib/guard-rails-store";
 import { getBrandGuidelinesAppendixForFormat } from "@/app/lib/brand-guidelines-store";
 import { resolveBuiltinPromptBody } from "@/app/lib/builtin-prompt-resolve";
 
@@ -74,10 +74,10 @@ function parseAiJson(raw: unknown): AiPayload | null {
   return payload;
 }
 
-function buildPrompt(body: Body, brandGuidelinesAppendix: string | undefined, apiDefaultPrompt: string): string {
+async function buildPrompt(body: Body, brandGuidelinesAppendix: string | undefined, apiDefaultPrompt: string): Promise<string> {
   const f = body.fields;
   const custom = body.customPrompt?.trim() || apiDefaultPrompt;
-  const railsByFormat = readGuardRails().rails;
+  const railsByFormat = (await readGuardRailsAsync()).rails;
   const formatKey = body.format as GuardRailFormat;
   const guardRails = railsByFormat[formatKey]?.trim();
   const bg = brandGuidelinesAppendix?.trim();
@@ -166,7 +166,7 @@ export async function POST(request: Request) {
             role: "system",
             content: systemRole,
           },
-          { role: "user", content: buildPrompt(body, brandAppendix, apiDefaultPrompt) },
+          { role: "user", content: await buildPrompt(body, brandAppendix, apiDefaultPrompt) },
         ],
         response_format: {
           type: "json_schema",

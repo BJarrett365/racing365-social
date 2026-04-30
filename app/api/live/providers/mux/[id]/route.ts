@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertAdminWrite } from "@/app/lib/admin-auth";
 import { getMuxLiveStream } from "@/features/live-control/services/mux-provider-service";
-import { getMuxStreamRecord, upsertMuxStreamFromLiveData } from "@/features/live-control/services/mux-stream-store";
+import { getMuxStreamRecordAsync, upsertMuxStreamFromLiveDataAsync } from "@/features/live-control/services/mux-stream-store";
 
 /**
  * Latest Mux live stream + persisted Plexa provider record (`id` = Mux live stream id).
@@ -15,11 +15,11 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
   }
 
-  const stored = getMuxStreamRecord(id);
+  const stored = await getMuxStreamRecordAsync(id);
 
   try {
     const { data } = await getMuxLiveStream(id);
-    const record = upsertMuxStreamFromLiveData(data);
+    const record = await upsertMuxStreamFromLiveDataAsync(data);
     return NextResponse.json({ record, live: data });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Mux get failed";

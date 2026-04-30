@@ -6,11 +6,10 @@ import {
   getMuxLiveStream,
 } from "@/features/live-control/services/mux-provider-service";
 import {
-  deleteSession,
-  findSessionByMuxLiveStreamId,
-  getSession,
-  listSessions,
-  upsertSession,
+  findSessionByMuxLiveStreamIdAsync,
+  getSessionAsync,
+  listSessionsAsync,
+  upsertSessionAsync,
 } from "@/features/live-control/services/live-session-repository";
 import { getRestreamChannels } from "@/features/live-control/services/restream-service";
 import type {
@@ -36,7 +35,7 @@ export type CreateLiveSessionInput = {
 /**
  * Provider-agnostic facade for Plexa Live Control sessions.
  */
-export function createLiveSession(input: CreateLiveSessionInput): PlexaLiveSession {
+export async function createLiveSession(input: CreateLiveSessionInput): Promise<PlexaLiveSession> {
   const id = newLiveSessionId();
   const ts = nowIso();
   const row: PlexaLiveSession = {
@@ -51,24 +50,24 @@ export function createLiveSession(input: CreateLiveSessionInput): PlexaLiveSessi
     createdAt: ts,
     updatedAt: ts,
   };
-  upsertSession(row);
+  await upsertSessionAsync(row);
   return row;
 }
 
-export function getLiveSession(id: string): PlexaLiveSession | null {
-  return getSession(id);
+export async function getLiveSession(id: string): Promise<PlexaLiveSession | null> {
+  return getSessionAsync(id);
 }
 
-export function findLiveSessionByMuxId(muxLiveStreamId: string): PlexaLiveSession | null {
-  return findSessionByMuxLiveStreamId(muxLiveStreamId);
+export async function findLiveSessionByMuxId(muxLiveStreamId: string): Promise<PlexaLiveSession | null> {
+  return findSessionByMuxLiveStreamIdAsync(muxLiveStreamId);
 }
 
 export type UpdateLiveSessionInput = Partial<
   Pick<PlexaLiveSession, "title" | "description" | "brand" | "metadata" | "restreamChannelIds" | "provider">
 >;
 
-export function updateLiveSession(id: string, patch: UpdateLiveSessionInput): PlexaLiveSession | null {
-  const cur = getSession(id);
+export async function updateLiveSession(id: string, patch: UpdateLiveSessionInput): Promise<PlexaLiveSession | null> {
+  const cur = await getSessionAsync(id);
   if (!cur) return null;
   if (patch.provider !== undefined && patch.provider !== cur.provider && cur.status !== "draft") {
     throw new Error("Provider can only be changed while the session is in draft.");
@@ -84,12 +83,12 @@ export function updateLiveSession(id: string, patch: UpdateLiveSessionInput): Pl
     ...(patch.provider !== undefined ? { provider: patch.provider } : {}),
     updatedAt: ts,
   };
-  upsertSession(next);
+  await upsertSessionAsync(next);
   return next;
 }
 
 export async function startLiveSession(id: string): Promise<PlexaLiveSession> {
-  const cur = getSession(id);
+  const cur = await getSessionAsync(id);
   if (!cur) throw new Error("Session not found");
   if (cur.status === "live" || cur.status === "starting") return cur;
 
@@ -133,12 +132,12 @@ export async function startLiveSession(id: string): Promise<PlexaLiveSession> {
     next = { ...next, status: "live" };
   }
 
-  upsertSession(next);
+  await upsertSessionAsync(next);
   return next;
 }
 
 export async function stopLiveSession(id: string): Promise<PlexaLiveSession> {
-  const cur = getSession(id);
+  const cur = await getSessionAsync(id);
   if (!cur) throw new Error("Session not found");
   const ts = nowIso();
   if (cur.muxLiveStreamId) {
@@ -152,7 +151,7 @@ export async function stopLiveSession(id: string): Promise<PlexaLiveSession> {
         errorMessage: msg,
         updatedAt: ts,
       };
-      upsertSession(errRow);
+      await upsertSessionAsync(errRow);
       throw e;
     }
   }
@@ -165,7 +164,7 @@ export async function stopLiveSession(id: string): Promise<PlexaLiveSession> {
     muxRtmpUrl: undefined,
     updatedAt: ts,
   };
-  upsertSession(next);
+  await upsertSessionAsync(next);
   return next;
 }
 
@@ -186,7 +185,7 @@ export type PlaybackInfo = {
 };
 
 export async function getPlaybackInfo(sessionId: string): Promise<PlaybackInfo> {
-  const s = getSession(sessionId);
+  const s = await getSessionAsync(sessionId);
   if (!s) {
     return { hlsUrl: null, playbackId: null, muxLiveStreamId: null, status: "ended" };
   }
@@ -210,19 +209,19 @@ export async function getPlaybackInfo(sessionId: string): Promise<PlaybackInfo> 
   };
 }
 
-export function listLiveSessions(): PlexaLiveSession[] {
-  return listSessions();
+export async function listLiveSessions(): Promise<PlexaLiveSession[]> {
+  return listSessionsAsync();
 }
 
 /**
  * Merge Mux Video webhook payload into the matching Plexa session (by Mux live stream id).
  */
-export function applyMuxLiveStreamWebhook(
+export async function applyMuxLiveStreamWebhook(
   muxLiveStreamId: string,
   eventType: string,
   muxData: { status?: string; active_asset_id?: string | null },
-): PlexaLiveSession | null {
-  const cur = findSessionByMuxLiveStreamId(muxLiveStreamId);
+): Promise<PlexaLiveSession | null> {
+  const cur = await findSessionByMuxLiveStreamIdAsync(muxLiveStreamId);
   if (!cur || cur.status === "ended") {
     return cur;
   }
@@ -245,6 +244,6 @@ export function applyMuxLiveStreamWebhook(
     status,
     updatedAt: ts,
   };
-  upsertSession(next);
+  await upsertSessionAsync(next);
   return next;
 }

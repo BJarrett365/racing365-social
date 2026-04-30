@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdminWrite } from "@/app/lib/admin-auth";
-import { mergeGuardRails, readGuardRails, type GuardRailFormat } from "@/app/lib/guard-rails-store";
+import { mergeGuardRailsAsync, readGuardRailsAsync, type GuardRailFormat } from "@/app/lib/guard-rails-store";
 
 type Body = {
   adminToken?: string;
@@ -8,7 +8,7 @@ type Body = {
 };
 
 export async function GET() {
-  const data = readGuardRails();
+  const data = await readGuardRailsAsync();
   return NextResponse.json({
     ...data,
     adminTokenRequired: Boolean(process.env.ADMIN_TOKEN?.trim()),
@@ -30,6 +30,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing rails payload." }, { status: 400 });
   }
 
-  const saved = mergeGuardRails(body.rails);
+  const saved = await mergeGuardRailsAsync(body.rails);
   return NextResponse.json({ ok: true, ...saved });
 }

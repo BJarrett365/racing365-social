@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { muxWebhookSecretConfigured, verifyMuxWebhookSignature } from "@/features/live-control/lib/mux-webhook-verify";
-import { patchMuxStreamRecordFromWebhook } from "@/features/live-control/services/mux-stream-store";
+import { patchMuxStreamRecordFromWebhookAsync } from "@/features/live-control/services/mux-stream-store";
 import { applyMuxLiveStreamWebhook } from "@/features/live-control/services/live-session-service";
 
 type MuxWebhookEvent = {
@@ -11,7 +11,7 @@ type MuxWebhookEvent = {
 /**
  * Shared Mux webhook processing: verify signature, update stored provider stream + Plexa sessions.
  */
-export function handleMuxWebhookPost(rawBody: string, muxSignatureHeader: string | null): NextResponse {
+export async function handleMuxWebhookPost(rawBody: string, muxSignatureHeader: string | null): Promise<NextResponse> {
   if (muxWebhookSecretConfigured()) {
     if (!verifyMuxWebhookSignature(rawBody, muxSignatureHeader)) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
@@ -41,9 +41,9 @@ export function handleMuxWebhookPost(rawBody: string, muxSignatureHeader: string
   }
 
   const status = event.data?.status;
-  patchMuxStreamRecordFromWebhook(muxId, { status });
+  await patchMuxStreamRecordFromWebhookAsync(muxId, { status });
 
-  applyMuxLiveStreamWebhook(muxId, type, {
+  await applyMuxLiveStreamWebhook(muxId, type, {
     status,
     active_asset_id: event.data?.active_asset_id,
   });

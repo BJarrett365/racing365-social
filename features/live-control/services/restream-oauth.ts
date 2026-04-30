@@ -1,6 +1,6 @@
 import { getServerSecret } from "@/app/lib/server-secrets";
 import type { RestreamStoredTokens } from "@/features/live-control/services/restream-token-store";
-import { writeRestreamTokens } from "@/features/live-control/services/restream-token-store";
+import { writeRestreamTokensAsync } from "@/features/live-control/services/restream-token-store";
 
 const TOKEN_URL = "https://api.restream.io/oauth/token";
 
@@ -59,7 +59,7 @@ export async function exchangeRestreamAuthorizationCode(
     accessExpiresAtMs: now + Math.max(60, expiresIn - 120) * 1000,
     updatedAt: new Date().toISOString(),
   };
-  writeRestreamTokens(row);
+  await writeRestreamTokensAsync(row);
   return row;
 }
 
@@ -104,6 +104,6 @@ export async function refreshRestreamAccessToken(refreshToken: string): Promise<
     accessExpiresAtMs: now + Math.max(60, expiresIn - 120) * 1000,
     updatedAt: new Date().toISOString(),
   };
-  writeRestreamTokens(row);
+  await writeRestreamTokensAsync(row);
   return row;
 }

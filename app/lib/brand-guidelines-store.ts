@@ -1,9 +1,12 @@
 import { readFileSync } from "fs";
 import fs from "fs/promises";
 import path from "path";
+import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
 import type { RunwayBgBrand } from "@/app/lib/runway-background-prompt-types";
 
 const REL = "data/local/brand-guidelines.json";
+const BLOB_STORE_NAME = "plexa-brand-guidelines";
+const BLOB_STORE_KEY = "brand-guidelines.json";
 
 export type BrandGuidelineSlug = "plexa" | "racing365" | "teamtalk" | "planetf1" | "f365";
 
@@ -110,40 +113,22 @@ export function listBrandGuidelineMeta(): { slug: BrandGuidelineSlug; label: str
 }
 
 export async function readBrandGuidelinesFile(): Promise<BrandGuidelinesFile> {
+  if (shouldUseNetlifyBlobStore()) {
+    const data = await readJsonBlob<unknown>(BLOB_STORE_NAME, BLOB_STORE_KEY);
+    if (!data) {
+      const init = defaultFile();
+      await writeBrandGuidelinesFile(init);
+      return init;
+    }
+    return normalizeBrandGuidelinesFile(data);
+  }
+
   const full = path.join(process.cwd(), REL);
   try {
     const raw = await fs.readFile(full, "utf8");
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object") return defaultFile();
-    const p = parsed as Record<string, unknown>;
-    const b = p.brands;
-    if (!b || typeof b !== "object") return defaultFile();
-    const base = defaultFile();
-    for (const slug of SLUGS) {
-      const row = (b as Record<string, unknown>)[slug];
-      if (!row || typeof row !== "object") continue;
-      const o = row as Record<string, unknown>;
-      const body = typeof o.body === "string" ? o.body : base.brands[slug].body;
-      const label = typeof o.label === "string" ? o.label : base.brands[slug].label;
-      const updatedAt = typeof o.updatedAt === "string" ? o.updatedAt : base.brands[slug].updatedAt;
-      base.brands[slug] = { label, body, updatedAt };
-    }
-    if (shouldMigrateF365Placeholder(base.brands.f365.body)) {
-      base.brands.f365 = {
-        ...base.brands.f365,
-        body: loadF365GuidelinesText(),
-        updatedAt: new Date().toISOString(),
-      };
-      await writeBrandGuidelinesFile(base);
-    }
-    if (shouldMigratePlexaPlaceholder(base.brands.plexa.body)) {
-      base.brands.plexa = {
-        ...base.brands.plexa,
-        body: loadPlexaGuidelinesText(),
-        updatedAt: new Date().toISOString(),
-      };
-      await writeBrandGuidelinesFile(base);
-    }
+    const base = normalizeBrandGuidelinesFile(parsed);
+    await migrateBrandGuidelinesIfNeeded(base);
     return base;
   } catch (e) {
     const err = e as NodeJS.ErrnoException;
@@ -156,7 +141,51 @@ export async function readBrandGuidelinesFile(): Promise<BrandGuidelinesFile> {
   }
 }
 
+async function migrateBrandGuidelinesIfNeeded(base: BrandGuidelinesFile): Promise<void> {
+  let changed = false;
+  if (shouldMigrateF365Placeholder(base.brands.f365.body)) {
+    base.brands.f365 = {
+      ...base.brands.f365,
+      body: loadF365GuidelinesText(),
+      updatedAt: new Date().toISOString(),
+    };
+    changed = true;
+  }
+  if (shouldMigratePlexaPlaceholder(base.brands.plexa.body)) {
+    base.brands.plexa = {
+      ...base.brands.plexa,
+      body: loadPlexaGuidelinesText(),
+      updatedAt: new Date().toISOString(),
+    };
+    changed = true;
+  }
+  if (changed) await writeBrandGuidelinesFile(base);
+}
+
+function normalizeBrandGuidelinesFile(parsed: unknown): BrandGuidelinesFile {
+  if (!parsed || typeof parsed !== "object") return defaultFile();
+  const p = parsed as Record<string, unknown>;
+  const b = p.brands;
+  if (!b || typeof b !== "object") return defaultFile();
+  const base = defaultFile();
+  for (const slug of SLUGS) {
+    const row = (b as Record<string, unknown>)[slug];
+    if (!row || typeof row !== "object") continue;
+    const o = row as Record<string, unknown>;
+    const body = typeof o.body === "string" ? o.body : base.brands[slug].body;
+    const label = typeof o.label === "string" ? o.label : base.brands[slug].label;
+    const updatedAt = typeof o.updatedAt === "string" ? o.updatedAt : base.brands[slug].updatedAt;
+    base.brands[slug] = { label, body, updatedAt };
+  }
+  return base;
+}
+
 async function writeBrandGuidelinesFile(data: BrandGuidelinesFile): Promise<void> {
+  if (shouldUseNetlifyBlobStore()) {
+    await writeJsonBlob(BLOB_STORE_NAME, BLOB_STORE_KEY, data);
+    return;
+  }
+
   const full = path.join(process.cwd(), REL);
   await fs.mkdir(path.dirname(full), { recursive: true });
   await fs.writeFile(full, `${JSON.stringify(data, null, 2)}\n`, "utf8");

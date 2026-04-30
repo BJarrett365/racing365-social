@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
 import { projectRoot } from "@/app/lib/paths";
 
 export type GuardRailFormat =
@@ -17,6 +18,8 @@ export type GuardRailsFile = {
 
 const LOCAL_DIR = path.join(projectRoot(), "data", "local");
 const FILE = path.join(LOCAL_DIR, "guard-rails.json");
+const BLOB_STORE_NAME = "plexa-guard-rails";
+const BLOB_STORE_KEY = "guard-rails.json";
 
 const DEFAULT_RAILS: Record<GuardRailFormat, string> = {
   "next-off":
@@ -48,11 +51,31 @@ export function readGuardRails(): GuardRailsFile {
   }
 }
 
+export async function readGuardRailsAsync(): Promise<GuardRailsFile> {
+  if (shouldUseNetlifyBlobStore()) {
+    const parsed = await readJsonBlob<Partial<GuardRailsFile>>(BLOB_STORE_NAME, BLOB_STORE_KEY);
+    const rails = { ...DEFAULT_RAILS, ...(parsed?.rails ?? {}) } as Record<GuardRailFormat, string>;
+    return { rails, updatedAt: parsed?.updatedAt };
+  }
+
+  return readGuardRails();
+}
+
 export function writeGuardRails(rails: Record<GuardRailFormat, string>): GuardRailsFile {
   ensureDir();
   const payload: GuardRailsFile = { rails, updatedAt: new Date().toISOString() };
   fs.writeFileSync(FILE, JSON.stringify(payload, null, 2), "utf-8");
   return payload;
+}
+
+export async function writeGuardRailsAsync(rails: Record<GuardRailFormat, string>): Promise<GuardRailsFile> {
+  if (shouldUseNetlifyBlobStore()) {
+    const payload: GuardRailsFile = { rails, updatedAt: new Date().toISOString() };
+    await writeJsonBlob(BLOB_STORE_NAME, BLOB_STORE_KEY, payload);
+    return payload;
+  }
+
+  return writeGuardRails(rails);
 }
 
 export function mergeGuardRails(partial: Partial<Record<GuardRailFormat, string>>): GuardRailsFile {
@@ -63,4 +86,14 @@ export function mergeGuardRails(partial: Partial<Record<GuardRailFormat, string>
     next[k as GuardRailFormat] = v.trim();
   }
   return writeGuardRails(next);
+}
+
+export async function mergeGuardRailsAsync(partial: Partial<Record<GuardRailFormat, string>>): Promise<GuardRailsFile> {
+  const cur = await readGuardRailsAsync();
+  const next: Record<GuardRailFormat, string> = { ...cur.rails };
+  for (const [k, v] of Object.entries(partial)) {
+    if (typeof v !== "string") continue;
+    next[k as GuardRailFormat] = v.trim();
+  }
+  return writeGuardRailsAsync(next);
 }

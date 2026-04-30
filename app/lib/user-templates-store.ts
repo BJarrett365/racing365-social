@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
 import { defaultSilksForIndex } from "@/app/lib/silk-presets";
 import type {
   F1GridBundle,
@@ -17,6 +18,8 @@ import type {
 } from "@/types";
 
 const REL = "data/local/user-templates.json";
+const BLOB_STORE_NAME = "plexa-user-templates";
+const BLOB_STORE_KEY = "user-templates.json";
 
 export type UserTemplatesFile = {
   nextOff: Record<string, NextOffBundle>;
@@ -405,6 +408,20 @@ export function createEmptyPlanetFootballTableBundle(id: string): PlanetFootball
 }
 
 export async function readUserTemplatesFile(): Promise<UserTemplatesFile> {
+  if (shouldUseNetlifyBlobStore()) {
+    const data = await readJsonBlob<Partial<UserTemplatesFile>>(BLOB_STORE_NAME, BLOB_STORE_KEY);
+    return normalizeUserTemplatesFile({
+      nextOff: data?.nextOff ?? {},
+      fastResults: data?.fastResults ?? {},
+      racecards: data?.racecards ?? {},
+      teamtalkNews: data?.teamtalkNews ?? {},
+      f1Grid: data?.f1Grid ?? {},
+      f1Results: data?.f1Results ?? {},
+      planetFootballTables: data?.planetFootballTables ?? {},
+      planetRugbyTables: data?.planetRugbyTables ?? {},
+    });
+  }
+
   const full = path.join(process.cwd(), REL);
   try {
     const fileText = await fs.readFile(full, "utf-8");
@@ -437,6 +454,11 @@ export async function readUserTemplatesFile(): Promise<UserTemplatesFile> {
 }
 
 export async function writeUserTemplatesFile(data: UserTemplatesFile): Promise<void> {
+  if (shouldUseNetlifyBlobStore()) {
+    await writeJsonBlob(BLOB_STORE_NAME, BLOB_STORE_KEY, data);
+    return;
+  }
+
   const full = path.join(process.cwd(), REL);
   await fs.mkdir(path.dirname(full), { recursive: true });
   await fs.writeFile(full, JSON.stringify(data, null, 2), "utf-8");

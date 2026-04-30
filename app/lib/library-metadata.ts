@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
 import { libraryMetadataPath } from "@/app/lib/paths";
 
 export type LibraryAssetMetadata = {
@@ -10,6 +11,8 @@ export type LibraryAssetMetadata = {
 };
 
 export type LibraryMetadataIndex = Record<string, LibraryAssetMetadata>;
+const BLOB_STORE_NAME = "plexa-library";
+const BLOB_STORE_KEY = "library-metadata.json";
 
 function sanitizeKeyword(raw: string): string {
   return raw.trim().replace(/\s+/g, " ").slice(0, 80);
@@ -34,6 +37,10 @@ function safeContentId(contentId: string): string {
 }
 
 export async function readLibraryMetadataIndex(): Promise<LibraryMetadataIndex> {
+  if (shouldUseNetlifyBlobStore()) {
+    return (await readJsonBlob<LibraryMetadataIndex>(BLOB_STORE_NAME, BLOB_STORE_KEY)) ?? {};
+  }
+
   try {
     const raw = await fs.readFile(libraryMetadataPath(), "utf-8");
     const parsed = JSON.parse(raw) as unknown;
@@ -63,6 +70,11 @@ export async function upsertLibraryMetadata(
     updatedAt: new Date().toISOString(),
   };
   index[key] = merged;
+  if (shouldUseNetlifyBlobStore()) {
+    await writeJsonBlob(BLOB_STORE_NAME, BLOB_STORE_KEY, index);
+    return merged;
+  }
+
   const filePath = libraryMetadataPath();
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, JSON.stringify(index, null, 2), "utf-8");

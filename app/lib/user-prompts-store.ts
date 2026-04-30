@@ -1,8 +1,11 @@
 import fs from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
+import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
 
 const REL = "data/local/user-prompts.json";
+const BLOB_STORE_NAME = "plexa-prompts";
+const BLOB_STORE_KEY = "user-prompts.json";
 
 export type UserPromptEntry = {
   id: string;
@@ -19,25 +22,15 @@ export type UserPromptsFile = {
 const emptyFile = (): UserPromptsFile => ({ prompts: [] });
 
 export async function readUserPromptsFile(): Promise<UserPromptsFile> {
+  if (shouldUseNetlifyBlobStore()) {
+    return parseUserPromptsFile(await readJsonBlob<unknown>(BLOB_STORE_NAME, BLOB_STORE_KEY));
+  }
+
   const full = path.join(process.cwd(), REL);
   try {
     const raw = await fs.readFile(full, "utf8");
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object") return emptyFile();
-    const p = parsed as Record<string, unknown>;
-    if (!Array.isArray(p.prompts)) return emptyFile();
-    const prompts: UserPromptEntry[] = [];
-    for (const item of p.prompts) {
-      if (!item || typeof item !== "object") continue;
-      const o = item as Record<string, unknown>;
-      const id = typeof o.id === "string" ? o.id.trim() : "";
-      const title = typeof o.title === "string" ? o.title.trim() : "";
-      const body = typeof o.body === "string" ? o.body : "";
-      const createdAt = typeof o.createdAt === "string" ? o.createdAt : new Date().toISOString();
-      const updatedAt = typeof o.updatedAt === "string" ? o.updatedAt : createdAt;
-      if (id && title) prompts.push({ id, title, body, createdAt, updatedAt });
-    }
-    return { prompts };
+    return parseUserPromptsFile(parsed);
   } catch (e) {
     const err = e as NodeJS.ErrnoException;
     if (err.code === "ENOENT") return emptyFile();
@@ -45,7 +38,30 @@ export async function readUserPromptsFile(): Promise<UserPromptsFile> {
   }
 }
 
+function parseUserPromptsFile(parsed: unknown): UserPromptsFile {
+  if (!parsed || typeof parsed !== "object") return emptyFile();
+  const p = parsed as Record<string, unknown>;
+  if (!Array.isArray(p.prompts)) return emptyFile();
+  const prompts: UserPromptEntry[] = [];
+  for (const item of p.prompts) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const id = typeof o.id === "string" ? o.id.trim() : "";
+    const title = typeof o.title === "string" ? o.title.trim() : "";
+    const body = typeof o.body === "string" ? o.body : "";
+    const createdAt = typeof o.createdAt === "string" ? o.createdAt : new Date().toISOString();
+    const updatedAt = typeof o.updatedAt === "string" ? o.updatedAt : createdAt;
+    if (id && title) prompts.push({ id, title, body, createdAt, updatedAt });
+  }
+  return { prompts };
+}
+
 async function writeUserPromptsFile(data: UserPromptsFile): Promise<void> {
+  if (shouldUseNetlifyBlobStore()) {
+    await writeJsonBlob(BLOB_STORE_NAME, BLOB_STORE_KEY, data);
+    return;
+  }
+
   const full = path.join(process.cwd(), REL);
   await fs.mkdir(path.dirname(full), { recursive: true });
   await fs.writeFile(full, `${JSON.stringify(data, null, 2)}\n`, "utf8");

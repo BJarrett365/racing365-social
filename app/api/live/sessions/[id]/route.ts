@@ -20,7 +20,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   const { searchParams } = new URL(request.url);
   const includeSecrets = searchParams.get("includeSecrets") === "1";
 
-  const session = getLiveSession(id);
+  const session = await getLiveSession(id);
   if (!session) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -62,7 +62,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
   const { id } = await ctx.params;
 
   try {
-    const updated = updateLiveSession(id, {
+    const updated = await updateLiveSession(id, {
       ...(body.title !== undefined ? { title: String(body.title) } : {}),
       ...(body.description !== undefined ? { description: String(body.description) } : {}),
       ...(body.brand !== undefined ? { brand: String(body.brand) } : {}),

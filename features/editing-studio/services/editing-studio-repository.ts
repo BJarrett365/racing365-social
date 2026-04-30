@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
 import { EDITING_STUDIO_STORE_FILE } from "@/features/editing-studio/lib/constants";
 import { newEditingStudioId } from "@/features/editing-studio/lib/new-id";
 import { parseEditingStudioStoreJson, serializeEditingStudioStore } from "@/features/editing-studio/lib/mappers";
@@ -21,6 +22,8 @@ import {
 } from "@/features/editing-studio/validators/editing-studio-schemas";
 
 const MAX_REVISIONS_PER_PROJECT = 80;
+const BLOB_STORE_NAME = "plexa-editing-studio";
+const BLOB_STORE_KEY = "editing-studio-store.json";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -56,6 +59,20 @@ export class EditingStudioRepository {
   }
 
   async readStore(): Promise<EditingStudioStoreV2> {
+    if (shouldUseNetlifyBlobStore()) {
+      const data = await readJsonBlob<unknown>(BLOB_STORE_NAME, BLOB_STORE_KEY);
+      if (data) {
+        const parsed = parseEditingStudioStoreJson(JSON.stringify(data));
+        if (!parsed.ok) {
+          throw new Error(`Invalid Editing Studio store: ${parsed.error}`);
+        }
+        return parsed.data;
+      }
+      const seed = buildMockEditingStudioStore();
+      await this.writeStore(seed);
+      return seed;
+    }
+
     const full = this.storePath();
     try {
       const raw = await fs.readFile(full, "utf-8");
@@ -76,6 +93,11 @@ export class EditingStudioRepository {
   }
 
   async writeStore(store: EditingStudioStoreV2): Promise<void> {
+    if (shouldUseNetlifyBlobStore()) {
+      await writeJsonBlob(BLOB_STORE_NAME, BLOB_STORE_KEY, store);
+      return;
+    }
+
     const full = this.storePath();
     await fs.mkdir(path.dirname(full), { recursive: true });
     await fs.writeFile(full, serializeEditingStudioStore(store), "utf-8");

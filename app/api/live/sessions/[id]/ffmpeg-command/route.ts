@@ -26,7 +26,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   }
 
   const { id } = await ctx.params;
-  const session = getLiveSession(id);
+  const session = await getLiveSession(id);
   if (!session) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

@@ -15,7 +15,7 @@ function isProvider(v: unknown): v is LiveSessionProvider {
 export async function GET(request: Request) {
   const denied = assertAdminWrite(request);
   if (denied) return denied;
-  const sessions = listLiveSessions().map(toPublicLiveSession);
+  const sessions = (await listLiveSessions()).map(toPublicLiveSession);
   return NextResponse.json({ sessions });
 }
 
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "provider must be mux, restream, or mux_restream" }, { status: 400 });
   }
 
-  const session = createLiveSession({
+  const session = await createLiveSession({
     title: typeof body.title === "string" ? body.title : "",
     description: typeof body.description === "string" ? body.description : undefined,
     brand: typeof body.brand === "string" ? body.brand : undefined,

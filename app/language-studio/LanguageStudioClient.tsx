@@ -112,6 +112,22 @@ type ClientAccessLogRow = {
   createdAt: string;
 };
 
+const HTML_ENTITIES: Record<string, string> = {
+  nbsp: " ",
+  amp: "&",
+  quot: "\"",
+  apos: "'",
+  lt: "<",
+  gt: ">",
+  lsquo: "\u2018",
+  rsquo: "\u2019",
+  ldquo: "\u201c",
+  rdquo: "\u201d",
+  ndash: "\u2013",
+  mdash: "\u2014",
+  hellip: "\u2026",
+};
+
 const tabs = ["Dashboard", "Imports", "Translations", "Review Queue", "Guardrails", "Knowledge Files", "Glossary", "Protected Terms", "Market Rules", "Prompt Rules", "Compliance Notes", "Quality Checks", "Export Feeds", "Client Access", "Settings"] as const;
 const inputClass = "mt-1 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] px-3 py-2 text-sm text-white placeholder:text-slate-600";
 const textareaClass = `${inputClass} min-h-28 font-mono text-xs`;
@@ -125,6 +141,62 @@ const clientDocs = [
   { slug: "deployment", title: "Deployment Guide", description: "Production build, Vercel cron and storage notes." },
   { slug: "troubleshooting", title: "Troubleshooting", description: "Common import, image, translation, cron and API issues." },
 ];
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&#0*(\d+);?/g, (_, dec: string) => {
+      const n = Number(dec);
+      return Number.isFinite(n) ? String.fromCodePoint(n) : "";
+    })
+    .replace(/&#x0*([0-9a-f]+);?/gi, (_, hex: string) => {
+      const n = Number.parseInt(hex, 16);
+      return Number.isFinite(n) ? String.fromCodePoint(n) : "";
+    })
+    .replace(/&([a-z]+);/gi, (match, entity: string) => HTML_ENTITIES[entity.toLowerCase()] ?? match);
+}
+
+function normaliseArticle(article: Article): Article {
+  return {
+    ...article,
+    title: decodeHtmlEntities(article.title),
+    standfirst: decodeHtmlEntities(article.standfirst),
+    body: decodeHtmlEntities(article.body),
+    author: article.author ? decodeHtmlEntities(article.author) : article.author,
+    tags: article.tags.map(decodeHtmlEntities),
+    socialEmbeds: article.socialEmbeds?.map((embed) => ({
+      ...embed,
+      originalText: decodeHtmlEntities(embed.originalText),
+      translatedText: embed.translatedText ? decodeHtmlEntities(embed.translatedText) : embed.translatedText,
+      author: embed.author ? decodeHtmlEntities(embed.author) : embed.author,
+    })),
+  };
+}
+
+function normaliseTranslation(row: Translation): Translation {
+  return {
+    ...row,
+    title: decodeHtmlEntities(row.title),
+    standfirst: decodeHtmlEntities(row.standfirst),
+    body: decodeHtmlEntities(row.body),
+    seoTitle: decodeHtmlEntities(row.seoTitle),
+    metaDescription: decodeHtmlEntities(row.metaDescription),
+    tags: row.tags.map(decodeHtmlEntities),
+    socialEmbeds: row.socialEmbeds?.map((embed) => ({
+      ...embed,
+      originalText: decodeHtmlEntities(embed.originalText),
+      translatedText: embed.translatedText ? decodeHtmlEntities(embed.translatedText) : embed.translatedText,
+      author: embed.author ? decodeHtmlEntities(embed.author) : embed.author,
+    })),
+  };
+}
+
+async function readJsonResponse(res: Response): Promise<Record<string, unknown>> {
+  try {
+    return (await res.json()) as Record<string, unknown>;
+  } catch {
+    throw new Error(`Server returned an empty response (${res.status}). Check the Netlify function logs for the translation error.`);
+  }
+}
 
 function formatArticleDate(value?: string): string {
   if (!value) return "Not set";
@@ -213,8 +285,8 @@ export function LanguageStudioClient() {
     const rulesData = await rulesRes.json();
     const exportsData = await exportsRes.json();
     const clientsData = await clientsRes.json();
-    setArticles(articleData.articles ?? []);
-    setTranslations(transData.translations ?? []);
+    setArticles((articleData.articles ?? []).map(normaliseArticle));
+    setTranslations((transData.translations ?? []).map(normaliseTranslation));
     setGlossary(glossaryData.glossary ?? []);
     setRules(rulesData.rules ?? []);
     setExportsRows(exportsData.exports ?? []);
@@ -257,7 +329,7 @@ export function LanguageStudioClient() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Import failed");
-      const importedArticles = Array.isArray(data.articles) ? data.articles as Article[] : [];
+      const importedArticles = Array.isArray(data.articles) ? (data.articles as Article[]).map(normaliseArticle) : [];
       const savedImages = importedArticles.filter((article) => article.imageLibraryRel).length;
       if (importedArticles.length > 0) {
         setArticles(importedArticles);
@@ -278,10 +350,11 @@ export function LanguageStudioClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ articleIds: translationArticleIds, targetLanguages, providerMode, translationMode }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Translation failed");
-      setSelectedTranslationId(data.translations?.[0]?.id ?? "");
-      setMessage(`${data.translations?.length ?? 0} translation(s) created from ${translationArticleIds.length} article(s).`);
+      const data = await readJsonResponse(res);
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Translation failed");
+      const createdTranslations = Array.isArray(data.translations) ? data.translations as Translation[] : [];
+      setSelectedTranslationId(createdTranslations[0]?.id ?? "");
+      setMessage(`${createdTranslations.length} translation(s) created from ${translationArticleIds.length} article(s).`);
       setTab("Review Queue");
     });
 

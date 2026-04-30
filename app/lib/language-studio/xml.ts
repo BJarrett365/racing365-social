@@ -1,4 +1,5 @@
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
+import { decodeHtmlEntities } from "@/app/lib/html-entities";
 import type { LanguageArticle, LanguageCode, LanguageTranslation } from "@/app/lib/language-studio/types";
 import { newLanguageId } from "@/app/lib/language-studio/store";
 import { sanitizeImportedContent } from "@/app/lib/language-studio/sanitize";
@@ -41,6 +42,10 @@ function first(...values: unknown[]): string {
   return "";
 }
 
+function cleanImportedText(value: string): string {
+  return sanitizeImportedContent(decodeHtmlEntities(value));
+}
+
 function slugify(input: string): string {
   return input
     .toLowerCase()
@@ -54,7 +59,7 @@ function slugify(input: string): string {
 
 function extractTags(item: UnknownRecord): string[] {
   return arr(item.category)
-    .map((tag) => text(tag))
+    .map((tag) => cleanImportedText(text(tag)))
     .filter(Boolean)
     .filter((tag, index, all) => all.indexOf(tag) === index);
 }
@@ -108,21 +113,21 @@ export function parseLanguageXmlFeed(
   const parsed = parser.parse(xml) as UnknownRecord;
   const rssChannel = rec(rec(parsed.rss).channel);
   const atomFeed = rec(parsed.feed);
-  const feedTitle = first(rssChannel.title, atomFeed.title, opts.sourceBrand);
+  const feedTitle = cleanImportedText(first(rssChannel.title, atomFeed.title, opts.sourceBrand));
   const items = arr<unknown>(rssChannel.item).length ? arr<unknown>(rssChannel.item) : arr<unknown>(atomFeed.entry);
   const now = new Date().toISOString();
 
   const articles = items.map((raw, index) => {
     const item = rec(raw);
-    const title = first(item.title, `Article ${index + 1}`);
-    const description = sanitizeImportedContent(first(item.description, item.summary, item.subtitle));
+    const title = cleanImportedText(first(item.title, `Article ${index + 1}`));
+    const description = cleanImportedText(first(item.description, item.summary, item.subtitle));
     const content = sanitizeImportedContent(extractArticleBody(item, description));
-    const sourceArticleId = first(item.guid, item.id, `${opts.importId}-${index + 1}`);
+    const sourceArticleId = cleanImportedText(first(item.guid, item.id, `${opts.importId}-${index + 1}`));
     const canonicalUrl = extractLink(item);
     const imageUrl = extractImageUrl(item);
-    const publishDate = first(item.pubDate, item.published, item.updated);
-    const modifiedDate = first(item["atom:updated"], item.updated, item.modified);
-    const author = first(item["dc:creator"], item.author, rec(item.author).name);
+    const publishDate = cleanImportedText(first(item.pubDate, item.published, item.updated));
+    const modifiedDate = cleanImportedText(first(item["atom:updated"], item.updated, item.modified));
+    const author = cleanImportedText(first(item["dc:creator"], item.author, rec(item.author).name));
     const tags = extractTags(item);
     const article: LanguageArticle = {
       id: newLanguageId("larticle"),
@@ -138,7 +143,7 @@ export function parseLanguageXmlFeed(
       category: tags[0] ?? "",
       tags,
       imageUrl,
-      title: sanitizeImportedContent(title),
+      title,
       standfirst: description,
       body: content,
       socialEmbeds: [],

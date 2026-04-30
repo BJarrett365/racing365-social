@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { outputAudioDir } from "@/app/lib/paths";
-import { getServerSecret, getStoredVoiceOption } from "@/app/lib/server-secrets";
+import { getServerSecretAsync, getStoredVoiceOptionAsync } from "@/app/lib/server-secrets";
 import { applyAudioTempoInPlace } from "./audio-tempo";
 import type { AudioProvider, VoiceTrackOptions } from "./types";
 
@@ -15,13 +15,13 @@ export class ElevenLabsAudioProvider implements AudioProvider {
     contentId: string,
     options?: VoiceTrackOptions,
   ): Promise<string> {
-    const key = getServerSecret("ELEVENLABS_API_KEY");
+    const key = await getServerSecretAsync("ELEVENLABS_API_KEY");
     if (!key) {
       throw new Error("ELEVENLABS_API_KEY is required for ElevenLabs TTS");
     }
 
     const storedFemale =
-      getStoredVoiceOption("ELEVENLABS_VOICE_ID", "elevenlabsVoiceId") || DEFAULT_FEMALE_VOICE_ID;
+      await getStoredVoiceOptionAsync("ELEVENLABS_VOICE_ID", "elevenlabsVoiceId") || DEFAULT_FEMALE_VOICE_ID;
     const voiceId =
       options?.voiceId?.trim() ||
       (options?.gender === "male"
@@ -30,7 +30,7 @@ export class ElevenLabsAudioProvider implements AudioProvider {
           ? process.env.ELEVENLABS_VOICE_ID_FEMALE?.trim() || storedFemale
           : storedFemale);
     const model =
-      getStoredVoiceOption("ELEVENLABS_MODEL", "elevenlabsModel") || "eleven_multilingual_v2";
+      await getStoredVoiceOptionAsync("ELEVENLABS_MODEL", "elevenlabsModel") || "eleven_multilingual_v2";
     const text = script.trim().slice(0, 2500);
 
     const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;

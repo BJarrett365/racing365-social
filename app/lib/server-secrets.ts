@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { getStore } from "@netlify/blobs";
 import { projectRoot } from "@/app/lib/paths";
 
 export type AdminStoredSettings = {
@@ -31,6 +32,12 @@ export type AdminStoredSettings = {
 
 const LOCAL_DIR = path.join(projectRoot(), "data", "local");
 const SETTINGS_FILE = path.join(LOCAL_DIR, "admin-settings.json");
+const BLOB_STORE_NAME = "plexa-admin-settings";
+const BLOB_STORE_KEY = "admin-settings.json";
+
+function shouldUseNetlifyBlobStore(): boolean {
+  return process.env.NETLIFY === "true" || Boolean(process.env.NETLIFY_BLOBS_CONTEXT);
+}
 
 function ensureDir() {
   fs.mkdirSync(LOCAL_DIR, { recursive: true });
@@ -45,6 +52,19 @@ export function readStoredSettings(): AdminStoredSettings {
   }
 }
 
+export async function readStoredSettingsAsync(): Promise<AdminStoredSettings> {
+  if (shouldUseNetlifyBlobStore()) {
+    try {
+      const data = (await getStore(BLOB_STORE_NAME).get(BLOB_STORE_KEY, { type: "json" })) as AdminStoredSettings | null;
+      return data ?? {};
+    } catch {
+      return {};
+    }
+  }
+
+  return readStoredSettings();
+}
+
 export function writeStoredSettings(next: AdminStoredSettings): void {
   ensureDir();
   const payload: AdminStoredSettings = {
@@ -52,6 +72,21 @@ export function writeStoredSettings(next: AdminStoredSettings): void {
     updatedAt: new Date().toISOString(),
   };
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(payload, null, 2), "utf-8");
+}
+
+export async function writeStoredSettingsAsync(next: AdminStoredSettings): Promise<AdminStoredSettings> {
+  const payload: AdminStoredSettings = {
+    ...next,
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (shouldUseNetlifyBlobStore()) {
+    await getStore(BLOB_STORE_NAME).setJSON(BLOB_STORE_KEY, payload);
+    return payload;
+  }
+
+  writeStoredSettings(payload);
+  return payload;
 }
 
 /** Merge partial updates; omit or empty string can clear a key when `clearKeys` lists it */
@@ -74,11 +109,25 @@ export function mergeStoredSettings(
   return next;
 }
 
-/** Standard env name → process.env wins, then local JSON */
-export function getServerSecret(envName: string): string | undefined {
-  const fromEnv = process.env[envName]?.trim();
-  if (fromEnv) return fromEnv;
-  const s = readStoredSettings();
+export async function mergeStoredSettingsAsync(
+  partial: Partial<AdminStoredSettings>,
+  clearKeys: (keyof AdminStoredSettings)[] = [],
+): Promise<AdminStoredSettings> {
+  const cur = await readStoredSettingsAsync();
+  const next = { ...cur };
+  for (const k of clearKeys) {
+    delete next[k];
+  }
+  for (const [k, v] of Object.entries(partial)) {
+    const key = k as keyof AdminStoredSettings;
+    if (v === undefined) continue;
+    if (typeof v === "string" && v.trim() === "") continue;
+    (next as Record<string, unknown>)[key] = v;
+  }
+  return writeStoredSettingsAsync(next);
+}
+
+function secretFileKey(envName: string): keyof AdminStoredSettings | undefined {
   const map: Record<string, keyof AdminStoredSettings> = {
     ELEVENLABS_API_KEY: "elevenlabsApiKey",
     OPENAI_API_KEY: "openaiApiKey",
@@ -92,8 +141,26 @@ export function getServerSecret(envName: string): string | undefined {
     LIVEPEER_API_KEY: "livepeerApiKey",
     DEEPL_API_KEY: "deeplApiKey",
   };
-  const fileKey = map[envName];
+  return map[envName];
+}
+
+/** Standard env name → process.env wins, then local JSON */
+export function getServerSecret(envName: string): string | undefined {
+  const fromEnv = process.env[envName]?.trim();
+  if (fromEnv) return fromEnv;
+  const s = readStoredSettings();
+  const fileKey = secretFileKey(envName);
   if (!fileKey) return undefined;
+  const v = s[fileKey];
+  return typeof v === "string" ? v.trim() : undefined;
+}
+
+export async function getServerSecretAsync(envName: string): Promise<string | undefined> {
+  const fromEnv = process.env[envName]?.trim();
+  if (fromEnv) return fromEnv;
+  const fileKey = secretFileKey(envName);
+  if (!fileKey) return undefined;
+  const s = await readStoredSettingsAsync();
   const v = s[fileKey];
   return typeof v === "string" ? v.trim() : undefined;
 }
@@ -105,6 +172,17 @@ export function getStoredVoiceOption(
   const fromEnv = process.env[envName]?.trim();
   if (fromEnv) return fromEnv;
   const s = readStoredSettings();
+  const v = s[fileKey];
+  return typeof v === "string" ? v.trim() : undefined;
+}
+
+export async function getStoredVoiceOptionAsync(
+  envName: string,
+  fileKey: keyof AdminStoredSettings,
+): Promise<string | undefined> {
+  const fromEnv = process.env[envName]?.trim();
+  if (fromEnv) return fromEnv;
+  const s = await readStoredSettingsAsync();
   const v = s[fileKey];
   return typeof v === "string" ? v.trim() : undefined;
 }

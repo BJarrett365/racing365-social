@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 
 type ElevenLabsVoice = {
   voice_id: string;
@@ -74,7 +74,7 @@ const FALLBACK_DEFAULTS: ElevenLabsVoice[] = [
 ];
 
 export async function GET() {
-  const key = getServerSecret("ELEVENLABS_API_KEY");
+  const key = await getServerSecretAsync("ELEVENLABS_API_KEY");
   if (!key) {
     const diagnostics = buildDiagnostics(FALLBACK_DEFAULTS);
     return NextResponse.json({

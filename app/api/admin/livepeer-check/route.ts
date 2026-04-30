@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdminWrite } from "@/app/lib/admin-auth";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 
 type Body = {
   adminToken?: string;
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   const denied = assertAdminWrite(request, body.adminToken);
   if (denied) return denied;
 
-  const key = body.livepeerApiKey?.trim() || getServerSecret("LIVEPEER_API_KEY");
+  const key = body.livepeerApiKey?.trim() || await getServerSecretAsync("LIVEPEER_API_KEY");
   if (!key) {
     return NextResponse.json(
       { error: "Livepeer API key required (LIVEPEER_API_KEY env or admin form)." },

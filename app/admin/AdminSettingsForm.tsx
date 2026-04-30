@@ -466,9 +466,9 @@ export function AdminSettingsForm() {
 
       <Panel title="API keys & tools">
         <p className="text-sm text-slate-400">
-          Values are stored server-side in <code className="text-slate-500">data/local/admin-settings.json</code>{" "}
-          (gitignored). Environment variables in <code className="text-slate-500">.env.local</code> still override
-          these when set.
+          Values are stored server-side. Local development uses{" "}
+          <code className="text-slate-500">data/local/admin-settings.json</code>; Netlify uses Netlify Blobs.
+          Environment variables in <code className="text-slate-500">.env.local</code> still override these when set.
         </p>
         {status && (
           <ul className="mt-4 flex flex-wrap gap-3 text-xs text-slate-500">

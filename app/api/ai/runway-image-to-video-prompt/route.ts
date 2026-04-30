@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 import type { RunwayBgBrand } from "@/app/lib/runway-background-prompt-types";
 import { getBrandGuidelinesAppendixForRunwayBrand } from "@/app/lib/brand-guidelines-store";
 import { resolveBuiltinPromptBody } from "@/app/lib/builtin-prompt-resolve";
@@ -64,7 +64,7 @@ function parsePayload(raw: unknown): { motion_prompt: string; duration: number }
 }
 
 export async function POST(request: Request) {
-  const key = getServerSecret("OPENAI_API_KEY");
+  const key = await getServerSecretAsync("OPENAI_API_KEY");
   if (!key) {
     return NextResponse.json({ error: "OpenAI API key is not configured." }, { status: 400 });
   }

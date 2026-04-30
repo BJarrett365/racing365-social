@@ -1,4 +1,4 @@
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 import { DummyAudioProvider } from "./dummy-audio-provider";
 import { ElevenLabsAudioProvider } from "./elevenlabs-provider";
 import { MacosSayAudioProvider } from "./macos-say-provider";
@@ -11,11 +11,11 @@ let audioSingleton: AudioProvider | null = null;
  * Voice priority: ElevenLabs → OpenAI TTS → macOS `say` (Darwin) → dummy/silent.
  * Set USE_MACOS_SAY=0 to skip local `say` and use dummy when no cloud keys.
  */
-function createDefaultAudioProvider(): AudioProvider {
-  if (getServerSecret("ELEVENLABS_API_KEY")) {
+async function createDefaultAudioProvider(): Promise<AudioProvider> {
+  if (await getServerSecretAsync("ELEVENLABS_API_KEY")) {
     return new ElevenLabsAudioProvider();
   }
-  if (getServerSecret("OPENAI_API_KEY")) {
+  if (await getServerSecretAsync("OPENAI_API_KEY")) {
     return new OpenAiTtsAudioProvider();
   }
   if (process.platform === "darwin" && process.env.USE_MACOS_SAY !== "0") {
@@ -24,9 +24,9 @@ function createDefaultAudioProvider(): AudioProvider {
   return new DummyAudioProvider();
 }
 
-export function getAudioProvider(): AudioProvider {
+export async function getAudioProvider(): Promise<AudioProvider> {
   if (!audioSingleton) {
-    audioSingleton = createDefaultAudioProvider();
+    audioSingleton = await createDefaultAudioProvider();
   }
   return audioSingleton;
 }

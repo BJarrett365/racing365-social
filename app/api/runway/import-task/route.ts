@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 import { isSafeContentId, saveRunwayImageBufferToLibraryBackground, saveVideoBufferToEditorUpload } from "@/app/lib/editor-upload";
 import { RUNWAY_API_BASE, RUNWAY_API_VERSION } from "@/app/lib/runway-api-constants";
 import { firstRunwayTaskOutputUrl } from "@/app/lib/runway-task-output";
@@ -12,7 +12,7 @@ type Body = {
 };
 
 export async function POST(request: Request) {
-  const key = getServerSecret("RUNWAYML_API_SECRET");
+  const key = await getServerSecretAsync("RUNWAYML_API_SECRET");
   if (!key) {
     return NextResponse.json({ error: "Runway API secret not configured." }, { status: 400 });
   }

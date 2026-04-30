@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdminWrite } from "@/app/lib/admin-auth";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 import { RESTREAM_OAUTH_SCOPES } from "@/features/live-control/lib/constants";
 import { restreamOAuthRedirectUrl } from "@/features/live-control/lib/app-public-base-url";
 import crypto from "crypto";
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const denied = assertAdminWrite(request);
   if (denied) return denied;
 
-  const clientId = getServerSecret("RESTREAM_CLIENT_ID");
+  const clientId = await getServerSecretAsync("RESTREAM_CLIENT_ID");
   if (!clientId) {
     return NextResponse.json({ error: "RESTREAM_CLIENT_ID is not configured." }, { status: 400 });
   }

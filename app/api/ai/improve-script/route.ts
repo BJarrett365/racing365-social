@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveBuiltinPromptBody } from "@/app/lib/builtin-prompt-resolve";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 import { IMPROVE_SCRIPT_SYSTEM_PROMPT } from "@/app/lib/prompts-catalog";
 
 type TonePreset = "Journalist" | "Punchy" | "Formal" | "Fast Tips";
@@ -129,7 +129,7 @@ function promptFrom(body: Body): string {
 }
 
 export async function POST(request: Request) {
-  const key = getServerSecret("OPENAI_API_KEY");
+  const key = await getServerSecretAsync("OPENAI_API_KEY");
   if (!key) {
     return NextResponse.json({ error: "OpenAI API key is not configured." }, { status: 400 });
   }

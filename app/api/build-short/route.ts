@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       ? Math.min(2, Math.max(0.5, speedRaw))
       : 1;
 
-    const audioPath = await getAudioProvider().resolveVoiceTrack(body.script, body.contentId, {
+    const audioPath = await (await getAudioProvider()).resolveVoiceTrack(body.script, body.contentId, {
       gender,
       speed,
       voiceId: body.elevenlabsVoiceId?.trim() || undefined,

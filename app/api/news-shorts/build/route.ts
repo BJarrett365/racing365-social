@@ -235,7 +235,7 @@ export async function POST(req: Request) {
         audioPath = path.join(outputDir(), ...norm.split("/"));
         await fs.access(audioPath);
       } else {
-        audioPath = await getAudioProvider().resolveVoiceTrack(script, contentId, {
+        audioPath = await (await getAudioProvider()).resolveVoiceTrack(script, contentId, {
           gender,
           speed,
           voiceId: body.elevenlabsVoiceId?.trim() || undefined,

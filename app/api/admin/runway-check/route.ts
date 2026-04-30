@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdminWrite } from "@/app/lib/admin-auth";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 
 const RUNWAY_API_BASE = "https://api.dev.runwayml.com";
 /** Required by Runway REST API; see https://docs.dev.runwayml.com */
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   const denied = assertAdminWrite(request, body.adminToken);
   if (denied) return denied;
 
-  const key = body.runwaymlApiKey?.trim() || getServerSecret("RUNWAYML_API_SECRET");
+  const key = body.runwaymlApiKey?.trim() || await getServerSecretAsync("RUNWAYML_API_SECRET");
   if (!key) {
     return NextResponse.json(
       { error: "No Runway API secret provided (set RUNWAYML_API_SECRET or store a key in admin settings)." },

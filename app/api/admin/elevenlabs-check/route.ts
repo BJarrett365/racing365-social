@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdminWrite } from "@/app/lib/admin-auth";
-import { getServerSecret, getStoredVoiceOption } from "@/app/lib/server-secrets";
+import { getServerSecretAsync, getStoredVoiceOptionAsync } from "@/app/lib/server-secrets";
 
 type Body = {
   adminToken?: string;
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   const denied = assertAdminWrite(request, body.adminToken);
   if (denied) return denied;
 
-  const key = body.elevenlabsApiKey?.trim() || getServerSecret("ELEVENLABS_API_KEY");
+  const key = body.elevenlabsApiKey?.trim() || await getServerSecretAsync("ELEVENLABS_API_KEY");
   if (!key) {
     return NextResponse.json(
       { error: "No ElevenLabs API key provided (or stored in admin settings)." },
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       return labels && typeof labels === "object" && Object.keys(labels as object).length > 0;
     });
 
-    const storedVoiceId = getStoredVoiceOption("ELEVENLABS_VOICE_ID", "elevenlabsVoiceId") || "";
+    const storedVoiceId = await getStoredVoiceOptionAsync("ELEVENLABS_VOICE_ID", "elevenlabsVoiceId") || "";
     const voiceId =
       storedVoiceId ||
       (defaultVoices[0] && typeof defaultVoices[0].voice_id === "string"
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         text: "Racing three six five audio check.",
-        model_id: getStoredVoiceOption("ELEVENLABS_MODEL", "elevenlabsModel") || "eleven_multilingual_v2",
+        model_id: await getStoredVoiceOptionAsync("ELEVENLABS_MODEL", "elevenlabsModel") || "eleven_multilingual_v2",
       }),
       cache: "no-store",
     });

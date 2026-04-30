@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 import { RUNWAY_API_BASE, RUNWAY_API_VERSION } from "@/app/lib/runway-api-constants";
 
 type Body = {
@@ -38,7 +38,7 @@ function validatePromptImage(raw: string): { ok: true; value: string } | { ok: f
 }
 
 export async function POST(request: Request) {
-  const key = getServerSecret("RUNWAYML_API_SECRET");
+  const key = await getServerSecretAsync("RUNWAYML_API_SECRET");
   if (!key) {
     return NextResponse.json(
       { error: "Runway API secret not configured (RUNWAYML_API_SECRET or admin settings)." },

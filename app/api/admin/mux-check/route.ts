@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdminWrite } from "@/app/lib/admin-auth";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 
 type Body = {
   adminToken?: string;
@@ -52,8 +52,8 @@ export async function POST(request: Request) {
   const denied = assertAdminWrite(request, body.adminToken);
   if (denied) return denied;
 
-  const rawId = body.muxTokenId?.trim() || getServerSecret("MUX_TOKEN_ID");
-  const rawSecret = body.muxTokenSecret?.trim() || getServerSecret("MUX_TOKEN_SECRET");
+  const rawId = body.muxTokenId?.trim() || await getServerSecretAsync("MUX_TOKEN_ID");
+  const rawSecret = body.muxTokenSecret?.trim() || await getServerSecretAsync("MUX_TOKEN_SECRET");
   const tokenId = rawId ? sanitizeMuxCredential(rawId) : "";
   const tokenSecret = rawSecret ? sanitizeMuxCredential(rawSecret) : "";
   if (!tokenId || !tokenSecret) {

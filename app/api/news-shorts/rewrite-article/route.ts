@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { decodeHtmlEntities } from "@/app/lib/html-entities";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 import { buildFfmpegPlan, makeSlideCopy, type ParsedNewsShortArticle } from "@/app/lib/news-shorts-parser";
 import {
   NEWS_SHORT_DEFAULT_STYLE,
@@ -84,7 +84,7 @@ function inferParagraphCountHint(customPrompt: string): string | null {
 }
 
 export async function POST(req: Request) {
-  const key = getServerSecret("OPENAI_API_KEY");
+  const key = await getServerSecretAsync("OPENAI_API_KEY");
   if (!key) {
     return NextResponse.json({ error: "OpenAI API key is not configured." }, { status: 400 });
   }

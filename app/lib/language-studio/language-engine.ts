@@ -1,5 +1,5 @@
 import { Translator } from "deepl-node";
-import { getServerSecret, readStoredSettings } from "@/app/lib/server-secrets";
+import { getServerSecretAsync, readStoredSettingsAsync } from "@/app/lib/server-secrets";
 import {
   LANGUAGE_LABELS,
   type LanguageArticle,
@@ -84,17 +84,18 @@ export function applyGlossary(text: string, glossary: LanguageGlossaryEntry[], t
   return applyProtectedTerms(output, glossary, targetLanguage);
 }
 
-function settingsProviderMode(): LanguageProviderMode {
-  const s = readStoredSettings();
+async function settingsProviderMode(): Promise<LanguageProviderMode> {
+  const s = await readStoredSettingsAsync();
   return s.languageProviderMode === "deepl" || s.languageProviderMode === "deepl-openai" ? s.languageProviderMode : "openai";
 }
 
-function openAiModel(): string {
-  return readStoredSettings().languageOpenaiModel?.trim() || process.env.LANGUAGE_OPENAI_MODEL?.trim() || "gpt-4o-mini";
+async function openAiModel(): Promise<string> {
+  const settings = await readStoredSettingsAsync();
+  return settings.languageOpenaiModel?.trim() || process.env.LANGUAGE_OPENAI_MODEL?.trim() || "gpt-4o-mini";
 }
 
 async function callOpenAiJson(prompt: string): Promise<TranslationFields> {
-  const key = getServerSecret("OPENAI_API_KEY");
+  const key = await getServerSecretAsync("OPENAI_API_KEY");
   if (!key) throw new Error("OpenAI API key is not configured.");
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -103,7 +104,7 @@ async function callOpenAiJson(prompt: string): Promise<TranslationFields> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: openAiModel(),
+      model: await openAiModel(),
       temperature: 0.35,
       messages: [
         {
@@ -153,7 +154,7 @@ async function callOpenAiJson(prompt: string): Promise<TranslationFields> {
 }
 
 async function translateWithDeepL(article: LanguageArticle, targetLanguage: LanguageCode): Promise<TranslationFields> {
-  const key = getServerSecret("DEEPL_API_KEY");
+  const key = await getServerSecretAsync("DEEPL_API_KEY");
   if (!key) throw new Error("DeepL API key is not configured.");
   const translator = new Translator(key);
   const target = targetLanguage === "en" ? "en-GB" : targetLanguage === "pt" ? "pt-PT" : targetLanguage === "zh" ? "zh-HANS" : targetLanguage.toUpperCase();
@@ -299,7 +300,7 @@ export async function translateField(text: string, targetLanguage: LanguageCode,
 }
 
 export async function translateContent(input: TranslateInput): Promise<TranslationFields> {
-  const providerMode = input.providerMode ?? settingsProviderMode();
+  const providerMode = input.providerMode ?? await settingsProviderMode();
   const mode = input.translationMode ?? "translate-localise";
   const glossary = input.glossary ?? [];
   let fields: TranslationFields;

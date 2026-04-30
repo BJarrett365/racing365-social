@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdminWrite } from "@/app/lib/admin-auth";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 
 type Body = {
   adminToken?: string;
@@ -38,8 +38,8 @@ export async function POST(request: Request) {
   const denied = assertAdminWrite(request, body.adminToken);
   if (denied) return denied;
 
-  const clientId = body.restreamClientId?.trim() || getServerSecret("RESTREAM_CLIENT_ID");
-  const clientSecret = body.restreamClientSecret?.trim() || getServerSecret("RESTREAM_CLIENT_SECRET");
+  const clientId = body.restreamClientId?.trim() || await getServerSecretAsync("RESTREAM_CLIENT_ID");
+  const clientSecret = body.restreamClientSecret?.trim() || await getServerSecretAsync("RESTREAM_CLIENT_SECRET");
   if (!clientId || !clientSecret) {
     return NextResponse.json(
       { error: "Restream client id and secret required (RESTREAM_* env or admin form)." },

@@ -44,7 +44,7 @@ export async function POST(req: Request) {
 
     const snippet = script.slice(0, VOICE_PREVIEW_MAX_CHARS);
 
-    const audioPath = await getAudioProvider().resolveVoiceTrack(snippet, previewId, {
+    const audioPath = await (await getAudioProvider()).resolveVoiceTrack(snippet, previewId, {
       gender,
       speed,
       voiceId: body.elevenlabsVoiceId?.trim() || undefined,

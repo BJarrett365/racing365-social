@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdminWrite } from "@/app/lib/admin-auth";
-import { mergeStoredSettings, readStoredSettings, type AdminStoredSettings } from "@/app/lib/server-secrets";
+import { mergeStoredSettingsAsync, readStoredSettingsAsync, type AdminStoredSettings } from "@/app/lib/server-secrets";
 
 type Body = {
   adminToken?: string;
@@ -19,7 +19,7 @@ function maskPreview(v: string | undefined) {
 }
 
 export async function GET() {
-  const s = readStoredSettings();
+  const s = await readStoredSettingsAsync();
   return NextResponse.json({
     providerMode: s.languageProviderMode ?? "openai",
     openaiModel: s.languageOpenaiModel ?? "gpt-4o-mini",
@@ -49,6 +49,6 @@ export async function POST(req: Request) {
     partial.languageProviderMode = body.languageProviderMode;
   }
   if (body.languageOpenaiModel?.trim()) partial.languageOpenaiModel = body.languageOpenaiModel.trim();
-  mergeStoredSettings(partial, clearKeys);
+  await mergeStoredSettingsAsync(partial, clearKeys);
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertAdminWrite } from "@/app/lib/admin-auth";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 
 type Body = {
   adminToken?: string;
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const denied = assertAdminWrite(request, body.adminToken);
   if (denied) return denied;
 
-  const key = body.openaiApiKey?.trim() || getServerSecret("OPENAI_API_KEY");
+  const key = body.openaiApiKey?.trim() || await getServerSecretAsync("OPENAI_API_KEY");
   if (!key) {
     return NextResponse.json(
       { error: "No OpenAI API key provided (or stored in admin settings)." },

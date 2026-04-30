@@ -7,7 +7,7 @@ import {
   type MusicPromptInput,
 } from "@/app/lib/elevenlabs-music-prompt";
 import { isSafeContentId, normalizeContentIdForFilename } from "@/app/lib/editor-upload";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 import { outputDir } from "@/app/lib/paths";
 
 const ELEVENLABS_MUSIC_URL = "https://api.elevenlabs.io/v1/music";
@@ -70,7 +70,7 @@ function parseBody(json: unknown): {
 
 export async function POST(req: Request) {
   try {
-    const apiKey = getServerSecret("ELEVENLABS_API_KEY");
+    const apiKey = await getServerSecretAsync("ELEVENLABS_API_KEY");
     if (!apiKey) {
       return NextResponse.json(
         { error: "ELEVENLABS_API_KEY is not configured (env or admin settings)." },

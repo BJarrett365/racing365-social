@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 import { readGuardRails, type GuardRailFormat } from "@/app/lib/guard-rails-store";
 import { getBrandGuidelinesAppendixForFormat } from "@/app/lib/brand-guidelines-store";
 import { resolveBuiltinPromptBody } from "@/app/lib/builtin-prompt-resolve";
@@ -129,7 +129,7 @@ function buildPrompt(body: Body, brandGuidelinesAppendix: string | undefined, ap
 }
 
 export async function POST(request: Request) {
-  const key = getServerSecret("OPENAI_API_KEY");
+  const key = await getServerSecretAsync("OPENAI_API_KEY");
   if (!key) {
     return NextResponse.json({ error: "OpenAI API key is not configured." }, { status: 400 });
   }

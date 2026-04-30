@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { outputAudioDir } from "@/app/lib/paths";
-import { getServerSecret, getStoredVoiceOption } from "@/app/lib/server-secrets";
+import { getServerSecretAsync, getStoredVoiceOptionAsync } from "@/app/lib/server-secrets";
 import type { AudioProvider, VoiceTrackOptions } from "./types";
 
 /** OpenAI Text-to-Speech — natural voices, no separate ElevenLabs account */
@@ -11,12 +11,12 @@ export class OpenAiTtsAudioProvider implements AudioProvider {
     contentId: string,
     options?: VoiceTrackOptions,
   ): Promise<string> {
-    const key = getServerSecret("OPENAI_API_KEY");
+    const key = await getServerSecretAsync("OPENAI_API_KEY");
     if (!key) {
       throw new Error("OPENAI_API_KEY is required for OpenAI TTS");
     }
 
-    const stored = getStoredVoiceOption("OPENAI_TTS_VOICE", "openaiTtsVoice");
+    const stored = await getStoredVoiceOptionAsync("OPENAI_TTS_VOICE", "openaiTtsVoice");
     let voice: string;
     if (options?.gender === "male") {
       voice = process.env.OPENAI_TTS_VOICE_MALE?.trim() || "onyx";
@@ -25,7 +25,7 @@ export class OpenAiTtsAudioProvider implements AudioProvider {
     } else {
       voice = stored || "nova";
     }
-    const model = getStoredVoiceOption("OPENAI_TTS_MODEL", "openaiTtsModel") || "tts-1";
+    const model = await getStoredVoiceOptionAsync("OPENAI_TTS_MODEL", "openaiTtsModel") || "tts-1";
     const text = script.trim().slice(0, 4096);
     const speed = Math.min(4, Math.max(0.25, options?.speed ?? 1));
 

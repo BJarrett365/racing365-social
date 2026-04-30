@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { assertAdminWrite } from "@/app/lib/admin-auth";
 import {
-  mergeStoredSettings,
-  readStoredSettings,
+  mergeStoredSettingsAsync,
+  readStoredSettingsAsync,
   type AdminStoredSettings,
 } from "@/app/lib/server-secrets";
 
@@ -34,7 +34,7 @@ type Body = {
 };
 
 export async function GET() {
-  const s = readStoredSettings();
+  const s = await readStoredSettingsAsync();
   const mask = (v: string | undefined) => (v && v.length > 0 ? true : false);
   const maskPreview = (v: string | undefined) => {
     const raw = (v ?? "").trim();
@@ -115,7 +115,7 @@ export async function POST(request: Request) {
   if (body.elevenlabsVoiceId?.trim()) partial.elevenlabsVoiceId = body.elevenlabsVoiceId.trim();
   if (body.elevenlabsModel?.trim()) partial.elevenlabsModel = body.elevenlabsModel.trim();
 
-  mergeStoredSettings(partial, clearKeys);
+  await mergeStoredSettingsAsync(partial, clearKeys);
 
   const { resetFfmpegBinaryCache } = await import("@/app/features/video/ffmpeg-utils");
   const { resetAudioProvider } = await import("@/app/features/audio");

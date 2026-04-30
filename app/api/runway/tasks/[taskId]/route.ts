@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSecret } from "@/app/lib/server-secrets";
+import { getServerSecretAsync } from "@/app/lib/server-secrets";
 import { RUNWAY_API_BASE, RUNWAY_API_VERSION } from "@/app/lib/runway-api-constants";
 
 export async function GET(_request: Request, ctx: { params: Promise<{ taskId: string }> }) {
-  const key = getServerSecret("RUNWAYML_API_SECRET");
+  const key = await getServerSecretAsync("RUNWAYML_API_SECRET");
   if (!key) {
     return NextResponse.json({ error: "Runway API secret not configured." }, { status: 400 });
   }

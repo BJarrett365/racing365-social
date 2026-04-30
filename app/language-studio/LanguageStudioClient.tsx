@@ -257,8 +257,16 @@ export function LanguageStudioClient() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Import failed");
-      const savedImages = Array.isArray(data.articles) ? data.articles.filter((article: Article) => article.imageLibraryRel).length : 0;
-      setMessage(`${data.articles?.length ?? 0} article(s) imported. ${savedImages} image(s) saved to Library.`);
+      const importedArticles = Array.isArray(data.articles) ? data.articles as Article[] : [];
+      const savedImages = importedArticles.filter((article) => article.imageLibraryRel).length;
+      if (importedArticles.length > 0) {
+        setArticles(importedArticles);
+        setSelectedArticleId(importedArticles[0]?.id ?? "");
+        setSelectedArticleIds(importedArticles.map((article) => article.id));
+      }
+      setMessage(
+        `${importedArticles.length} article(s) imported (${data.createdCount ?? 0} new, ${data.updatedCount ?? 0} updated). ${savedImages} image(s) saved to Library.`,
+      );
       setTab("Translations");
     });
 
@@ -600,6 +608,15 @@ function ArticleList({
   onSelect: (id: string) => void;
   onToggle: (id: string) => void;
 }) {
+  if (articles.length === 0) {
+    return (
+      <div className="rounded-lg border border-[#1f2d26] bg-black/20 p-4 text-sm text-slate-400">
+        No imported articles found yet. Run an import from the Imports tab, then check the success message for the
+        parsed article count.
+      </div>
+    );
+  }
+
   return (
     <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
       {articles.map((article) => {

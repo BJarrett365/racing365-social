@@ -523,6 +523,7 @@ export function LanguageStudioClient() {
 
   const importFeed = () =>
     run(async () => {
+      const selectedSourceBrand = sourceBrands.find((row) => row.name === sourceBrand);
       const res = await fetch("/api/language/import/xml", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -531,6 +532,7 @@ export function LanguageStudioClient() {
           xml: xml.trim() || undefined,
           sourceBrand,
           sourceLanguage,
+          parserType: selectedSourceBrand?.parserType,
           processImages,
           importFullArticles,
         }),

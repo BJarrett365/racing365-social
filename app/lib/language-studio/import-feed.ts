@@ -6,7 +6,9 @@ import {
   writeLanguageStudioData,
 } from "@/app/lib/language-studio/store";
 import { parseLanguageXmlFeed } from "@/app/lib/language-studio/xml";
-import type { LanguageArticle, LanguageCode, LanguageImport, LanguageJournalistProfile } from "@/app/lib/language-studio/types";
+import { decodeHtmlEntities } from "@/app/lib/html-entities";
+import { sanitizeImportedContent } from "@/app/lib/language-studio/sanitize";
+import type { LanguageArticle, LanguageCode, LanguageImport, LanguageJournalistProfile, LanguageSourceParserType } from "@/app/lib/language-studio/types";
 
 export const DEFAULT_LANGUAGE_FEED_URL = "https://www.planetf1.com/partner-media-content-feed";
 
@@ -17,6 +19,7 @@ export type ImportLanguageFeedInput = {
   xml?: string;
   processImages?: boolean;
   importFullArticles?: boolean;
+  parserType?: LanguageSourceParserType;
 };
 
 export type ImportLanguageFeedResult = {
@@ -132,16 +135,131 @@ async function fetchXml(sourceUrl: string): Promise<string> {
   return extractXmlPayload(await res.text());
 }
 
+async function fetchHtml(sourceUrl: string): Promise<string> {
+  const res = await fetch(sourceUrl, {
+    cache: "no-store",
+    headers: { "user-agent": "PLEXA Language Studio/1.0", accept: "text/html,application/xhtml+xml,*/*" },
+  });
+  if (!res.ok) throw new Error(`Could not fetch HTML page (${res.status}).`);
+  return res.text();
+}
+
+function textFromHtml(html: string): string {
+  return decodeHtmlEntities(
+    sanitizeImportedContent(html)
+      .replace(/<script\b[\s\S]*?<\/script>/gi, "")
+      .replace(/<style\b[\s\S]*?<\/style>/gi, "")
+      .replace(/<noscript\b[\s\S]*?<\/noscript>/gi, "")
+      .replace(/<(h[1-6]|p|li|blockquote|br|div|section|article)\b[^>]*>/gi, "\n")
+      .replace(/<\/(h[1-6]|p|li|blockquote|div|section|article)>/gi, "\n")
+      .replace(/<[^>]+>/g, " "),
+  )
+    .split(/\n+/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .filter((line, index, all) => all.indexOf(line) === index)
+    .join("\n\n")
+    .trim();
+}
+
+function firstHtmlMeta(html: string, names: string[]): string {
+  const tags = html.match(/<meta\b[^>]*>/gi) ?? [];
+  for (const name of names) {
+    for (const tag of tags) {
+      const nameMatch = /\b(?:name|property)=["']([^"']+)["']/i.exec(tag);
+      if (!nameMatch || nameMatch[1].toLowerCase() !== name.toLowerCase()) continue;
+      const contentMatch = /\bcontent=(["'])([\s\S]*?)\1/i.exec(tag);
+      if (contentMatch?.[2]) return decodeHtmlEntities(contentMatch[2]).trim();
+    }
+  }
+  return "";
+}
+
+function htmlTitle(html: string, fallback: string): string {
+  const ogTitle = firstHtmlMeta(html, ["og:title", "twitter:title"]);
+  if (ogTitle) return ogTitle;
+  const title = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1];
+  return decodeHtmlEntities(title ?? fallback).replace(/\s+/g, " ").trim();
+}
+
+function absoluteUrl(href: string, sourceUrl: string): string {
+  try {
+    return new URL(href, sourceUrl).toString();
+  } catch {
+    return "";
+  }
+}
+
+function extractHtmlPageArticles(html: string, opts: { importId: string; sourceBrand: string; sourceLanguage: LanguageCode; sourceUrl: string }): { feedTitle: string; articles: LanguageArticle[] } {
+  const now = new Date().toISOString();
+  const source = new URL(opts.sourceUrl);
+  const linkMatches = [...html.matchAll(/<a\b[^>]*href=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi)];
+  const candidates = new Map<string, string>();
+  for (const match of linkMatches) {
+    const href = absoluteUrl(match[2], opts.sourceUrl);
+    if (!href) continue;
+    const url = new URL(href);
+    if (url.hostname.replace(/^www\./, "") !== source.hostname.replace(/^www\./, "")) continue;
+    if (!url.pathname.toLowerCase().includes("news")) continue;
+    const title = textFromHtml(match[3]).replace(/\s+/g, " ").trim();
+    if (title.length < 12 || /^(news|more|read more|latest)$/i.test(title)) continue;
+    if (!candidates.has(href)) candidates.set(href, title);
+    if (candidates.size >= 25) break;
+  }
+
+  const links = [...candidates.entries()];
+  const feedTitle = htmlTitle(html, opts.sourceBrand);
+  const baseArticles = links.length
+    ? links.map(([canonicalUrl, title], index) => ({ canonicalUrl, title, index }))
+    : [{ canonicalUrl: opts.sourceUrl, title: feedTitle, index: 0 }];
+
+  return {
+    feedTitle,
+    articles: baseArticles.map(({ canonicalUrl, title, index }) => {
+      const description = firstHtmlMeta(html, ["description", "og:description"]);
+      const body = links.length ? description || title : textFromHtml(html);
+      const article: LanguageArticle = {
+        id: newLanguageId("larticle"),
+        importId: opts.importId,
+        sourceBrand: opts.sourceBrand,
+        sourceLanguage: opts.sourceLanguage,
+        sourceUrl: opts.sourceUrl,
+        canonicalUrl,
+        sourceArticleId: `${opts.importId}-${index + 1}`,
+        author: opts.sourceBrand,
+        publishDate: "",
+        modifiedDate: "",
+        category: "",
+        tags: [],
+        imageUrl: firstHtmlMeta(html, ["og:image", "twitter:image"]),
+        title,
+        standfirst: description,
+        body: sanitizeImportedContent(body),
+        socialEmbeds: [],
+        seoTitle: title,
+        metaDescription: description.slice(0, 180),
+        slug: title.toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 90),
+        status: "imported",
+        createdAt: now,
+        updatedAt: now,
+      };
+      return article;
+    }),
+  };
+}
+
 export async function importLanguageFeed(input: ImportLanguageFeedInput): Promise<ImportLanguageFeedResult> {
   const sourceBrand = input.sourceBrand?.trim() || "PlanetF1";
   const sourceLanguage = input.sourceLanguage || "en";
   const sourceUrl = input.sourceUrl?.trim();
   let xml = extractXmlPayload(input.xml?.trim() || "");
-  if (!xml && sourceUrl) xml = await fetchXml(sourceUrl);
-  if (!xml) throw new Error("XML content or sourceUrl is required.");
+  if (!xml && sourceUrl && input.parserType !== "html-page") xml = await fetchXml(sourceUrl);
+  if (!xml && input.parserType !== "html-page") throw new Error("XML content or sourceUrl is required.");
 
   const importId = newLanguageId("limport");
-  const parsed = parseLanguageXmlFeed(xml, { importId, sourceBrand, sourceLanguage, sourceUrl });
+  const parsed = input.parserType === "html-page" && sourceUrl
+    ? extractHtmlPageArticles(await fetchHtml(sourceUrl), { importId, sourceBrand, sourceLanguage, sourceUrl })
+    : parseLanguageXmlFeed(xml, { importId, sourceBrand, sourceLanguage, sourceUrl });
   const fullArticles = input.importFullArticles === false
     ? parsed.articles
     : await enrichLanguageArticlesFromPages(parsed.articles);

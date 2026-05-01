@@ -13,6 +13,14 @@ const parser = new XMLParser({
   cdataPropName: "__cdata",
   parseTagValue: false,
   trimValues: true,
+  stopNodes: [
+    "*.content:encoded",
+    "*.content",
+    "*.atom:content",
+    "*.description",
+    "*.summary",
+    "*.media:description",
+  ],
 });
 
 function arr<T>(value: T | T[] | undefined): T[] {

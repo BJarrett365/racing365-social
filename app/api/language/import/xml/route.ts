@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { importLanguageFeed } from "@/app/lib/language-studio/import-feed";
-import type { LanguageCode } from "@/app/lib/language-studio/types";
+import type { LanguageCode, LanguageSourceParserType } from "@/app/lib/language-studio/types";
 
 type Body = {
   sourceBrand?: string;
@@ -9,6 +9,7 @@ type Body = {
   xml?: string;
   processImages?: boolean;
   importFullArticles?: boolean;
+  parserType?: LanguageSourceParserType;
 };
 
 export async function POST(req: Request) {

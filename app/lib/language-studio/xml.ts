@@ -208,6 +208,15 @@ export function buildTranslationXml(
         title: { __cdata: translation.title },
         standfirst: { __cdata: translation.standfirst },
         body: { __cdata: translation.body },
+        socialPosts: {
+          post: (translation.socialPosts ?? []).map((post) => ({
+            platform: post.platform,
+            headline: { __cdata: post.headline ?? "" },
+            text: { __cdata: post.text },
+            callToAction: { __cdata: post.callToAction ?? "" },
+            hashtags: { tag: post.hashtags ?? [] },
+          })),
+        },
         seoTitle: { __cdata: translation.seoTitle },
         metaDescription: { __cdata: translation.metaDescription },
         slug: translation.slug,
@@ -240,6 +249,7 @@ export function buildTranslationJson(
       title: translation.title,
       standfirst: translation.standfirst,
       body: translation.body,
+      socialPosts: translation.socialPosts ?? [],
       seoTitle: translation.seoTitle,
       metaDescription: translation.metaDescription,
       slug: translation.slug,

@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
-import { translateContent } from "@/app/lib/language-studio/language-engine";
+import { stripArticleMetadataLines, stripGeneratedArticleMetadataLines } from "@/app/lib/language-studio/article-pages";
+import { generateSocialPosts, translateContent } from "@/app/lib/language-studio/language-engine";
 import {
   newLanguageId,
   readLanguageStudioData,
   writeLanguageStudioData,
 } from "@/app/lib/language-studio/store";
 import type {
+  LanguageContentStyle,
   LanguageCode,
+  LanguageJournalistProfile,
   LanguageProviderMode,
+  LanguageSportContext,
   LanguageTranslation,
   TranslationMode,
 } from "@/app/lib/language-studio/types";
@@ -18,7 +22,28 @@ type Body = {
   targetLanguages?: LanguageCode[];
   providerMode?: LanguageProviderMode;
   translationMode?: TranslationMode;
+  journalistProfileId?: string;
+  rewriteStyle?: string;
+  journalistStyle?: string;
+  editorialGuidelines?: string;
+  contentStyle?: LanguageContentStyle;
+  sportContext?: LanguageSportContext;
 };
+
+function profileForArticle(profiles: LanguageJournalistProfile[], article: { author?: string; sourceBrand: string }, selectedId?: string): LanguageJournalistProfile | undefined {
+  if (selectedId) return profiles.find((profile) => profile.id === selectedId && profile.active);
+  const author = article.author?.trim().toLowerCase();
+  if (!author) return undefined;
+  return profiles.find((profile) => profile.active && profile.brand === article.sourceBrand && profile.name.trim().toLowerCase() === author);
+}
+
+function hasCompleteSocialPosts(row: Pick<LanguageTranslation, "socialPosts">): boolean {
+  const required = new Set(["appAlerts", "facebook", "x", "instagram", "youtube", "tiktok", "whatsapp", "telegram"]);
+  for (const post of row.socialPosts ?? []) {
+    if (post.text.trim()) required.delete(post.platform);
+  }
+  return required.size === 0;
+}
 
 export async function POST(req: Request) {
   let body: Body;
@@ -43,15 +68,25 @@ export async function POST(req: Request) {
     const now = new Date().toISOString();
     const translations: LanguageTranslation[] = [];
 
-    for (const article of articles) {
+    for (const sourceArticle of articles) {
+      const article = {
+        ...sourceArticle,
+        body: stripArticleMetadataLines(sourceArticle.body, sourceArticle),
+      };
       const glossary = Object.values(data.glossary).filter((entry) => entry.brand === article.sourceBrand || entry.brand === "Global");
       const rules = Object.values(data.rules).filter((rule) => rule.brand === article.sourceBrand || rule.brand === "Global");
+      const profile = profileForArticle(Object.values(data.journalistProfiles), article, body.journalistProfileId);
       for (const targetLanguage of targetLanguages) {
         const fields = await translateContent({
           article,
           targetLanguage,
           providerMode: body.providerMode,
           translationMode: body.translationMode ?? "translate-localise",
+          rewriteStyle: body.rewriteStyle,
+          journalistStyle: body.journalistStyle || (profile ? `${profile.name} (${profile.brand})\n${profile.styleNotes}` : undefined),
+          editorialGuidelines: body.editorialGuidelines || profile?.articleGuidelines,
+          contentStyle: body.contentStyle,
+          sportContext: body.sportContext,
           glossary,
           rules,
           guardrails: Object.values(data.guardrails),
@@ -59,6 +94,7 @@ export async function POST(req: Request) {
           marketRules: Object.values(data.marketRules),
           sportRules: Object.values(data.sportRules),
           promptRules: Object.values(data.promptRules),
+          knowledgeFiles: Object.values(data.knowledgeFiles),
           complianceNotes: Object.values(data.complianceNotes),
         });
         const row: LanguageTranslation = {
@@ -71,7 +107,15 @@ export async function POST(req: Request) {
           createdAt: now,
           updatedAt: now,
           ...fields,
+          body: stripGeneratedArticleMetadataLines(fields.body, article, fields.title),
         };
+        if (!hasCompleteSocialPosts(row)) {
+          row.socialPosts = await generateSocialPosts({
+            article,
+            translation: row,
+            knowledgeFiles: Object.values(data.knowledgeFiles),
+          });
+        }
         data.translations[row.id] = row;
         article.status = "translated";
         article.updatedAt = now;

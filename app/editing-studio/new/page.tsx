@@ -4,7 +4,7 @@ import { BRAND_SUITE } from "@/app/lib/brand";
 import { EditingStudioNewProjectClient } from "@/features/editing-studio/components/EditingStudioNewProjectClient";
 
 export const metadata: Metadata = {
-  title: `New project | Editing Studio | ${BRAND_SUITE}`,
+  title: `New project | Schedule Studio | ${BRAND_SUITE}`,
 };
 
 function NewProjectFallback() {

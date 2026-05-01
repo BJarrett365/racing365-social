@@ -6,7 +6,7 @@ import {
   writeLanguageStudioData,
 } from "@/app/lib/language-studio/store";
 import { parseLanguageXmlFeed } from "@/app/lib/language-studio/xml";
-import type { LanguageArticle, LanguageCode, LanguageImport } from "@/app/lib/language-studio/types";
+import type { LanguageArticle, LanguageCode, LanguageImport, LanguageJournalistProfile } from "@/app/lib/language-studio/types";
 
 export const DEFAULT_LANGUAGE_FEED_URL = "https://www.planetf1.com/partner-media-content-feed";
 
@@ -22,6 +22,7 @@ export type ImportLanguageFeedInput = {
 export type ImportLanguageFeedResult = {
   import: LanguageImport;
   articles: LanguageArticle[];
+  journalistProfiles: LanguageJournalistProfile[];
   createdCount: number;
   updatedCount: number;
   imageCount: number;
@@ -37,9 +38,89 @@ export function extractXmlPayload(input: string): string {
   return input.trim();
 }
 
-function articleKey(article: Pick<LanguageArticle, "sourceBrand" | "sourceArticleId" | "canonicalUrl">): string {
-  const sourceKey = article.sourceArticleId?.trim() || article.canonicalUrl?.trim() || "";
-  return `${article.sourceBrand.trim().toLowerCase()}::${sourceKey.toLowerCase()}`;
+function normaliseArticleUrl(value?: string): string {
+  if (!value?.trim()) return "";
+  try {
+    const url = new URL(value.trim());
+    url.hash = "";
+    url.search = "";
+    return url.toString().replace(/\/$/, "").toLowerCase();
+  } catch {
+    return value.trim().replace(/[?#].*$/, "").replace(/\/$/, "").toLowerCase();
+  }
+}
+
+function articleKeys(article: Pick<LanguageArticle, "sourceBrand" | "sourceArticleId" | "canonicalUrl" | "title" | "publishDate">): string[] {
+  const brand = article.sourceBrand.trim().toLowerCase();
+  const keys = new Set<string>();
+  const sourceId = article.sourceArticleId?.trim();
+  const canonical = normaliseArticleUrl(article.canonicalUrl);
+  if (canonical) keys.add(`${brand}::url::${canonical}`);
+  if (sourceId && !/^limport-/i.test(sourceId)) keys.add(`${brand}::id::${sourceId.toLowerCase()}`);
+  if (article.title?.trim()) keys.add(`${brand}::title::${article.title.trim().toLowerCase()}::${article.publishDate?.trim().toLowerCase() ?? ""}`);
+  return [...keys];
+}
+
+function articlePrimaryKey(article: Pick<LanguageArticle, "sourceBrand" | "sourceArticleId" | "canonicalUrl" | "title" | "publishDate">): string {
+  return articleKeys(article)[0] ?? `${article.sourceBrand.trim().toLowerCase()}::unknown::${article.title.trim().toLowerCase()}`;
+}
+
+function journalistKey(brand: string, name: string): string {
+  return `${brand.trim().toLowerCase()}::${name.trim().toLowerCase()}`;
+}
+
+function inferSports(brand: string, articles: LanguageArticle[]): string[] {
+  const sports = new Set<string>();
+  if (/f1|formula/i.test(brand)) sports.add("Formula 1");
+  if (/football|365/i.test(brand)) sports.add("Football");
+  for (const article of articles) {
+    if (article.category) sports.add(article.category);
+    for (const tag of article.tags.slice(0, 4)) sports.add(tag);
+  }
+  return [...sports].slice(0, 8);
+}
+
+function sentenceStats(text: string): { avgWords: number; paragraphCount: number; hasQuotes: boolean } {
+  const sentences = text.split(/[.!?]+/).map((row) => row.trim()).filter((row) => row.split(/\s+/).length > 3);
+  const words = sentences.flatMap((row) => row.split(/\s+/).filter(Boolean));
+  return {
+    avgWords: sentences.length ? Math.round(words.length / sentences.length) : 0,
+    paragraphCount: text.split(/\n{2,}|\n/).map((row) => row.trim()).filter(Boolean).length,
+    hasQuotes: /["“”']/.test(text),
+  };
+}
+
+function buildJournalistStyleNotes(name: string, brand: string, samples: LanguageArticle[]): string {
+  const titles = samples.map((article) => article.title).filter(Boolean);
+  const bodies = samples.map((article) => article.body).filter(Boolean);
+  const stats = sentenceStats(bodies.join("\n\n"));
+  const quoted = samples.filter((article) => /["“”']/.test(`${article.title} ${article.body}`)).length;
+  const questionTitles = titles.filter((title) => title.includes("?")).length;
+  const explainerTitles = titles.filter((title) => /\b(explains?|why|how|reveals?|warns?|claims?|verdict|analysis)\b/i.test(title)).length;
+  const listTitles = titles.filter((title) => /\b\d+\b/.test(title)).length;
+  const titleSignals = [
+    questionTitles ? "uses question-led headlines when the angle needs tension" : "",
+    explainerTitles ? "leans into explainers, warnings, claims and analysis-led angles" : "",
+    listTitles ? "uses numbered/detail-led hooks when useful" : "",
+  ].filter(Boolean);
+
+  return [
+    `Built from ${samples.length} imported ${brand} article${samples.length === 1 ? "" : "s"} by ${name}.`,
+    `Observed structure: ${stats.paragraphCount > samples.length * 10 ? "short, frequent paragraphs" : "moderate paragraphing"} with ${stats.avgWords ? `around ${stats.avgWords} words per sentence on average` : "a concise sentence style"}.`,
+    `Tone: factual sports news voice, direct intro, clear attribution and reader-friendly context. Avoid hype unless the source facts justify it.`,
+    quoted ? `Quote handling: quote-heavy profile (${quoted}/${samples.length} samples include quotes); preserve quote boundaries and attribution.` : "Quote handling: preserve quote boundaries and attribution where present.",
+    titleSignals.length ? `Headline habits: ${titleSignals.join("; ")}.` : "Headline habits: clear subject-led headlines with the main news angle upfront.",
+    titles.slice(0, 5).length ? `Example headline patterns: ${titles.slice(0, 5).join(" | ")}` : "",
+  ].filter(Boolean).join("\n");
+}
+
+function buildJournalistGuidelines(name: string): string {
+  return [
+    `Use ${name}'s observed profile as a style guide for structure, pace and tone only.`,
+    "Do not copy phrases from sample articles unless they are proper nouns or unavoidable factual wording.",
+    "Preserve all facts, names, numbers, dates, results and direct quotes.",
+    "For rewrites, create fresh paragraph order and original phrasing while keeping the source meaning intact.",
+  ].join("\n");
 }
 
 async function fetchXml(sourceUrl: string): Promise<string> {
@@ -64,10 +145,7 @@ export async function importLanguageFeed(input: ImportLanguageFeedInput): Promis
   const fullArticles = input.importFullArticles === false
     ? parsed.articles
     : await enrichLanguageArticlesFromPages(parsed.articles);
-  const processedArticles = input.processImages === false
-    ? fullArticles
-    : await saveLanguageArticleImagesToLibrary(fullArticles);
-  const articlesWithSocialEmbeds = processedArticles.map((article) => {
+  const articlesWithSocialEmbeds = fullArticles.map((article) => {
     if (article.socialEmbeds?.length) return article;
     const social = extractSocialEmbedsFromBody(article.body);
     return social.socialEmbeds.length
@@ -77,20 +155,32 @@ export async function importLanguageFeed(input: ImportLanguageFeedInput): Promis
 
   const existing = await readLanguageStudioData();
   const existingByKey = new Map<string, LanguageArticle>();
+  const existingImageByUrl = new Map<string, string>();
   for (const article of Object.values(existing.articles)) {
-    const key = articleKey(article);
-    if (key.endsWith("::")) continue;
-    existingByKey.set(key, article);
+    for (const key of articleKeys(article)) existingByKey.set(key, article);
+    const imageUrl = article.imageUrl?.trim();
+    if (imageUrl && article.imageLibraryRel) existingImageByUrl.set(imageUrl, article.imageLibraryRel);
+  }
+  const existingJournalists = new Map<string, string>();
+  for (const profile of Object.values(existing.journalistProfiles)) {
+    existingJournalists.set(journalistKey(profile.brand, profile.name), profile.id);
   }
 
   let createdCount = 0;
   let updatedCount = 0;
   const now = new Date().toISOString();
-  const articles = articlesWithSocialEmbeds.map((article) => {
-    const match = existingByKey.get(articleKey(article));
+  const incomingByKey = new Map<string, LanguageArticle>();
+  for (const article of articlesWithSocialEmbeds) {
+    incomingByKey.set(articlePrimaryKey(article), article);
+  }
+  const matchedArticles = [...incomingByKey.values()].map((article) => {
+    const match = articleKeys(article).map((key) => existingByKey.get(key)).find(Boolean);
     if (!match) {
       createdCount += 1;
-      return article;
+      return {
+        ...article,
+        imageLibraryRel: article.imageUrl ? existingImageByUrl.get(article.imageUrl.trim()) ?? article.imageLibraryRel : article.imageLibraryRel,
+      };
     }
     updatedCount += 1;
     return {
@@ -99,9 +189,13 @@ export async function importLanguageFeed(input: ImportLanguageFeedInput): Promis
       id: match.id,
       createdAt: match.createdAt,
       status: match.status,
+      imageLibraryRel: match.imageUrl === article.imageUrl && match.imageLibraryRel ? match.imageLibraryRel : article.imageLibraryRel,
       updatedAt: now,
     };
   });
+  const articles = input.processImages === false
+    ? matchedArticles
+    : await saveLanguageArticleImagesToLibrary(matchedArticles);
 
   const row: LanguageImport = {
     id: importId,
@@ -114,6 +208,52 @@ export async function importLanguageFeed(input: ImportLanguageFeedInput): Promis
   };
   existing.imports[row.id] = row;
   for (const article of articles) existing.articles[article.id] = article;
+  const updatedJournalistProfiles = new Map<string, LanguageJournalistProfile>();
+  for (const article of articles) {
+    const author = article.author?.trim();
+    if (!author) continue;
+    const key = journalistKey(article.sourceBrand, author);
+    const samples = [...Object.values(existing.articles), ...articles]
+      .filter((row) => row.author?.trim().toLowerCase() === author.toLowerCase() && row.sourceBrand === article.sourceBrand)
+      .filter((row, index, rows) => rows.findIndex((candidate) => candidate.id === row.id) === index)
+      .slice(0, 20);
+    const existingId = existingJournalists.get(key);
+    if (existingId) {
+      const profile = existing.journalistProfiles[existingId];
+      if (profile && !profile.sampleArticleIds.includes(article.id)) {
+        profile.sampleArticleIds = [article.id, ...profile.sampleArticleIds].slice(0, 12);
+        profile.exampleTitles = [article.title, ...profile.exampleTitles.filter((title) => title !== article.title)].slice(0, 8);
+      }
+      if (profile) {
+        profile.sports = inferSports(article.sourceBrand, samples);
+        if (profile.source === "imported" || profile.styleNotes.startsWith("Imported author profile.")) {
+          profile.styleNotes = buildJournalistStyleNotes(author, article.sourceBrand, samples);
+          profile.articleGuidelines = buildJournalistGuidelines(author);
+        }
+        profile.updatedAt = now;
+        updatedJournalistProfiles.set(profile.id, profile);
+      }
+      continue;
+    }
+    const profileId = newLanguageId("ljournalist");
+    existingJournalists.set(key, profileId);
+    const profile: LanguageJournalistProfile = {
+      id: profileId,
+      name: author,
+      brand: article.sourceBrand,
+      sports: inferSports(article.sourceBrand, samples),
+      styleNotes: buildJournalistStyleNotes(author, article.sourceBrand, samples),
+      articleGuidelines: buildJournalistGuidelines(author),
+      exampleTitles: article.title ? [article.title] : [],
+      sampleArticleIds: [article.id],
+      source: "imported",
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    existing.journalistProfiles[profileId] = profile;
+    updatedJournalistProfiles.set(profile.id, profile);
+  }
   const auditId = newLanguageId("laudit");
   existing.auditLogs[auditId] = {
     id: auditId,
@@ -128,6 +268,7 @@ export async function importLanguageFeed(input: ImportLanguageFeedInput): Promis
   return {
     import: row,
     articles,
+    journalistProfiles: [...updatedJournalistProfiles.values()],
     createdCount,
     updatedCount,
     imageCount: articles.filter((article) => article.imageLibraryRel).length,

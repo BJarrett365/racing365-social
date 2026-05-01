@@ -41,6 +41,7 @@ function fileSafeSlug(input: string): string {
 }
 
 export async function saveLanguageArticleImageToLibrary(article: LanguageArticle): Promise<string | undefined> {
+  if (article.imageLibraryRel?.trim()) return article.imageLibraryRel;
   const imageUrl = article.imageUrl?.trim();
   if (!imageUrl || !/^https?:\/\//i.test(imageUrl)) return article.imageLibraryRel;
 
@@ -86,8 +87,12 @@ export async function saveLanguageArticleImageToLibrary(article: LanguageArticle
 
 export async function saveLanguageArticleImagesToLibrary(articles: LanguageArticle[]): Promise<LanguageArticle[]> {
   const out: LanguageArticle[] = [];
+  const savedByImageUrl = new Map<string, string>();
   for (const article of articles) {
-    const imageLibraryRel = await saveLanguageArticleImageToLibrary(article).catch(() => article.imageLibraryRel);
+    const imageUrl = article.imageUrl?.trim();
+    const reusedRel = imageUrl ? savedByImageUrl.get(imageUrl) : undefined;
+    const imageLibraryRel = reusedRel ?? await saveLanguageArticleImageToLibrary(article).catch(() => article.imageLibraryRel);
+    if (imageUrl && imageLibraryRel) savedByImageUrl.set(imageUrl, imageLibraryRel);
     out.push({
       ...article,
       imageLibraryRel,

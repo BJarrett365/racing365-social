@@ -14,7 +14,7 @@ export function EditingStudioPageFrame({ title, description, children, actions }
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--text-secondary)]">
-            Editing Studio
+            Schedule Studio
           </p>
           <h1 className="mt-1 text-3xl font-black tracking-tight text-[color:var(--text-primary)]">{title}</h1>
           {description ? (

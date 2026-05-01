@@ -5,7 +5,7 @@ import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
 import { LANGUAGE_LABELS, type LanguageCode } from "@/app/lib/language-studio/types";
 
-type Section = "Guardrails" | "Protected Terms" | "Market Rules" | "Prompt Rules" | "Compliance Notes" | "Quality Checks" | "Knowledge Files";
+type Section = "Guardrails" | "Protected Terms" | "Market Rules" | "Prompt Rules" | "Compliance Notes" | "Quality Checks" | "Knowledge Files" | "Journalists";
 type GovernanceData = Record<string, Array<Record<string, unknown>>>;
 
 const inputClass = "mt-1 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] px-3 py-2 text-sm text-white placeholder:text-slate-600";
@@ -27,6 +27,7 @@ export function GovernancePanel({ section }: { section: Section }) {
     if (section === "Prompt Rules") return "promptRules";
     if (section === "Compliance Notes") return "complianceNotes";
     if (section === "Guardrails") return "guardrails";
+    if (section === "Journalists") return "journalistProfiles";
     return "";
   }, [section]);
 
@@ -63,10 +64,37 @@ export function GovernancePanel({ section }: { section: Section }) {
   };
 
   if (section === "Knowledge Files") {
+    const journalistProfiles = data.journalistProfiles ?? [];
+    const knowledgeFiles = data.knowledgeFiles ?? [];
     return (
       <Panel title="Knowledge Files" className="space-y-4 p-5">
         <h2 className="text-xl font-bold text-white">Knowledge Files</h2>
-        <p className="text-sm text-slate-400">Knowledge is now split into Brand Tone, Glossary, Protected Terms, Market Rules, Sport Rules, Prompt Rules, Compliance Notes and Translation Memory. PlanetF1 defaults are seeded automatically.</p>
+        <p className="text-sm text-slate-400">Knowledge is now split into Brand Tone, Journalist Styles, Glossary, Protected Terms, Market Rules, Sport Rules, Prompt Rules, Compliance Notes and Translation Memory. Journalist styles are built from imported article authors.</p>
+        {knowledgeFiles.length ? (
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold uppercase text-slate-500">AI Quality Fix Lessons</h3>
+            <div className="grid gap-2 md:grid-cols-2">
+              {knowledgeFiles.map((row) => (
+                <div key={String(row.id)} className="rounded-lg border border-[#1f2d26] bg-black/20 p-3 text-sm text-slate-300">
+                  <p className="font-semibold text-white">{String(row.title)}</p>
+                  <p className="mt-1 text-xs text-slate-500">{String(row.kind)}{row.language ? ` · ${String(row.language)}` : ""}</p>
+                  <p className="mt-2 whitespace-pre-line text-xs text-slate-400">{String(row.content || "")}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        <div className="grid gap-2 md:grid-cols-2">
+          {journalistProfiles.map((row) => (
+            <div key={String(row.id)} className="rounded-lg border border-[#1f2d26] bg-black/20 p-3 text-sm text-slate-300">
+              <p className="font-semibold text-white">{String(row.name)} · {String(row.brand)}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Journalist Style · {Array.isArray(row.sports) && row.sports.length ? row.sports.join(", ") : "No sports tagged yet"}
+              </p>
+              <p className="mt-2 whitespace-pre-line text-xs text-slate-400">{String(row.styleNotes || "No style profile yet.")}</p>
+            </div>
+          ))}
+        </div>
       </Panel>
     );
   }
@@ -98,12 +126,13 @@ export function GovernancePanel({ section }: { section: Section }) {
       {section === "Market Rules" ? <MarketRuleForm draft={draft} setDraft={setDraft} /> : null}
       {section === "Prompt Rules" ? <PromptRuleForm draft={draft} setDraft={setDraft} /> : null}
       {section === "Compliance Notes" ? <ComplianceForm draft={draft} setDraft={setDraft} /> : null}
+      {section === "Journalists" ? <JournalistForm draft={draft} setDraft={setDraft} /> : null}
       <R365Button type="button" onClick={() => void save()}>Save {section}</R365Button>
       <div className="grid gap-2 md:grid-cols-2">
         {rows.map((row) => (
           <button key={String(row.id)} type="button" onClick={() => setDraft(row)} className="rounded-lg border border-[#1f2d26] bg-black/20 p-3 text-left text-sm text-slate-300">
-            <p className="font-semibold text-white">{String(row.title || row.term || row.market || row.contentType || row.riskType || row.id)}</p>
-            <p className="mt-1 line-clamp-3 text-xs text-slate-500">{String(row.rule || row.notes || row.toneRules || row.promptInstruction || row.action || "")}</p>
+            <p className="font-semibold text-white">{String(row.title || row.term || row.market || row.contentType || row.riskType || row.name || row.id)}</p>
+            <p className="mt-1 line-clamp-3 text-xs text-slate-500">{String(row.rule || row.notes || row.toneRules || row.promptInstruction || row.action || row.styleNotes || "")}</p>
           </button>
         ))}
       </div>
@@ -129,4 +158,8 @@ function PromptRuleForm({ draft, setDraft }: { draft: Record<string, unknown>; s
 
 function ComplianceForm({ draft, setDraft }: { draft: Record<string, unknown>; setDraft: (next: Record<string, unknown>) => void }) {
   return <div className="grid gap-3 md:grid-cols-4"><input className={inputClass} placeholder="Market" value={String(draft.market ?? "")} onChange={(e) => setDraft({ ...draft, market: e.target.value })} /><input className={inputClass} placeholder="Risk type" value={String(draft.riskType ?? "")} onChange={(e) => setDraft({ ...draft, riskType: e.target.value })} /><label className="mt-3 flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={Boolean(draft.escalationRequired)} onChange={(e) => setDraft({ ...draft, escalationRequired: e.target.checked })} />Escalation required</label><div /><textarea className={textareaClass} placeholder="Rule" value={String(draft.rule ?? "")} onChange={(e) => setDraft({ ...draft, rule: e.target.value })} /><textarea className={textareaClass} placeholder="Action" value={String(draft.action ?? "")} onChange={(e) => setDraft({ ...draft, action: e.target.value })} /></div>;
+}
+
+function JournalistForm({ draft, setDraft }: { draft: Record<string, unknown>; setDraft: (next: Record<string, unknown>) => void }) {
+  return <div className="grid gap-3 md:grid-cols-4"><input className={inputClass} placeholder="Journalist name" value={String(draft.name ?? "")} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /><input className={inputClass} placeholder="Brand" value={String(draft.brand ?? "")} onChange={(e) => setDraft({ ...draft, brand: e.target.value })} /><input className={inputClass} placeholder="Sports, comma-separated" value={Array.isArray(draft.sports) ? draft.sports.join(", ") : ""} onChange={(e) => setDraft({ ...draft, sports: csv(e.target.value) })} /><label className="mt-3 flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={draft.active !== false} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />Active</label><textarea className={`${textareaClass} md:col-span-2`} placeholder="Writing style: tone, rhythm, structure, sentence length, headline habits" value={String(draft.styleNotes ?? "")} onChange={(e) => setDraft({ ...draft, styleNotes: e.target.value })} /><textarea className={`${textareaClass} md:col-span-2`} placeholder="Article / editorial guidelines for this journalist style" value={String(draft.articleGuidelines ?? "")} onChange={(e) => setDraft({ ...draft, articleGuidelines: e.target.value })} /><textarea className={`${textareaClass} md:col-span-4`} placeholder="Example titles, one per line" value={Array.isArray(draft.exampleTitles) ? draft.exampleTitles.join("\n") : ""} onChange={(e) => setDraft({ ...draft, exampleTitles: e.target.value.split(/\n+/).map((item) => item.trim()).filter(Boolean) })} /></div>;
 }

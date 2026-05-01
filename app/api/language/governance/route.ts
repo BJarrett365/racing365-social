@@ -5,6 +5,7 @@ import {
   sortDesc,
   upsertComplianceNote,
   upsertGuardrail,
+  upsertJournalistProfile,
   upsertMarketRule,
   upsertPromptRule,
   upsertProtectedTerm,
@@ -13,13 +14,14 @@ import {
 import type {
   LanguageComplianceNote,
   LanguageGuardrail,
+  LanguageJournalistProfile,
   LanguageMarketRule,
   LanguagePromptRule,
   LanguageProtectedTerm,
   LanguageSportRule,
 } from "@/app/lib/language-studio/types";
 
-type Collection = "guardrails" | "protectedTerms" | "marketRules" | "sportRules" | "promptRules" | "complianceNotes";
+type Collection = "guardrails" | "protectedTerms" | "marketRules" | "sportRules" | "promptRules" | "complianceNotes" | "journalistProfiles";
 
 type Body = {
   collection?: Collection;
@@ -35,6 +37,8 @@ export async function GET() {
     sportRules: sortDesc(Object.values(data.sportRules)),
     promptRules: sortDesc(Object.values(data.promptRules)),
     complianceNotes: sortDesc(Object.values(data.complianceNotes)),
+    knowledgeFiles: sortDesc(Object.values(data.knowledgeFiles)),
+    journalistProfiles: sortDesc(Object.values(data.journalistProfiles)),
     translationMemory: sortDesc(Object.values(data.translationMemory)),
   });
 }
@@ -132,6 +136,26 @@ export async function POST(req: Request) {
     };
     if (!row.contentType || !row.promptInstruction) return NextResponse.json({ error: "contentType and promptInstruction are required." }, { status: 400 });
     await upsertPromptRule(row);
+    return NextResponse.json({ success: true, item: row });
+  }
+
+  if (body.collection === "journalistProfiles") {
+    const row: LanguageJournalistProfile = {
+      id: String(item.id || newLanguageId("ljournalist")),
+      name: String(item.name || "").trim(),
+      brand: String(item.brand || "Global").trim(),
+      sports: Array.isArray(item.sports) ? item.sports.map(String).filter(Boolean) : [],
+      styleNotes: String(item.styleNotes || "").trim(),
+      articleGuidelines: String(item.articleGuidelines || "").trim(),
+      exampleTitles: Array.isArray(item.exampleTitles) ? item.exampleTitles.map(String).filter(Boolean) : [],
+      sampleArticleIds: Array.isArray(item.sampleArticleIds) ? item.sampleArticleIds.map(String).filter(Boolean) : [],
+      source: item.source === "manual" ? "manual" : "imported",
+      active: item.active !== false,
+      createdAt: String(item.createdAt || now),
+      updatedAt: now,
+    };
+    if (!row.name || !row.styleNotes) return NextResponse.json({ error: "name and styleNotes are required." }, { status: 400 });
+    await upsertJournalistProfile(row);
     return NextResponse.json({ success: true, item: row });
   }
 

@@ -111,7 +111,7 @@ export function EditingStudioProjectEditorClient({ initialProject }: Props) {
       </a>
       <header className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between" style={{ borderColor: "var(--border)" }}>
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--text-secondary)]">Editing Studio</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--text-secondary)]">Schedule Studio</p>
           <h1 className="mt-1 truncate text-2xl font-black tracking-tight text-[color:var(--text-primary)] sm:text-3xl">
             {getEditingProjectDisplayTitle(draft)}
           </h1>

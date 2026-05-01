@@ -18,8 +18,8 @@ export async function generateMetadata({
   const project = await getEditingStudioRepository().getProject(projectId);
   return {
     title: project
-      ? `${getEditingProjectDisplayTitle(project)} | Editing Studio | ${BRAND_SUITE}`
-      : `${projectId} | Editing Studio | ${BRAND_SUITE}`,
+      ? `${getEditingProjectDisplayTitle(project)} | Schedule Studio | ${BRAND_SUITE}`
+      : `${projectId} | Schedule Studio | ${BRAND_SUITE}`,
   };
 }
 

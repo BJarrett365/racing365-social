@@ -18,6 +18,10 @@ export type AdminStoredSettings = {
   muxWebhookSigningSecret?: string;
   /** Optional alternative live provider. */
   livepeerApiKey?: string;
+  apifyApiToken?: string;
+  apifyYoutubeTranscriptActorId?: string;
+  apifyYoutubeTranscriptLanguage?: string;
+  apifyYoutubeTranscriptTimeoutSeconds?: string;
   ffmpegPath?: string;
   openaiTtsVoice?: string;
   openaiTtsModel?: string;
@@ -140,6 +144,7 @@ function secretFileKey(envName: string): keyof AdminStoredSettings | undefined {
     MUX_WEBHOOK_SIGNING_SECRET: "muxWebhookSigningSecret",
     LIVEPEER_API_KEY: "livepeerApiKey",
     DEEPL_API_KEY: "deeplApiKey",
+    APIFY_API_TOKEN: "apifyApiToken",
   };
   return map[envName];
 }

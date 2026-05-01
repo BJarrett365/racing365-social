@@ -18,6 +18,10 @@ type Body = {
   /** Mux webhook signing secret (Live Control POST /api/webhooks/mux). */
   muxWebhookSigningSecret?: string;
   livepeerApiKey?: string;
+  apifyApiToken?: string;
+  apifyYoutubeTranscriptActorId?: string;
+  apifyYoutubeTranscriptLanguage?: string;
+  apifyYoutubeTranscriptTimeoutSeconds?: string;
   ffmpegPath?: string;
   openaiTtsVoice?: string;
   openaiTtsModel?: string;
@@ -31,6 +35,7 @@ type Body = {
   clearMuxKeys?: boolean;
   clearMuxWebhookSecret?: boolean;
   clearLivepeerKey?: boolean;
+  clearApifyApiToken?: boolean;
 };
 
 export async function GET() {
@@ -53,6 +58,7 @@ export async function GET() {
     mux: { configured: muxOk },
     muxWebhook: { configured: muxWebhookOk },
     livepeer: { configured: mask(s.livepeerApiKey) },
+    apify: { configured: mask(s.apifyApiToken) },
     elevenlabsApiKeyMasked: maskPreview(s.elevenlabsApiKey),
     openaiApiKeyMasked: maskPreview(s.openaiApiKey),
     runwaymlApiKeyMasked: maskPreview(s.runwaymlApiKey),
@@ -62,6 +68,11 @@ export async function GET() {
     muxTokenSecretMasked: maskPreview(s.muxTokenSecret),
     muxWebhookSigningSecretMasked: maskPreview(s.muxWebhookSigningSecret),
     livepeerApiKeyMasked: maskPreview(s.livepeerApiKey),
+    apifyApiTokenMasked: maskPreview(s.apifyApiToken),
+    apifyYoutubeTranscriptActorId:
+      s.apifyYoutubeTranscriptActorId?.trim() || "apilabs/youtube-caption-transcription-scraper",
+    apifyYoutubeTranscriptLanguage: s.apifyYoutubeTranscriptLanguage?.trim() || "en",
+    apifyYoutubeTranscriptTimeoutSeconds: s.apifyYoutubeTranscriptTimeoutSeconds?.trim() || "90",
     ffmpegPath: s.ffmpegPath?.trim() || "",
     openaiTtsVoice: s.openaiTtsVoice?.trim() || "",
     openaiTtsModel: s.openaiTtsModel?.trim() || "",
@@ -98,6 +109,7 @@ export async function POST(request: Request) {
     clearKeys.push("muxWebhookSigningSecret");
   }
   if (body.clearLivepeerKey) clearKeys.push("livepeerApiKey");
+  if (body.clearApifyApiToken) clearKeys.push("apifyApiToken");
 
   const partial: Partial<AdminStoredSettings> = {};
   if (body.elevenlabsApiKey?.trim()) partial.elevenlabsApiKey = body.elevenlabsApiKey.trim();
@@ -109,6 +121,10 @@ export async function POST(request: Request) {
   if (body.muxTokenSecret?.trim()) partial.muxTokenSecret = body.muxTokenSecret.trim();
   if (body.muxWebhookSigningSecret?.trim()) partial.muxWebhookSigningSecret = body.muxWebhookSigningSecret.trim();
   if (body.livepeerApiKey?.trim()) partial.livepeerApiKey = body.livepeerApiKey.trim();
+  if (body.apifyApiToken?.trim()) partial.apifyApiToken = body.apifyApiToken.trim();
+  if (body.apifyYoutubeTranscriptActorId?.trim()) partial.apifyYoutubeTranscriptActorId = body.apifyYoutubeTranscriptActorId.trim();
+  if (body.apifyYoutubeTranscriptLanguage?.trim()) partial.apifyYoutubeTranscriptLanguage = body.apifyYoutubeTranscriptLanguage.trim();
+  if (body.apifyYoutubeTranscriptTimeoutSeconds?.trim()) partial.apifyYoutubeTranscriptTimeoutSeconds = body.apifyYoutubeTranscriptTimeoutSeconds.trim();
   if (body.ffmpegPath?.trim()) partial.ffmpegPath = body.ffmpegPath.trim();
   if (body.openaiTtsVoice?.trim()) partial.openaiTtsVoice = body.openaiTtsVoice.trim();
   if (body.openaiTtsModel?.trim()) partial.openaiTtsModel = body.openaiTtsModel.trim();

@@ -22,7 +22,7 @@ export function LiveControlDashboard() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#eab308]">Live Control</p>
         <h1 className="text-2xl font-bold text-[color:var(--text-primary)]">Sessions</h1>
         <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-          Create live sessions, manage Mux and Restream providers. Independent from Editing Studio — future
+          Create live sessions, manage Mux and Restream providers. Independent from Schedule Studio — future
           hooks for projects and approved stories are stored on each session.
         </p>
       </div>

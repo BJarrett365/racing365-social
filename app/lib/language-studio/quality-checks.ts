@@ -19,8 +19,48 @@ function includesTerm(text: string, term: string): boolean {
   return new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(text);
 }
 
+function stableIssueId(type: LanguageQualityCheckIssue["type"], message: string): string {
+  let hash = 0;
+  for (let index = 0; index < message.length; index += 1) {
+    hash = (hash * 31 + message.charCodeAt(index)) >>> 0;
+  }
+  return `lqissue-${type}-${hash.toString(36)}`;
+}
+
+function issueKey(issue: Pick<LanguageQualityCheckIssue, "type" | "message">): string {
+  return `${issue.type}::${issue.message}`;
+}
+
 function issue(type: LanguageQualityCheckIssue["type"], severity: LanguageQualityCheckIssue["severity"], message: string, suggestedFix?: string): LanguageQualityCheckIssue {
-  return { id: newLanguageId("lqissue"), type, severity, message, suggestedFix };
+  return { id: stableIssueId(type, message), type, severity, message, suggestedFix };
+}
+
+function scoreForIssues(issues: LanguageQualityCheckIssue[]): LanguageQualityCheck["score"] {
+  const activeIssues = issues.filter((row) => !row.ignored);
+  return activeIssues.some((row) => row.severity === "red") ? "red" : activeIssues.some((row) => row.severity === "amber") ? "amber" : "green";
+}
+
+export function applyStoredQualityDecisions(
+  check: LanguageQualityCheck,
+  previousChecks: LanguageQualityCheck[],
+): LanguageQualityCheck {
+  const decisions = new Map<string, Pick<LanguageQualityCheckIssue, "ignored">>();
+  for (const previous of previousChecks) {
+    if (previous.translationId !== check.translationId) continue;
+    for (const previousIssue of previous.issues) {
+      if (!previousIssue.ignored) continue;
+      decisions.set(issueKey(previousIssue), {
+        ignored: previousIssue.ignored,
+      });
+    }
+  }
+
+  const issues = check.issues.map((row) => ({ ...row, ...decisions.get(issueKey(row)) }));
+  return {
+    ...check,
+    score: scoreForIssues(issues),
+    issues,
+  };
 }
 
 export function runLanguageQualityChecks(
@@ -62,14 +102,12 @@ export function runLanguageQualityChecks(
     issues.push(issue("compliance-flags-found", "amber", "Compliance review may be required.", "Escalate if the claim is legal, medical, defamatory, rights-based or betting related."));
   }
 
-  const activeIssues = issues.filter((row) => !row.ignored);
-  const score = activeIssues.some((row) => row.severity === "red") ? "red" : activeIssues.some((row) => row.severity === "amber") ? "amber" : "green";
   const now = new Date().toISOString();
   return {
     id: newLanguageId("lquality"),
     articleId: article.id,
     translationId: translation.id,
-    score,
+    score: scoreForIssues(issues),
     issues,
     createdAt: now,
     updatedAt: now,

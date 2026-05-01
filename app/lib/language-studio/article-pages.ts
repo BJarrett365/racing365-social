@@ -137,30 +137,44 @@ function trimAfterArticle(text: string): string {
   return out;
 }
 
-function stripArticleHeaderLines(text: string, article: LanguageArticle, meta: ArticlePageData): string {
-  const title = article.title.trim().toLowerCase();
-  const author = (meta.author || article.author || "").trim().toLowerCase();
-  const dateLike = /\b\d{1,2}\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|abr)\w*\s+\d{4}\b|\b\d{4}-\d{2}-\d{2}t\d{2}:\d{2}/i;
+function stripMetadataLines(
+  text: string,
+  article: Pick<LanguageArticle, "title" | "author" | "publishDate" | "modifiedDate">,
+  extraTitles: string[] = [],
+): string {
+  const titles = [article.title, ...extraTitles].map((title) => title.trim().toLowerCase()).filter(Boolean);
+  const author = (article.author || "").trim().toLowerCase();
+  const dateLike = /\b\d{1,2}\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|abr|gen|feb|mar|mag|giu|lug|ago|set|ott|nov|dic)\w*\.?\s+\d{4}(?:,?\s+\d{1,2}:\d{2}\s*(?:am|pm)?)?\b|\b\d{4}-\d{2}-\d{2}t\d{2}:\d{2}/i;
+  const bylinePrefix = /^(by|di|por|par|von|door)\s+/i;
   const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
-  let start = 0;
-  while (start < Math.min(lines.length, 8)) {
-    const line = lines[start];
-    const lower = line.toLowerCase();
-    if (lower === title || lower.includes("add as a preferred source")) {
-      start += 1;
-      continue;
-    }
-    if (author && lower === author) {
-      start += 1;
-      continue;
-    }
-    if (dateLike.test(line)) {
-      start += 1;
-      continue;
-    }
-    break;
-  }
-  return lines.slice(start).join("\n\n").trim();
+  return lines
+    .filter((line, index) => {
+      if (index >= 12) return true;
+      const lower = line.toLowerCase();
+      if (titles.includes(lower)) return false;
+      if (author && lower === author) return false;
+      if (author && bylinePrefix.test(line) && lower.replace(bylinePrefix, "").trim() === author) return false;
+      if (line.length <= 80 && dateLike.test(line)) return false;
+      return true;
+    })
+    .join("\n\n")
+    .trim();
+}
+
+export function stripArticleMetadataLines(text: string, article: Pick<LanguageArticle, "title" | "author" | "publishDate" | "modifiedDate">): string {
+  return stripMetadataLines(text, article);
+}
+
+export function stripGeneratedArticleMetadataLines(
+  text: string,
+  article: Pick<LanguageArticle, "title" | "author" | "publishDate" | "modifiedDate">,
+  generatedTitle?: string,
+): string {
+  return stripMetadataLines(text, article, generatedTitle ? [generatedTitle] : []);
+}
+
+function stripArticleHeaderLines(text: string, article: LanguageArticle, meta: ArticlePageData): string {
+  return stripArticleMetadataLines(text, { ...article, author: meta.author || article.author });
 }
 
 function extractAuthorFromText(text: string, article: LanguageArticle): string {

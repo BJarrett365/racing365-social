@@ -13,12 +13,14 @@ const plexaFont = Montserrat({
 
 const nav = [
   { href: "/", label: "Dashboard" },
-  { href: "/editing-studio", label: "Editing Studio" },
+  { href: "/editing-studio", label: "Schedule Studio" },
   { href: "/live", label: "Live Control" },
   { href: "/templates", label: "Shorts" },
   { href: "/landscape", label: "Landscape" },
   { href: "/podcast-template", label: "Podcast" },
+  { href: "/article-studio", label: "Article Studio" },
   { href: "/language-studio", label: "Language Studio" },
+  { href: "/tools", label: "Tools" },
   { href: "/library", label: "Library" },
   { href: "/admin", label: "Admin" },
 ];
@@ -26,7 +28,7 @@ const nav = [
 const footerLinks = [
   { href: "/product", label: "Product" },
   { href: "/how-it-works", label: "How It Works" },
-  { href: "/editing-studio", label: "Editing Studio" },
+  { href: "/editing-studio", label: "Schedule Studio" },
   { href: "/live", label: "Live Control" },
   { href: "/prompts", label: "Prompts" },
   { href: "/brand-guidelines", label: "Brand Guidelines" },

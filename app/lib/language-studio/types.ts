@@ -1,18 +1,23 @@
 export const LANGUAGE_LABELS = {
   en: "English",
   es: "Spanish",
-  it: "Italian",
-  de: "German",
-  ar: "Arabic",
-  zh: "Chinese Simplified",
   pt: "Portuguese",
   fr: "French",
+  de: "German",
+  it: "Italian",
   nl: "Dutch",
-  da: "Danish",
-  fi: "Finnish",
+  ar: "Arabic",
   ja: "Japanese",
+  zh: "Chinese",
+  pl: "Polish",
+  tr: "Turkish",
+  ro: "Romanian",
+  el: "Greek",
+  cs: "Czech",
   af: "Afrikaans",
   zu: "Zulu",
+  da: "Danish",
+  fi: "Finnish",
   xh: "Xhosa",
 } as const;
 
@@ -24,11 +29,42 @@ export type TranslationMode =
   | "translate-only"
   | "translate-localise"
   | "translate-rewrite"
+  | "rewrite-only"
   | "headline-only"
   | "seo-only"
   | "summary-only";
 
-export type LanguageWorkflowStatus = "imported" | "translating" | "translated" | "review_needed" | "approved" | "rejected" | "exported" | "failed";
+export type LanguageContentStyle = "News" | "Transfer" | "Opinion" | "Preview" | "Review" | "Analysis" | "Feature" | "Live";
+
+export type LanguageSportContext =
+  | "Football"
+  | "Horse Racing"
+  | "Rugby Union"
+  | "Rugby League"
+  | "Formula 1"
+  | "Cricket"
+  | "Golf"
+  | "Tennis"
+  | "NFL"
+  | "Boxing"
+  | "MMA"
+  | "Basketball";
+
+export type LanguageSourceParserType = "rss-default" | "wordpress-rss" | "json-api" | "html-page" | "custom";
+
+export type LanguageSourceBrand = {
+  id: string;
+  name: string;
+  feedUrl: string;
+  sourceLanguage: LanguageCode;
+  parserType: LanguageSourceParserType;
+  active: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LanguageWorkflowStatus = "imported" | "translating" | "translated" | "review_needed" | "approved" | "rejected" | "exported" | "failed" | "archived";
 export type LanguageArticleStatus = LanguageWorkflowStatus | "queued";
 
 export type LanguageSocialEmbed = {
@@ -42,6 +78,16 @@ export type LanguageSocialEmbed = {
   handle?: string;
   publishedAt?: string;
   position: number;
+};
+
+export type LanguageSocialPlatform = "appAlerts" | "facebook" | "x" | "instagram" | "youtube" | "tiktok" | "whatsapp" | "telegram";
+
+export type LanguageSocialPost = {
+  platform: LanguageSocialPlatform;
+  text: string;
+  headline?: string;
+  hashtags?: string[];
+  callToAction?: string;
 };
 
 export type LanguageImport = {
@@ -73,6 +119,7 @@ export type LanguageArticle = {
   standfirst: string;
   body: string;
   socialEmbeds?: LanguageSocialEmbed[];
+  socialPosts?: LanguageSocialPost[];
   seoTitle: string;
   metaDescription: string;
   slug: string;
@@ -91,6 +138,7 @@ export type LanguageTranslation = {
   standfirst: string;
   body: string;
   socialEmbeds?: LanguageSocialEmbed[];
+  socialPosts?: LanguageSocialPost[];
   seoTitle: string;
   metaDescription: string;
   tags: string[];
@@ -259,9 +307,24 @@ export type LanguageRule = {
 export type LanguageKnowledgeFile = {
   id: string;
   title: string;
-  kind: "brand-glossary" | "protected-terms" | "f1-terminology" | "tone-rules" | "seo-rules" | "compliance" | "prompt";
+  kind: "brand-glossary" | "protected-terms" | "f1-terminology" | "tone-rules" | "seo-rules" | "compliance" | "prompt" | "journalist-style" | "quality-fix" | "social-platform";
   language?: LanguageCode | "";
   content: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LanguageJournalistProfile = {
+  id: string;
+  name: string;
+  brand: string;
+  sports: string[];
+  styleNotes: string;
+  articleGuidelines?: string;
+  exampleTitles: string[];
+  sampleArticleIds: string[];
+  source: "imported" | "manual";
+  active: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -325,12 +388,14 @@ export type LanguageClientAccessLog = {
 };
 
 export type LanguageStudioData = {
+  sourceBrands: Record<string, LanguageSourceBrand>;
   imports: Record<string, LanguageImport>;
   articles: Record<string, LanguageArticle>;
   translations: Record<string, LanguageTranslation>;
   glossary: Record<string, LanguageGlossaryEntry>;
   rules: Record<string, LanguageRule>;
   knowledgeFiles: Record<string, LanguageKnowledgeFile>;
+  journalistProfiles: Record<string, LanguageJournalistProfile>;
   guardrails: Record<string, LanguageGuardrail>;
   protectedTerms: Record<string, LanguageProtectedTerm>;
   marketRules: Record<string, LanguageMarketRule>;

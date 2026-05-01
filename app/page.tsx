@@ -65,12 +65,12 @@ export default function HomePage() {
           </Panel>
         </Link>
         <Link href="/editing-studio" className="block transition hover:opacity-95">
-          <Panel title="Editing Studio">
+          <Panel title="Schedule Studio">
             <h2 className="text-xl font-bold text-[color:var(--text-primary)]">Editorial &amp; social workflows</h2>
             <p className="mt-2 text-sm text-slate-400">
               Projects, copy, media, previews, and export — separate from templates and live streaming.
             </p>
-            <span className="mt-6 inline-flex text-sm font-semibold text-[#22c55e]">Open Editing Studio →</span>
+            <span className="mt-6 inline-flex text-sm font-semibold text-[#22c55e]">Open Schedule Studio →</span>
           </Panel>
         </Link>
         <Link href="/live" className="block transition hover:opacity-95">

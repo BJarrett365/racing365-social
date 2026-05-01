@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { DEFAULT_LANGUAGE_FEED_URL, importLanguageFeed } from "@/app/lib/language-studio/import-feed";
+import { cleanupStaleUnusedLanguageImports } from "@/app/lib/language-studio/store";
 
 function isAuthorised(req: Request): boolean {
   const secret = process.env.CRON_SECRET?.trim();
@@ -14,6 +15,7 @@ export async function GET(req: Request) {
   }
 
   try {
+    const cleanup = await cleanupStaleUnusedLanguageImports(48);
     const result = await importLanguageFeed({
       sourceBrand: "PlanetF1",
       sourceLanguage: "en",
@@ -29,6 +31,7 @@ export async function GET(req: Request) {
       createdCount: result.createdCount,
       updatedCount: result.updatedCount,
       imageCount: result.imageCount,
+      cleanup,
       import: result.import,
     });
   } catch (e) {

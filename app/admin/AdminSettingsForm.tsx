@@ -13,6 +13,7 @@ type Status = {
   mux: { configured: boolean };
   muxWebhook: { configured: boolean };
   livepeer: { configured: boolean };
+  apify: { configured: boolean };
   elevenlabsApiKeyMasked?: string;
   openaiApiKeyMasked?: string;
   runwaymlApiKeyMasked?: string;
@@ -22,6 +23,10 @@ type Status = {
   muxTokenSecretMasked?: string;
   muxWebhookSigningSecretMasked?: string;
   livepeerApiKeyMasked?: string;
+  apifyApiTokenMasked?: string;
+  apifyYoutubeTranscriptActorId: string;
+  apifyYoutubeTranscriptLanguage: string;
+  apifyYoutubeTranscriptTimeoutSeconds: string;
   ffmpegPath: string;
   openaiTtsVoice: string;
   openaiTtsModel: string;
@@ -47,6 +52,10 @@ export function AdminSettingsForm() {
   const [muxTokenSecret, setMuxTokenSecret] = useState("");
   const [muxWebhookSigningSecret, setMuxWebhookSigningSecret] = useState("");
   const [livepeerApiKey, setLivepeerApiKey] = useState("");
+  const [apifyApiToken, setApifyApiToken] = useState("");
+  const [apifyYoutubeTranscriptActorId, setApifyYoutubeTranscriptActorId] = useState("apilabs/youtube-caption-transcription-scraper");
+  const [apifyYoutubeTranscriptLanguage, setApifyYoutubeTranscriptLanguage] = useState("en");
+  const [apifyYoutubeTranscriptTimeoutSeconds, setApifyYoutubeTranscriptTimeoutSeconds] = useState("90");
   const [elevenlabsKeyDirty, setElevenlabsKeyDirty] = useState(false);
   const [openaiKeyDirty, setOpenaiKeyDirty] = useState(false);
   const [runwayKeyDirty, setRunwayKeyDirty] = useState(false);
@@ -56,6 +65,7 @@ export function AdminSettingsForm() {
   const [muxSecretDirty, setMuxSecretDirty] = useState(false);
   const [muxWebhookDirty, setMuxWebhookDirty] = useState(false);
   const [livepeerKeyDirty, setLivepeerKeyDirty] = useState(false);
+  const [apifyTokenDirty, setApifyTokenDirty] = useState(false);
   const [ffmpegPath, setFfmpegPath] = useState("");
   const [openaiTtsVoice, setOpenaiTtsVoice] = useState("");
   const [openaiTtsModel, setOpenaiTtsModel] = useState("");
@@ -68,6 +78,7 @@ export function AdminSettingsForm() {
   const [clearMuxKeys, setClearMuxKeys] = useState(false);
   const [clearMuxWebhookSecret, setClearMuxWebhookSecret] = useState(false);
   const [clearLivepeerKey, setClearLivepeerKey] = useState(false);
+  const [clearApifyApiToken, setClearApifyApiToken] = useState(false);
   const [clearFfmpegPath, setClearFfmpegPath] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -84,6 +95,8 @@ export function AdminSettingsForm() {
   const [muxCheckMessage, setMuxCheckMessage] = useState<string | null>(null);
   const [livepeerCheckBusy, setLivepeerCheckBusy] = useState(false);
   const [livepeerCheckMessage, setLivepeerCheckMessage] = useState<string | null>(null);
+  const [apifyCheckBusy, setApifyCheckBusy] = useState(false);
+  const [apifyCheckMessage, setApifyCheckMessage] = useState<string | null>(null);
   const [elevenlabsLastCheckAt, setElevenlabsLastCheckAt] = useState<string | null>(null);
   const [elevenlabsLastCheckOk, setElevenlabsLastCheckOk] = useState<boolean | null>(null);
   const [captionCheckBusy, setCaptionCheckBusy] = useState(false);
@@ -106,6 +119,9 @@ export function AdminSettingsForm() {
     setOpenaiTtsModel(data.openaiTtsModel || "");
     setElevenlabsVoiceId(data.elevenlabsVoiceId || "");
     setElevenlabsModel(data.elevenlabsModel || "");
+    setApifyYoutubeTranscriptActorId(data.apifyYoutubeTranscriptActorId || "apilabs/youtube-caption-transcription-scraper");
+    setApifyYoutubeTranscriptLanguage(data.apifyYoutubeTranscriptLanguage || "en");
+    setApifyYoutubeTranscriptTimeoutSeconds(data.apifyYoutubeTranscriptTimeoutSeconds || "90");
     setElevenlabsKeyDirty(false);
     setOpenaiKeyDirty(false);
     setRunwayKeyDirty(false);
@@ -115,6 +131,7 @@ export function AdminSettingsForm() {
     setMuxSecretDirty(false);
     setMuxWebhookDirty(false);
     setLivepeerKeyDirty(false);
+    setApifyTokenDirty(false);
     return next;
   }, []);
 
@@ -136,6 +153,7 @@ export function AdminSettingsForm() {
       const nextMuxSecret = muxTokenSecret.trim();
       const nextMuxWebhook = muxWebhookSigningSecret.trim();
       const nextLivepeer = livepeerApiKey.trim();
+      const nextApifyToken = apifyApiToken.trim();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       const tok = adminToken.trim();
       if (tok) headers["x-admin-token"] = tok;
@@ -154,6 +172,10 @@ export function AdminSettingsForm() {
           muxTokenSecret: muxSecretDirty ? nextMuxSecret || undefined : undefined,
           muxWebhookSigningSecret: muxWebhookDirty ? nextMuxWebhook || undefined : undefined,
           livepeerApiKey: livepeerKeyDirty ? nextLivepeer || undefined : undefined,
+          apifyApiToken: apifyTokenDirty ? nextApifyToken || undefined : undefined,
+          apifyYoutubeTranscriptActorId: apifyYoutubeTranscriptActorId.trim() || undefined,
+          apifyYoutubeTranscriptLanguage: apifyYoutubeTranscriptLanguage.trim() || undefined,
+          apifyYoutubeTranscriptTimeoutSeconds: apifyYoutubeTranscriptTimeoutSeconds.trim() || undefined,
           ffmpegPath: ffmpegPath.trim() || undefined,
           openaiTtsVoice: openaiTtsVoice.trim() || undefined,
           openaiTtsModel: openaiTtsModel.trim() || undefined,
@@ -166,6 +188,7 @@ export function AdminSettingsForm() {
           clearMuxKeys,
           clearMuxWebhookSecret,
           clearLivepeerKey,
+          clearApifyApiToken,
           clearFfmpegPath,
         }),
       });
@@ -192,6 +215,7 @@ export function AdminSettingsForm() {
       setMuxTokenSecret("");
       setMuxWebhookSigningSecret("");
       setLivepeerApiKey("");
+      setApifyApiToken("");
       setElevenlabsKeyDirty(false);
       setOpenaiKeyDirty(false);
       setRunwayKeyDirty(false);
@@ -201,6 +225,7 @@ export function AdminSettingsForm() {
       setMuxSecretDirty(false);
       setMuxWebhookDirty(false);
       setLivepeerKeyDirty(false);
+      setApifyTokenDirty(false);
       setClearElevenlabsKey(false);
       setClearOpenaiKey(false);
       setClearRunwaymlKey(false);
@@ -208,6 +233,7 @@ export function AdminSettingsForm() {
       setClearMuxKeys(false);
       setClearMuxWebhookSecret(false);
       setClearLivepeerKey(false);
+      setClearApifyApiToken(false);
       setClearFfmpegPath(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
@@ -398,6 +424,35 @@ export function AdminSettingsForm() {
     }
   };
 
+  const testApifyConnection = async () => {
+    setApifyCheckBusy(true);
+    setApifyCheckMessage(null);
+    setError(null);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const tok = adminToken.trim();
+      if (tok) headers["x-admin-token"] = tok;
+      const res = await fetch("/api/admin/apify-check", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          adminToken: tok || undefined,
+          apifyApiToken: apifyApiToken.trim() || undefined,
+          apifyYoutubeTranscriptActorId: apifyYoutubeTranscriptActorId.trim() || undefined,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; username?: string; actorId?: string; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error || "Apify connection failed");
+      setApifyCheckMessage(
+        `Apify connected${data.username ? ` as ${data.username}` : ""}. Transcript actor reachable: ${data.actorId ?? apifyYoutubeTranscriptActorId}.`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Apify connection failed");
+    } finally {
+      setApifyCheckBusy(false);
+    }
+  };
+
   const testCaptionGeneration = async () => {
     setCaptionCheckBusy(true);
     setCaptionResult(null);
@@ -512,6 +567,12 @@ export function AdminSettingsForm() {
               Livepeer:{" "}
               <span className={status.livepeer.configured ? "text-[#22c55e]" : "text-slate-600"}>
                 {status.livepeer.configured ? "key on file" : "optional"}
+              </span>
+            </li>
+            <li>
+              Apify:{" "}
+              <span className={status.apify.configured ? "text-[#22c55e]" : "text-slate-600"}>
+                {status.apify.configured ? "token on file" : "not set"}
               </span>
             </li>
             {status.updatedAt && <li>Updated {new Date(status.updatedAt).toLocaleString()}</li>}
@@ -690,6 +751,107 @@ export function AdminSettingsForm() {
               )}
             </div>
           </label>
+        </div>
+      </Panel>
+
+      <Panel title="YouTube transcript import (Apify)">
+        <p className="text-sm text-slate-400">
+          Used by Tools → YouTube Script Importer after owned-channel YouTube captions are unavailable. Environment
+          variables still override these stored values.
+        </p>
+        <div className="mt-3 rounded-lg border border-[#1f2d26] bg-[#0a0e0c] p-3">
+          <p className="text-xs font-semibold text-slate-300">
+            Default actor: Youtube Caption &amp; Transcript Scraper - Bulk, Rich, Precise
+          </p>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Actor ID: <code>apilabs/youtube-caption-transcription-scraper</code>
+          </p>
+          <div className="mt-2 flex flex-wrap gap-3">
+            <a
+              className="inline-flex text-[11px] font-semibold normal-case text-[#22c55e] hover:underline"
+              href="https://apify.com/apilabs/youtube-caption-transcription-scraper"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              Open default Apify actor →
+            </a>
+            <a
+              className="inline-flex text-[11px] font-semibold normal-case text-[#22c55e] hover:underline"
+              href="https://console.apify.com/settings/integrations"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              Open Apify integrations →
+            </a>
+          </div>
+        </div>
+        <div className="mt-4 space-y-4">
+          <label className="block text-xs font-semibold uppercase text-slate-500">
+            APIFY_API_TOKEN
+            <input
+              type="password"
+              className={inputClass}
+              value={
+                clearApifyApiToken
+                  ? ""
+                  : apifyApiToken || (apifyTokenDirty ? "" : (status?.apifyApiTokenMasked ?? ""))
+              }
+              onChange={(e) => {
+                setApifyTokenDirty(true);
+                setApifyApiToken(e.target.value);
+              }}
+              placeholder={status?.apify.configured ? "••••••••  enter new token to replace" : "apify_api_…"}
+              autoComplete="off"
+            />
+            <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+              <input
+                type="checkbox"
+                checked={clearApifyApiToken}
+                onChange={(e) => setClearApifyApiToken(e.target.checked)}
+              />
+              Remove stored Apify token
+            </label>
+            <div className="mt-3">
+              <R365Button variant="ghost" onClick={() => void testApifyConnection()} disabled={apifyCheckBusy}>
+                {apifyCheckBusy ? "Testing Apify…" : "Test Apify token"}
+              </R365Button>
+              {apifyCheckMessage ? (
+                <p className="mt-2 text-xs normal-case text-[#22c55e]">{apifyCheckMessage}</p>
+              ) : null}
+            </div>
+          </label>
+          <label className="block text-xs font-semibold uppercase text-slate-500">
+            APIFY_YOUTUBE_TRANSCRIPT_ACTOR_ID
+            <input
+              className={inputClass}
+              value={apifyYoutubeTranscriptActorId}
+              onChange={(e) => setApifyYoutubeTranscriptActorId(e.target.value)}
+              placeholder="apilabs/youtube-caption-transcription-scraper"
+            />
+            <p className="mt-1 text-[11px] normal-case text-slate-500">
+              Default: <code>apilabs/youtube-caption-transcription-scraper</code>
+            </p>
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-xs font-semibold uppercase text-slate-500">
+              APIFY_YOUTUBE_TRANSCRIPT_LANGUAGE
+              <input
+                className={inputClass}
+                value={apifyYoutubeTranscriptLanguage}
+                onChange={(e) => setApifyYoutubeTranscriptLanguage(e.target.value)}
+                placeholder="en"
+              />
+            </label>
+            <label className="block text-xs font-semibold uppercase text-slate-500">
+              APIFY_YOUTUBE_TRANSCRIPT_TIMEOUT_SECONDS
+              <input
+                className={inputClass}
+                value={apifyYoutubeTranscriptTimeoutSeconds}
+                onChange={(e) => setApifyYoutubeTranscriptTimeoutSeconds(e.target.value)}
+                placeholder="90"
+              />
+            </label>
+          </div>
         </div>
       </Panel>
 

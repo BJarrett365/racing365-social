@@ -11,7 +11,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { projectId } = await params;
   return {
-    title: `Preview · ${projectId} | Editing Studio | ${BRAND_SUITE}`,
+    title: `Preview · ${projectId} | Schedule Studio | ${BRAND_SUITE}`,
   };
 }
 

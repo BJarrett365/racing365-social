@@ -48,6 +48,10 @@ function formatTranscriptTime(seconds?: number): string {
     : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+function youtubeEmbedUrl(videoId: string): string {
+  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}`;
+}
+
 function makeManualTranscript(text: string): TranscriptResult {
   const fullText = text.trim();
   const segments = fullText
@@ -99,10 +103,9 @@ export default function YouTubeScriptImporterPage() {
   const [url, setUrl] = useState("");
   const [meta, setMeta] = useState<YouTubeVideoMeta | null>(null);
   const [manualTranscript, setManualTranscript] = useState("");
-  const [transcriptResultInput, setTranscriptResultInput] = useState("");
   const [transcript, setTranscript] = useState<TranscriptResult | null>(null);
   const [selectedOutput, setSelectedOutput] = useState<ScriptOutputType>("summary");
-  const [brandTone, setBrandTone] = useState("Plexa editorial, clear, concise and useful");
+  const [brandTone, setBrandTone] = useState("Plexa Studio editorial, clear, concise and useful");
   const [outputLanguage, setOutputLanguage] = useState("British English");
   const [contentStyle, setContentStyle] = useState<LanguageContentStyle>("Feature");
   const [sportContext, setSportContext] = useState<LanguageSportContext>("Football");
@@ -247,35 +250,6 @@ export default function YouTubeScriptImporterPage() {
       setMessage("Transcript imported into the editor.");
     });
 
-  const importTranscriptResult = () =>
-    run(async () => {
-      if (!transcriptResultInput.trim()) throw new Error("Paste a transcript result first.");
-      const data = await postJson<{ transcript: TranscriptResult }>("/api/youtube/transcript", {
-        manualTranscript: transcriptResultInput,
-        source: "manual_paste",
-      });
-      setTranscript(data.transcript);
-      setManualTranscript(data.transcript.fullText);
-      setTranscriptNotice("");
-      setMessage(data.transcript.hasTimestamps ? "Timestamped transcript result imported." : "Transcript result imported.");
-    });
-
-  const transcribeUpload = (file: File) =>
-    run(async () => {
-      const form = new FormData();
-      form.set("file", file);
-      const res = await fetch("/api/youtube/transcript", {
-        method: "POST",
-        body: form,
-      });
-      const data = (await res.json().catch(() => ({}))) as { transcript?: TranscriptResult; error?: string };
-      if (!res.ok || !data.transcript) throw new Error(data.error || "Transcription failed");
-      setTranscript(data.transcript);
-      setManualTranscript(data.transcript.fullText);
-      setTranscriptNotice("");
-      setMessage("Uploaded media transcribed into the editor.");
-    });
-
   const generateOutput = () =>
     run(async () => {
       if (!meta) throw new Error("Load a YouTube video first.");
@@ -313,7 +287,7 @@ export default function YouTubeScriptImporterPage() {
         outputs,
         createArticle: true,
       });
-      setMessage("Saved to Plexa and added to Language Studio for Rewrite and Translations.");
+      setMessage("Saved to Plexa Studio and added to Language Studio for Rewrite and Translations.");
     });
 
   const saveOutputToPlexa = () =>
@@ -339,8 +313,8 @@ export default function YouTubeScriptImporterPage() {
       setManualTranscript(currentTranscript.fullText);
       setMessage(
         currentOutput.type === "article"
-          ? `Article saved to Plexa${data.languageArticle?.title ? `: ${data.languageArticle.title}` : "."}`
-          : "Generated output saved to Plexa and added to Language Studio for Rewrite and Translations.",
+          ? `Article saved to Plexa Studio${data.languageArticle?.title ? `: ${data.languageArticle.title}` : "."}`
+          : "Generated output saved to Plexa Studio and added to Language Studio for Rewrite and Translations.",
       );
     });
 
@@ -361,7 +335,7 @@ export default function YouTubeScriptImporterPage() {
         <div className="mx-auto max-w-5xl text-center">
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#eab308]">Tools / Import</p>
           <h1 className="mt-4 text-4xl font-black tracking-tight text-white md:text-6xl">
-            Plexa YouTube Transcript Generator
+            Plexa Studio YouTube Transcript Generator
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-slate-300 md:text-base">
             Paste a YouTube URL, import a permitted transcript, then turn it into scripts, summaries, captions,
@@ -380,7 +354,7 @@ export default function YouTubeScriptImporterPage() {
               disabled={busy || !url.trim()}
               className="min-h-12 rounded-full border border-[#22c55e]/70 bg-[#22c55e] px-7 text-sm font-bold text-black transition hover:bg-[#38e27a] disabled:pointer-events-none disabled:opacity-50"
             >
-              {busy ? "Getting transcript..." : "Get Video Transcript"}
+              {busy ? "Trying import..." : "Try YouTube / Apify import"}
             </button>
           </div>
           <p className="mt-5 text-xs text-slate-400">Quick and simple. Review rights before importing or reusing content.</p>
@@ -388,7 +362,7 @@ export default function YouTubeScriptImporterPage() {
       </section>
 
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
-        Only import videos you own, have permission to use, or where your use is legally allowed. Plexa uses official
+        Only import videos you own, have permission to use, or where your use is legally allowed. Plexa Studio uses official
         YouTube metadata where possible and does not scrape restricted captions.
       </div>
 
@@ -415,17 +389,7 @@ export default function YouTubeScriptImporterPage() {
           />
           <TranscriptFallbackOptions
             youtubeUrl={url}
-            transcriptResultInput={transcriptResultInput}
-            onTranscriptResultInput={setTranscriptResultInput}
-            onImportTranscriptResult={importTranscriptResult}
             onRetryAutomaticImport={retryAutomaticTranscriptImport}
-            onFileText={(text) => {
-              setManualTranscript(text);
-              setTranscript(makeManualTranscript(text));
-              setTranscriptNotice("");
-              setMessage("Transcript file loaded into the editor.");
-            }}
-            onMediaFile={transcribeUpload}
             busy={busy}
             notice={transcriptNotice}
           />
@@ -501,9 +465,14 @@ function TranscriptResultPanel({
       <div className="grid gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
         <div className="space-y-4">
           <div className="rounded-2xl border border-[#1f2d26] bg-black/30 p-4">
-            {meta?.thumbnailUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={meta.thumbnailUrl} alt="" className="aspect-video w-full rounded-xl object-cover" />
+            {meta?.videoId ? (
+              <iframe
+                className="aspect-video w-full rounded-xl border border-[#1f2d26] bg-black"
+                src={youtubeEmbedUrl(meta.videoId)}
+                title={meta.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
             ) : (
               <div className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-slate-700 text-sm text-slate-500">
                 Load a video to preview it here
@@ -533,7 +502,7 @@ function TranscriptResultPanel({
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <R365Button variant="ghost" onClick={onImport} disabled={disabled}>Import edited transcript</R365Button>
-              <R365Button onClick={onSave} disabled={disabled}>Save to Plexa</R365Button>
+              <R365Button onClick={onSave} disabled={disabled}>Save to Plexa Studio</R365Button>
             </div>
           </div>
         </div>
@@ -567,38 +536,24 @@ function TranscriptResultPanel({
 
 function TranscriptFallbackOptions({
   youtubeUrl,
-  transcriptResultInput,
-  onTranscriptResultInput,
-  onImportTranscriptResult,
   onRetryAutomaticImport,
-  onFileText,
-  onMediaFile,
   busy,
   notice,
 }: {
   youtubeUrl: string;
-  transcriptResultInput: string;
-  onTranscriptResultInput: (value: string) => void;
-  onImportTranscriptResult: () => void;
   onRetryAutomaticImport: () => void;
-  onFileText: (text: string) => void;
-  onMediaFile: (file: File) => void;
   busy: boolean;
   notice: string;
 }) {
-  const tactiqUrl = youtubeUrl.trim()
-    ? `https://tactiq.io/tools/run/youtube_transcript?yt=${encodeURIComponent(youtubeUrl.trim())}`
-    : "https://tactiq.io/tools/run/youtube_transcript";
-
   return (
-    <Panel title="Fallback Options">
+    <Panel title="Import Script">
       <div className="space-y-4 text-sm text-slate-400">
-        <p>{notice || "Use YouTube OAuth/Captions API for owned channels, paste the transcript manually, or upload permitted audio/video for transcription."}</p>
+        <p>{notice || "Try the compliant YouTube / Apify import first. Manual paste and upload fallbacks can be added back once this flow is stable."}</p>
         <div className="rounded-lg border border-[#1f2d26] bg-black/20 p-3">
-          <p className="font-semibold text-white">Try automatic transcript pull</p>
+          <p className="font-semibold text-white">Try YouTube / Apify import</p>
           <p className="mt-1 text-xs text-slate-500">
-            Calls the Plexa transcript route again. It tries owned-channel YouTube Captions first, then the Apify
-            Youtube Caption &amp; Transcript Scraper when the Apify token is configured.
+            Calls the Plexa Studio transcript route again. It tries owned-channel YouTube Captions first, then the Apify
+            YouTube transcript actor when the Apify token is configured.
           </p>
           <button
             type="button"
@@ -608,70 +563,6 @@ function TranscriptFallbackOptions({
           >
             {busy ? "Trying transcript pull..." : "Try YouTube / Apify import"}
           </button>
-        </div>
-        <a
-          className="inline-flex rounded-lg border border-violet-400/40 px-3 py-2 text-xs font-semibold text-violet-100 hover:bg-violet-500/20"
-          href={tactiqUrl}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open external transcript helper
-        </a>
-        <div className="rounded-lg border border-[#1f2d26] bg-black/20 p-3">
-          <p className="font-semibold text-white">Paste transcript result</p>
-          <p className="mt-1 text-xs text-slate-500">
-            Paste copied transcript output here. Plexa detects lines like <code>00:01 text</code> or SRT/WebVTT cues.
-          </p>
-          <textarea
-            className="mt-3 min-h-40 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] p-3 font-mono text-xs leading-5 text-white placeholder:text-slate-600"
-            value={transcriptResultInput}
-            onChange={(e) => onTranscriptResultInput(e.target.value)}
-            placeholder="00:00 When you make a new channel..."
-          />
-          <button
-            type="button"
-            className="mt-3 rounded-lg border border-[#22c55e]/50 bg-[#22c55e]/15 px-3 py-2 text-xs font-bold text-[#86efac] hover:bg-[#22c55e]/25 disabled:pointer-events-none disabled:opacity-50"
-            onClick={onImportTranscriptResult}
-            disabled={!transcriptResultInput.trim()}
-          >
-            Import transcript result
-          </button>
-        </div>
-        <label className="block rounded-lg border border-[#1f2d26] p-3">
-          <span className="font-semibold text-white">Upload transcript file</span>
-          <span className="mt-1 block text-xs text-slate-500">TXT or SRT files are loaded into the editor.</span>
-          <input
-            className="mt-3 block w-full text-xs text-slate-400"
-            type="file"
-            accept=".txt,.srt,text/plain"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              void file.text().then(onFileText);
-            }}
-          />
-        </label>
-        <div className="rounded-lg border border-[#1f2d26] p-3">
-          <p className="font-semibold text-white">Paste transcript manually</p>
-          <p className="mt-1 text-xs text-slate-500">Paste directly into the editor and import the edited transcript.</p>
-        </div>
-        <div className="rounded-lg border border-[#1f2d26] p-3">
-          <p className="font-semibold text-white">Audio/video transcription</p>
-          <p className="mt-1 text-xs text-slate-500">Upload permitted media and transcribe with OpenAI when configured.</p>
-          <input
-            className="mt-3 block w-full text-xs text-slate-400"
-            type="file"
-            accept="audio/*,video/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              onMediaFile(file);
-            }}
-          />
-        </div>
-        <div className="rounded-lg border border-[#1f2d26] p-3">
-          <p className="font-semibold text-white">Owned-channel OAuth</p>
-          <p className="mt-1 text-xs text-slate-500">Connect YouTube OAuth and Captions API for channels you own.</p>
         </div>
       </div>
     </Panel>
@@ -792,13 +683,13 @@ function ScriptOutputSelector({
           />
         </label>
         <label className="block text-xs font-semibold uppercase text-slate-500">
-          Use Journalist Profile
+          Use Content Creator Profile
           <select
             className="mt-1 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] px-3 py-2 text-sm text-white"
             value={selectedJournalistProfileId}
             onChange={(e) => onJournalistProfileChange(e.target.value)}
           >
-            <option value="">Manual journalist style</option>
+            <option value="">Manual creator style</option>
             {journalistProfiles.map((profile) => (
               <option key={profile.id} value={profile.id}>
                 {profile.name} · {profile.brand}{profile.sports.length ? ` · ${profile.sports.join(", ")}` : ""}
@@ -807,12 +698,12 @@ function ScriptOutputSelector({
           </select>
         </label>
         <label className="block text-xs font-semibold uppercase text-slate-500">
-          Journalist Style
+          Creator Style
           <textarea
             className="mt-1 min-h-28 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] px-3 py-2 font-mono text-xs leading-5 text-white"
             value={journalistStyle}
             onChange={(e) => onJournalistStyleChange(e.target.value)}
-            placeholder="Choose a profile or add manual journalist style notes..."
+            placeholder="Choose a profile or add manual creator style notes..."
           />
         </label>
         <R365Button onClick={onGenerate} disabled={busy || !canGenerate}>
@@ -877,7 +768,7 @@ function GeneratedOutputPanel({
             disabled={!selectedOutput?.content}
             onClick={onSave}
           >
-            {selectedOutput?.type === "article" ? "Save article to Plexa" : "Save output to Plexa"}
+            {selectedOutput?.type === "article" ? "Save article to Plexa Studio" : "Save output to Plexa Studio"}
           </R365Button>
           <Link href="/language-studio">
             <R365Button variant="ghost">Open Language Studio</R365Button>

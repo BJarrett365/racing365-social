@@ -93,10 +93,21 @@ export function LanguageStudioSettingsForm() {
         </div>
       ) : null}
       {status?.adminTokenRequired ? (
-        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Admin token
-          <input className={inputClass} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} />
-        </label>
+        <div className="rounded-xl border border-[#1f2d26] bg-black/20 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-white">Admin token</p>
+              <p className="mt-1 text-xs text-slate-500">Required before protected Language Studio settings can be saved.</p>
+            </div>
+            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-xs font-bold text-amber-200">
+              Required
+            </span>
+          </div>
+          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            ADMIN_TOKEN
+            <input className={inputClass} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} />
+          </label>
+        </div>
       ) : null}
       <div className="grid gap-3 md:grid-cols-3">
         <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -116,14 +127,31 @@ export function LanguageStudioSettingsForm() {
           <input className={inputClass} value={deeplApiUrl} onChange={(e) => setDeeplApiUrl(e.target.value)} placeholder="https://api-free.deepl.com" />
         </label>
       </div>
-      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-        DeepL API key
-        <input className={inputClass} type="password" value={deeplApiKey} onChange={(e) => setDeeplApiKey(e.target.value)} placeholder="Paste new DeepL key" />
-      </label>
-      <label className="flex items-center gap-2 text-xs text-slate-400">
-        <input type="checkbox" checked={clearDeeplKey} onChange={(e) => setClearDeeplKey(e.target.checked)} />
-        Clear stored DeepL key
-      </label>
+      <div className="rounded-xl border border-[#1f2d26] bg-black/20 p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-white">DeepL</p>
+            <p className="mt-1 text-xs text-slate-500">Translation provider key for DeepL-only or DeepL + OpenAI localisation mode.</p>
+          </div>
+          <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${status?.deeplConfigured ? "border-[#22c55e]/30 bg-[#22c55e]/10 text-[#22c55e]" : "border-slate-700 bg-slate-900/40 text-slate-500"}`}>
+            {status?.deeplConfigured ? "Key on file" : "Optional"}
+          </span>
+        </div>
+        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          DEEPL_API_KEY
+          <input
+            className={inputClass}
+            type="password"
+            value={deeplApiKey}
+            onChange={(e) => setDeeplApiKey(e.target.value)}
+            placeholder={status?.deeplConfigured ? "Leave blank to keep existing, or enter new key" : "Paste new DeepL key"}
+          />
+        </label>
+        <label className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+          <input type="checkbox" checked={clearDeeplKey} onChange={(e) => setClearDeeplKey(e.target.checked)} />
+          Clear stored DeepL key
+        </label>
+      </div>
       <div className="flex flex-wrap items-center gap-3">
         <R365Button type="button" onClick={() => void save()} disabled={busy}>{busy ? "Saving..." : "Save Language Studio settings"}</R365Button>
         {message ? <span className="text-xs text-emerald-400">{message}</span> : null}

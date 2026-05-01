@@ -69,7 +69,7 @@ export function GovernancePanel({ section }: { section: Section }) {
     return (
       <Panel title="Knowledge Files" className="space-y-4 p-5">
         <h2 className="text-xl font-bold text-white">Knowledge Files</h2>
-        <p className="text-sm text-slate-400">Knowledge is now split into Brand Tone, Journalist Styles, Glossary, Protected Terms, Market Rules, Sport Rules, Prompt Rules, Compliance Notes and Translation Memory. Journalist styles are built from imported article authors.</p>
+        <p className="text-sm text-slate-400">Knowledge is now split into Brand Tone, Content Creator Styles, Glossary, Protected Terms, Market Rules, Sport Rules, Prompt Rules, Compliance Notes and Translation Memory. Creator styles are built from imported article authors.</p>
         {knowledgeFiles.length ? (
           <div className="space-y-2">
             <h3 className="text-sm font-bold uppercase text-slate-500">AI Quality Fix Lessons</h3>
@@ -89,7 +89,7 @@ export function GovernancePanel({ section }: { section: Section }) {
             <div key={String(row.id)} className="rounded-lg border border-[#1f2d26] bg-black/20 p-3 text-sm text-slate-300">
               <p className="font-semibold text-white">{String(row.name)} · {String(row.brand)}</p>
               <p className="mt-1 text-xs text-slate-500">
-                Journalist Style · {Array.isArray(row.sports) && row.sports.length ? row.sports.join(", ") : "No sports tagged yet"}
+                Content Creator Style · {Array.isArray(row.sports) && row.sports.length ? row.sports.join(", ") : "No sports tagged yet"}
               </p>
               <p className="mt-2 whitespace-pre-line text-xs text-slate-400">{String(row.styleNotes || "No style profile yet.")}</p>
             </div>
@@ -114,9 +114,9 @@ export function GovernancePanel({ section }: { section: Section }) {
   }
 
   return (
-    <Panel title={section} className="space-y-4 p-5">
+    <Panel title={section === "Journalists" ? "Content Creators" : section} className="space-y-4 p-5">
       <div>
-        <h2 className="text-xl font-bold text-white">{section}</h2>
+        <h2 className="text-xl font-bold text-white">{section === "Journalists" ? "Content Creators" : section}</h2>
         <p className="mt-1 text-sm text-slate-400">Create and edit Language Studio governance data. These controls only affect Language Studio.</p>
       </div>
       {message ? <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">{message}</p> : null}
@@ -127,7 +127,7 @@ export function GovernancePanel({ section }: { section: Section }) {
       {section === "Prompt Rules" ? <PromptRuleForm draft={draft} setDraft={setDraft} /> : null}
       {section === "Compliance Notes" ? <ComplianceForm draft={draft} setDraft={setDraft} /> : null}
       {section === "Journalists" ? <JournalistForm draft={draft} setDraft={setDraft} /> : null}
-      <R365Button type="button" onClick={() => void save()}>Save {section}</R365Button>
+      <R365Button type="button" onClick={() => void save()}>Save {section === "Journalists" ? "Content Creator" : section}</R365Button>
       <div className="grid gap-2 md:grid-cols-2">
         {rows.map((row) => (
           <button key={String(row.id)} type="button" onClick={() => setDraft(row)} className="rounded-lg border border-[#1f2d26] bg-black/20 p-3 text-left text-sm text-slate-300">
@@ -161,5 +161,5 @@ function ComplianceForm({ draft, setDraft }: { draft: Record<string, unknown>; s
 }
 
 function JournalistForm({ draft, setDraft }: { draft: Record<string, unknown>; setDraft: (next: Record<string, unknown>) => void }) {
-  return <div className="grid gap-3 md:grid-cols-4"><input className={inputClass} placeholder="Journalist name" value={String(draft.name ?? "")} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /><input className={inputClass} placeholder="Brand" value={String(draft.brand ?? "")} onChange={(e) => setDraft({ ...draft, brand: e.target.value })} /><input className={inputClass} placeholder="Sports, comma-separated" value={Array.isArray(draft.sports) ? draft.sports.join(", ") : ""} onChange={(e) => setDraft({ ...draft, sports: csv(e.target.value) })} /><label className="mt-3 flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={draft.active !== false} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />Active</label><textarea className={`${textareaClass} md:col-span-2`} placeholder="Writing style: tone, rhythm, structure, sentence length, headline habits" value={String(draft.styleNotes ?? "")} onChange={(e) => setDraft({ ...draft, styleNotes: e.target.value })} /><textarea className={`${textareaClass} md:col-span-2`} placeholder="Article / editorial guidelines for this journalist style" value={String(draft.articleGuidelines ?? "")} onChange={(e) => setDraft({ ...draft, articleGuidelines: e.target.value })} /><textarea className={`${textareaClass} md:col-span-4`} placeholder="Example titles, one per line" value={Array.isArray(draft.exampleTitles) ? draft.exampleTitles.join("\n") : ""} onChange={(e) => setDraft({ ...draft, exampleTitles: e.target.value.split(/\n+/).map((item) => item.trim()).filter(Boolean) })} /></div>;
+  return <div className="grid gap-3 md:grid-cols-4"><input className={inputClass} placeholder="Content creator name" value={String(draft.name ?? "")} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /><input className={inputClass} placeholder="Brand" value={String(draft.brand ?? "")} onChange={(e) => setDraft({ ...draft, brand: e.target.value })} /><input className={inputClass} placeholder="Sports, comma-separated" value={Array.isArray(draft.sports) ? draft.sports.join(", ") : ""} onChange={(e) => setDraft({ ...draft, sports: csv(e.target.value) })} /><label className="mt-3 flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={draft.active !== false} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />Active</label><textarea className={`${textareaClass} md:col-span-2`} placeholder="Creator style: tone, rhythm, structure, sentence length, headline habits" value={String(draft.styleNotes ?? "")} onChange={(e) => setDraft({ ...draft, styleNotes: e.target.value })} /><textarea className={`${textareaClass} md:col-span-2`} placeholder="Article / editorial guidelines for this creator style" value={String(draft.articleGuidelines ?? "")} onChange={(e) => setDraft({ ...draft, articleGuidelines: e.target.value })} /><textarea className={`${textareaClass} md:col-span-4`} placeholder="Example titles, one per line" value={Array.isArray(draft.exampleTitles) ? draft.exampleTitles.join("\n") : ""} onChange={(e) => setDraft({ ...draft, exampleTitles: e.target.value.split(/\n+/).map((item) => item.trim()).filter(Boolean) })} /></div>;
 }

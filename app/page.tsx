@@ -1,124 +1,168 @@
 import Link from "next/link";
 import { Panel } from "@/app/components/Panel";
-import { BRAND_SUITE_UPPER, BRAND_TAGLINE } from "@/app/lib/brand";
+import { BRAND_SUITE_UPPER } from "@/app/lib/brand";
+
+const primaryCards = [
+  {
+    title: "Shorts Studio",
+    href: "/templates",
+    heading: "Portrait social video templates",
+    description: "Build short-form clips from racing, football, F1 and sport-specific template bundles.",
+    cta: "Open Shorts Studio",
+    accent: "gold",
+  },
+  {
+    title: "Landscape Studio",
+    href: "/landscape",
+    heading: "Landscape video workflows",
+    description: "Create wider-format editorial and social video outputs for desktop and platform publishing.",
+    cta: "Open Landscape Studio",
+    accent: "green",
+  },
+  {
+    title: "Article Studio",
+    href: "/article-studio",
+    heading: "Import, rewrite, translate and review",
+    description: "Bring article imports, YouTube transcripts, rewrites, translations and review into one hub.",
+    cta: "Open Article Studio",
+    accent: "gold",
+  },
+  {
+    title: "Language Studio",
+    href: "/language-studio",
+    heading: "Translation, localisation and export",
+    description: "Run source imports, rewrites, translations, governance checks and XML/JSON exports.",
+    cta: "Open Language Studio",
+    accent: "green",
+  },
+  {
+    title: "Podcast Studio",
+    href: "/podcast-template",
+    heading: "Podcast script builder",
+    description: "Shape articles, notes and transcripts into podcast-ready scripts and formats.",
+    cta: "Open Podcast Studio",
+    accent: "green",
+  },
+  {
+    title: "Tools",
+    href: "/tools",
+    heading: "Utility hub",
+    description: "Access YouTube importing, URL-to-article workflows, export tools and creator utilities.",
+    cta: "Open Tools",
+    accent: "green",
+  },
+  {
+    title: "Library",
+    href: "/library",
+    heading: "Assets and generated outputs",
+    description: "Review saved images, videos, manifests, source media and reusable creative assets.",
+    cta: "Open Library",
+    accent: "gold",
+  },
+  {
+    title: "Schedule Studio",
+    href: "/editing-studio",
+    heading: "Editorial scheduling and social workflow",
+    description: "Manage projects, copy, media, previews and export-ready schedule items.",
+    cta: "Coming soon",
+    accent: "muted",
+    status: "Coming soon",
+  },
+  {
+    title: "Live Control",
+    href: "/live",
+    heading: "Mux and Restream sessions",
+    description: "Create, monitor and manage live sessions with provider setup and ingest controls.",
+    cta: "Coming soon",
+    accent: "muted",
+    status: "Coming soon",
+  },
+];
+
+const supportCards = [
+  { title: "Product", href: "/product", description: "Overview, features and use cases." },
+  { title: "How It Works", href: "/how-it-works", description: "Step-by-step workflow guide." },
+  { title: "Guard Rails", href: "/guard-rails", description: "Editorial and safety boundaries." },
+  { title: "Brand Guidelines", href: "/brand-guidelines", description: "Plexa Studio visual and tone guidance." },
+  { title: "Prompts", href: "/prompts", description: "Prompt library and AI instructions." },
+  { title: "Admin", href: "/admin", description: "Settings, integrations and keys." },
+];
+
+const newsShortsCards = [
+  {
+    title: "News Shorts (Planet Sport)",
+    href: "/news-shorts",
+    heading: "Video and social images from article content",
+    description:
+      "Create Planet Sport news-led short videos, quote cards, thumbnails and social images from article scripts and editorial assets.",
+    cta: "Open News Shorts",
+  },
+];
 
 export default function HomePage() {
   return (
     <div className="space-y-10">
-      <div className="max-w-2xl">
+      <div className="max-w-3xl">
         {BRAND_SUITE_UPPER ? (
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#eab308]">
             {BRAND_SUITE_UPPER}
           </p>
         ) : null}
         <h1 className="mt-2 text-4xl font-black tracking-tight text-[color:var(--text-primary)]">
-          {BRAND_TAGLINE}
+          Plexa Studio Control Room
         </h1>
         <p className="mt-4 text-lg text-slate-400">
-          Build short-form social video quickly with templates, AI-assisted scripting, scene rendering, and
-          export-ready output.
+          Create short videos, social images, captions, articles and multilingual outputs from one AI-powered
+          production hub. Choose a studio, shape the story, then publish or export with the right assets ready.
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Link href="/product" className="block transition hover:opacity-95">
-          <Panel title="Product">
-            <h2 className="text-xl font-bold text-[color:var(--text-primary)]">Overview, features and use cases</h2>
-            <p className="mt-2 text-sm text-slate-400">
-              Shorts hub by vertical, <code className="text-slate-600">tpl-…</code> bundles, AI scripting, library
-              previews, and the full editor through to export.
-            </p>
-            <span className="mt-6 inline-flex text-sm font-semibold text-[#22c55e]">View product page →</span>
-          </Panel>
-        </Link>
-        <Link href="/how-it-works" className="block transition hover:opacity-95">
-          <Panel title="How It Works">
-            <h2 className="text-xl font-bold text-[color:var(--text-primary)]">Hub, then six steps</h2>
-            <p className="mt-2 text-sm text-slate-400">
-              Start on Shorts (pipeline + bundle), then script, scenes, voice and subtitles, optional background
-              video, preview and export.
-            </p>
-            <span className="mt-6 inline-flex text-sm font-semibold text-[#22c55e]">Read how it works →</span>
-          </Panel>
-        </Link>
-        <Link href="/templates" className="block transition hover:opacity-95">
-          <Panel title="Shorts">
-            <h2 className="text-xl font-bold text-[color:var(--text-primary)]">Social video templates</h2>
-            <p className="mt-2 text-sm text-slate-400">
-              Horse racing, F1, TEAMtalk, Football365 — pipeline lists, create-bundle actions, muted previews, and a
-              brands directory.
-            </p>
-            <span className="mt-6 inline-flex text-sm font-semibold text-[#eab308]">
-              Open shorts →
-            </span>
-          </Panel>
-        </Link>
-        <Link href="/library" className="block transition hover:opacity-95">
-          <Panel title="Library">
-            <h2 className="text-xl font-bold text-[color:var(--text-primary)]">Output &amp; assets</h2>
-            <p className="mt-2 text-sm text-slate-400">
-              Manifest builds, backdrop videos, and background stills in Library images.
-            </p>
-            <span className="mt-6 inline-flex text-sm font-semibold text-[#22c55e]">
-              Open library →
-            </span>
-          </Panel>
-        </Link>
-        <Link href="/editing-studio" className="block transition hover:opacity-95">
-          <Panel title="Schedule Studio">
-            <h2 className="text-xl font-bold text-[color:var(--text-primary)]">Editorial &amp; social workflows</h2>
-            <p className="mt-2 text-sm text-slate-400">
-              Projects, copy, media, previews, and export — separate from templates and live streaming.
-            </p>
-            <span className="mt-6 inline-flex text-sm font-semibold text-[#22c55e]">Open Schedule Studio →</span>
-          </Panel>
-        </Link>
-        <Link href="/live" className="block transition hover:opacity-95">
-          <Panel title="Live Control">
-            <h2 className="text-xl font-bold text-[color:var(--text-primary)]">Mux &amp; Restream sessions</h2>
-            <p className="mt-2 text-sm text-slate-400">
-              Live sessions, provider setup, ingest, and monitoring — link projects from the editor when needed.
-            </p>
-            <span className="mt-6 inline-flex text-sm font-semibold text-[#eab308]">Open Live Control →</span>
-          </Panel>
-        </Link>
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {primaryCards.map((card) => (
+          <Link key={card.title} href={card.href} className="block transition hover:-translate-y-0.5 hover:opacity-95">
+            <Panel title={card.status ?? card.title}>
+              <div className="flex h-full flex-col">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-xl font-bold text-[color:var(--text-primary)]">{card.title}</h2>
+                  {card.status ? (
+                    <span className="rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-muted)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[color:var(--text-secondary)]">
+                      {card.status}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-2 text-sm font-semibold text-[color:var(--text-secondary)]">{card.heading}</p>
+                <p className="mt-2 flex-1 text-sm leading-6 text-[color:var(--text-muted)]">{card.description}</p>
+                <span className={`mt-6 inline-flex text-sm font-semibold ${card.accent === "muted" ? "text-[color:var(--text-secondary)]" : card.accent === "gold" ? "text-[#eab308]" : "text-[#22c55e]"}`}>
+                  {card.cta} →
+                </span>
+              </div>
+            </Panel>
+          </Link>
+        ))}
       </div>
 
-      <Panel title="System map">
-        <ul className="grid gap-3 text-sm text-[color:var(--text-secondary)] md:grid-cols-2">
-          <li>
-            <span className="text-[#eab308]">Data</span> — DummyRacingDataProvider → JSON in{" "}
-            <code className="text-slate-500">/data/dummy</code>
-          </li>
-          <li>
-            <span className="text-[#eab308]">Content</span> — Captions, scenes, scripts (OpenAI stub)
-          </li>
-          <li>
-            <span className="text-[#eab308]">Render</span> — HTML/CSS + Puppeteer → PNG
-          </li>
-          <li>
-            <span className="text-[#eab308]">Video</span> — concat demuxer + AAC + H.264 30fps
-          </li>
-          <li>
-            <span className="text-[#eab308]">Audio</span> — DummyAudioProvider (optional MP3 or
-            generated silence)
-          </li>
-          <li>
-            <span className="text-[#eab308]">Output</span> — <code className="text-slate-500">/output</code>{" "}
-            + Library
-          </li>
-        </ul>
+      <Panel title="News Shorts & Social Image">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {newsShortsCards.map((card) => (
+            <Link key={card.title} href={card.href} className="block rounded-xl border border-[#1f2d26] bg-black/20 p-4 transition hover:border-[#22c55e]/60">
+              <h2 className="text-xl font-bold text-[color:var(--text-primary)]">{card.title}</h2>
+              <p className="mt-2 text-sm font-semibold text-slate-300">{card.heading}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-400">{card.description}</p>
+              <span className="mt-6 inline-flex text-sm font-semibold text-[#22c55e]">{card.cta} →</span>
+            </Link>
+          ))}
+        </div>
       </Panel>
 
-      <Panel title="How it works">
-        <ol className="grid gap-2 text-sm text-[color:var(--text-secondary)] sm:grid-cols-2 lg:grid-cols-3">
-          <li>1. Choose a brand</li>
-          <li>2. Import data or content</li>
-          <li>3. Build or edit script</li>
-          <li>4. Create scenes</li>
-          <li>5. Add voice, subtitles and timing</li>
-          <li>6. Preview and export</li>
-        </ol>
+      <Panel title="Support">
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {supportCards.map((card) => (
+            <Link key={card.title} href={card.href} className="rounded-lg border border-[#1f2d26] bg-black/20 p-3 transition hover:border-[#22c55e]/60">
+              <p className="text-sm font-bold text-[color:var(--text-primary)]">{card.title}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{card.description}</p>
+            </Link>
+          ))}
+        </div>
       </Panel>
     </div>
   );

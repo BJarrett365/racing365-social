@@ -8,7 +8,7 @@ export default async function FootballLineupsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-black text-white">Football line-ups</h1>
+        <h1 className="text-3xl font-black text-white">Football line-ups Template</h1>
         <p className="mt-2 text-slate-400">
           Three-board Shorts: formation pitch, bench list, injuries &amp; suspensions. Dummy data in{" "}
           <code className="text-slate-500">data/dummy/football-lineups.json</code>.

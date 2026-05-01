@@ -51,7 +51,7 @@ function outputRules(outputType: ScriptOutputType): string {
       "Include direct quotes from the transcript only; wrap quoted words in quotation marks.",
       "Attribute quotes to the speaker when the transcript makes that clear, otherwise use neutral wording such as 'Rodon said' only if grounded by the title/transcript.",
       "Do not mention unknown duration or unknown publish date in the article body unless those values are known.",
-      "Write in a clean football news feature style for Plexa.",
+      "Write in a clean football news feature style for Plexa Studio.",
     ].join(" ");
   }
   if (outputType === "podcast_script") {
@@ -105,7 +105,7 @@ export async function generateYouTubeScriptOutput(input: GenerateInput): Promise
     `Output type: ${scriptOutputLabels[input.outputType]}`,
     `Content style: ${input.contentStyle?.trim() || "News"}`,
     `Sport: ${input.sportContext?.trim() || "Football"}`,
-    `Brand tone: ${input.brandTone?.trim() || "Plexa editorial, clear and useful"}`,
+    `Brand tone: ${input.brandTone?.trim() || "Plexa Studio editorial, clear and useful"}`,
     `Output language: ${input.outputLanguage?.trim() || "British English"}`,
     input.rewriteStyle?.trim() ? `Style instructions: ${input.rewriteStyle.trim()}` : "",
     input.journalistProfileName?.trim() ? `Use journalist profile: ${input.journalistProfileName.trim()}` : "",
@@ -134,7 +134,7 @@ export async function generateYouTubeScriptOutput(input: GenerateInput): Promise
           {
             role: "system",
             content:
-              "You are Plexa YouTube Script Importer. Produce useful editorial outputs from transcripts, obeying compliance and fact-preservation rules.",
+              "You are Plexa Studio YouTube Script Importer. Produce useful editorial outputs from transcripts, obeying compliance and fact-preservation rules.",
           },
           { role: "user", content: prompt },
         ],

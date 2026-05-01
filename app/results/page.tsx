@@ -20,7 +20,7 @@ export default async function ResultsPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white">Fast results Shorts</h1>
+          <h1 className="text-3xl font-black text-white">Fast results Template</h1>
           <p className="mt-2 max-w-xl text-slate-400">
             Dummy results plus your templates. Use <strong className="text-slate-300">New template</strong>{" "}
             for a fresh card (saved under <code className="text-slate-500">data/local/</code>).

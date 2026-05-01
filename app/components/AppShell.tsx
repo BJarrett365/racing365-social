@@ -13,13 +13,6 @@ const plexaFont = Montserrat({
 
 const nav = [
   { href: "/", label: "Dashboard" },
-  { href: "/editing-studio", label: "Schedule Studio" },
-  { href: "/live", label: "Live Control" },
-  { href: "/templates", label: "Shorts" },
-  { href: "/landscape", label: "Landscape" },
-  { href: "/podcast-template", label: "Podcast" },
-  { href: "/article-studio", label: "Article Studio" },
-  { href: "/language-studio", label: "Language Studio" },
   { href: "/tools", label: "Tools" },
   { href: "/library", label: "Library" },
   { href: "/admin", label: "Admin" },
@@ -40,14 +33,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
       <header
-        className="border-b backdrop-blur sticky top-0 z-50"
-        style={{ borderColor: "var(--border)", background: "color-mix(in srgb, var(--bg) 95%, transparent)" }}
+        className="app-shell-header border-b backdrop-blur sticky top-0 z-50"
       >
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4 px-4 py-4">
+        <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center">
             <div className="flex min-w-0 flex-col gap-1 leading-tight">
               <span
-                className={`${plexaFont.className} text-2xl font-extrabold tracking-[0.14em] sm:text-3xl`}
+                className={`${plexaFont.className} text-xl font-extrabold tracking-[0.14em] sm:text-2xl lg:text-3xl`}
                 style={{ color: "var(--r365-gold)" }}
               >
                 {BRAND_MARK}
@@ -60,8 +52,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </span>
             </div>
           </Link>
-          <div className="flex flex-wrap items-center gap-2">
-            <nav className="flex flex-wrap gap-1 text-sm">
+          <div className="flex min-w-0 items-center gap-2">
+            <nav className="hidden flex-wrap gap-1 text-sm md:flex">
               {nav.map((n) => (
                 <Link
                   key={n.href}
@@ -77,8 +69,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-8">{children}</main>
-      <footer className="border-t" style={{ borderColor: "var(--border)" }}>
+      <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-5 pb-24 sm:px-6 sm:py-8 lg:px-8 lg:pb-8">{children}</main>
+      <nav className="mobile-tab-bar fixed inset-x-0 bottom-0 z-50 border-t px-2 py-2 backdrop-blur md:hidden">
+        <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+          {nav.map((n) => (
+            <Link
+              key={n.href}
+              href={n.href}
+              className="app-nav-link rounded-xl px-2 py-2 text-center text-[11px] font-semibold transition"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              {n.label}
+            </Link>
+          ))}
+        </div>
+      </nav>
+      <footer className="hidden border-t md:block" style={{ borderColor: "var(--border)" }}>
         <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-3 px-4 py-4">
           <nav className="flex flex-wrap gap-2 text-sm">
             {footerLinks.map((n) => (

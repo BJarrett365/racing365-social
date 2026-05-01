@@ -174,6 +174,9 @@ const primaryTabs = ["Dashboard", "Imports", "Rewrite", "Translations", "Review 
 const secondaryTabs = ["Source Brands", "Journalists", "Guardrails", "Knowledge Files", "Glossary", "Protected Terms", "Market Rules", "Prompt Rules", "Compliance Notes", "Quality Checks", "Export Feeds", "Client Access", "Settings"] as const;
 type LanguageStudioTab = (typeof primaryTabs)[number] | (typeof secondaryTabs)[number];
 const allLanguageStudioTabs = [...primaryTabs, ...secondaryTabs] as readonly string[];
+function tabLabel(tab: LanguageStudioTab): string {
+  return tab === "Journalists" ? "Content Creators" : tab;
+}
 const inputClass = "mt-1 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] px-3 py-2 text-sm text-white placeholder:text-slate-600";
 const textareaClass = `${inputClass} min-h-28 font-mono text-xs`;
 const miniButtonClass = "rounded-md border border-[#1f2d26] px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:border-[#22c55e]/60 hover:text-white";
@@ -197,7 +200,7 @@ const clientDocs = [
   { slug: "client-access", title: "Client Access Guide", description: "How to create clients, issue keys, revoke access and review logs." },
   { slug: "client-api", title: "Client API Reference", description: "XML and JSON endpoint examples, authentication and payload fields." },
   { slug: "language-studio", title: "Language Studio Admin Guide", description: "Import, translate, review, approve and export workflow." },
-  { slug: "install", title: "Plexa Install Guide", description: "Local install, admin setup and generated files." },
+  { slug: "install", title: "Plexa Studio Install Guide", description: "Local install, admin setup and generated files." },
   { slug: "environment", title: "Environment Variables", description: "OpenAI, DeepL, cron, admin and runtime settings." },
   { slug: "deployment", title: "Deployment Guide", description: "Production build, Vercel cron and storage notes." },
   { slug: "troubleshooting", title: "Troubleshooting", description: "Common import, image, translation, cron and API issues." },
@@ -871,7 +874,7 @@ export function LanguageStudioClient() {
             onClick={() => setTab(item)}
             className="rounded-full border border-[#1f2d26] px-3 py-1.5 text-sm text-slate-400"
           >
-            {item}
+            {tabLabel(item)}
           </button>
         ))}
       </div>
@@ -898,7 +901,7 @@ export function LanguageStudioClient() {
               onClick={() => setTab(item)}
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm ${tab === item ? "border-[#22c55e] bg-[#22c55e]/15 text-white" : "border-[#1f2d26] text-slate-400"}`}
             >
-              <span>{item}</span>
+              <span>{tabLabel(item)}</span>
               {typeof count === "number" ? (
                 <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${tab === item ? "bg-[#22c55e] text-black" : "bg-slate-800 text-slate-300"}`}>
                   {count}
@@ -1052,9 +1055,9 @@ export function LanguageStudioClient() {
                 <textarea className={textareaClass} value={rewriteStyle} onChange={(e) => setRewriteStyle(e.target.value)} />
               </label>
               <label className="block text-xs font-semibold uppercase text-slate-500">
-                Use Journalist Profile
+                Use Content Creator Profile
                 <select className={inputClass} value={selectedJournalistProfileId} onChange={(e) => applyJournalistProfile(e.target.value)}>
-                  <option value="">Manual journalist style</option>
+                  <option value="">Manual creator style</option>
                   {activeJournalistProfiles.map((profile) => (
                     <option key={profile.id} value={profile.id}>
                       {profile.name} · {profile.brand}{profile.sports.length ? ` · ${profile.sports.join(", ")}` : ""}
@@ -1063,7 +1066,7 @@ export function LanguageStudioClient() {
                 </select>
               </label>
               <label className="block text-xs font-semibold uppercase text-slate-500">
-                Journalist Style
+                Creator Style
                 <textarea className={textareaClass} value={journalistStyle} onChange={(e) => setJournalistStyle(e.target.value)} />
               </label>
               <label className="block text-xs font-semibold uppercase text-slate-500">
@@ -1146,13 +1149,13 @@ export function LanguageStudioClient() {
                 <textarea className={textareaClass} value={rewriteStyle} onChange={(e) => setRewriteStyle(e.target.value)} />
               </label>
               <label className="block text-xs font-semibold uppercase text-slate-500">
-                Use Journalist Profile
+                Use Content Creator Profile
                 <select
                   className={inputClass}
                   value={selectedJournalistProfileId}
                   onChange={(e) => applyJournalistProfile(e.target.value)}
                 >
-                  <option value="">Manual journalist style</option>
+                  <option value="">Manual creator style</option>
                   {activeJournalistProfiles.map((profile) => (
                     <option key={profile.id} value={profile.id}>
                       {profile.name} · {profile.brand}{profile.sports.length ? ` · ${profile.sports.join(", ")}` : ""}
@@ -1161,7 +1164,7 @@ export function LanguageStudioClient() {
                 </select>
               </label>
               <label className="block text-xs font-semibold uppercase text-slate-500">
-                Journalist Style
+                Creator Style
                 <textarea className={textareaClass} value={journalistStyle} onChange={(e) => setJournalistStyle(e.target.value)} />
               </label>
               <label className="block text-xs font-semibold uppercase text-slate-500">

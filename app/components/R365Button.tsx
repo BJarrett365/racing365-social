@@ -12,7 +12,7 @@ export function R365Button({
   type?: "button" | "submit";
 }) {
   const base =
-    "inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-[background-color,color,border-color,box-shadow,opacity] duration-200 disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]";
+    "inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition-[background-color,color,border-color,box-shadow,opacity,transform] duration-200 disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)] active:translate-y-px";
   const styles =
     variant === "primary"
       ? "border border-transparent bg-[color:var(--accent)] text-[color:var(--accent-foreground)] hover:bg-[color:var(--accent-hover)] active:brightness-95"

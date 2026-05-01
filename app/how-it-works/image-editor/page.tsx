@@ -5,7 +5,7 @@ import { BRAND_SUITE } from "@/app/lib/brand";
 
 export const metadata: Metadata = {
   title: `Image Editor · How it works · ${BRAND_SUITE}`,
-  description: "How the PLEXA Image Editor (layers) works: scenes, overlays, controls, and preview.",
+  description: "How the Plexa Studio Image Editor (layers) works: scenes, overlays, controls, and preview.",
 };
 
 const workflowSteps = [

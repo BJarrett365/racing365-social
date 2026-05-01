@@ -123,7 +123,7 @@ export function buildClientFeedXml(rows: Array<{ article: LanguageArticle; trans
   const builder = new XMLBuilder({ ignoreAttributes: false, cdataPropName: "__cdata", format: true });
   return builder.build({
     feed: {
-      title: "Plexa Language Studio client feed",
+      title: "Plexa Studio Language Studio client feed",
       generatedAt: new Date().toISOString(),
       item: rows.map(({ article, translation }) => ({
         id: translation.id,

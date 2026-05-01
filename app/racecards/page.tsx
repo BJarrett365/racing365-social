@@ -20,7 +20,7 @@ export default async function RacecardsPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white">Racecard snapshots</h1>
+          <h1 className="text-3xl font-black text-white">Racecards Template</h1>
           <p className="mt-2 max-w-xl text-slate-400">
             LED boards with <strong className="text-slate-300">jockey silks</strong> per runner, dummy cards,
             and your own templates. <strong className="text-slate-300">New template</strong> seeds five

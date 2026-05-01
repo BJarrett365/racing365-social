@@ -23,10 +23,10 @@ export type BrandGuidelinesFile = {
 
 const META: Record<BrandGuidelineSlug, { label: string; defaultBody: string }> = {
   plexa: {
-    label: "PLEXA",
-    defaultBody: `[PLEXA — UI Kit missing]
+    label: "Plexa Studio",
+    defaultBody: `[Plexa Studio — UI Kit missing]
 
-Add data/plexa-brand-guidelines-ui-kit.txt (PLEXA App UI Kit) to the repo, or paste guidelines on the Brand Guidelines page.`,
+Add data/plexa-brand-guidelines-ui-kit.txt (Plexa Studio App UI Kit) to the repo, or paste guidelines on the Brand Guidelines page.`,
   },
   racing365: {
     label: "Racing365",

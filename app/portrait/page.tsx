@@ -11,7 +11,7 @@ import { assetsManifestPath } from "@/app/lib/paths";
 import { NEWS_SHORTS_BRAND_TEMPLATES } from "@/app/features/news-shorts/news-shorts-brand-templates";
 
 export const metadata: Metadata = {
-  title: `Landscape · ${BRAND_SUITE}`,
+  title: `Landscape Studio · ${BRAND_SUITE}`,
   description: "Create and open Landscape templates (tpl-…) by vertical and brand.",
 };
 
@@ -36,7 +36,7 @@ type Pipeline = {
 
 const horseRacing: Pipeline[] = [
   {
-    title: "Next off",
+    title: "Next off Template",
     description: "Tips intro, three selections, outro. tpl-* cards plus dummy races in data/dummy.",
     listPath: "/next-off?mode=landscape",
     exampleSlug: "next-off",
@@ -44,7 +44,7 @@ const horseRacing: Pipeline[] = [
     format: "next-off",
   },
   {
-    title: "Fast results",
+    title: "Fast results Template",
     description: "Winner, full-frame placings, branded outro. New tpl-* templates from here.",
     listPath: "/results?mode=landscape",
     exampleSlug: "fast-results",
@@ -52,7 +52,7 @@ const horseRacing: Pipeline[] = [
     format: "fast-results",
   },
   {
-    title: "Racecards",
+    title: "Racecards Template",
     description: "Odds ladder, movers, board pages. New tpl-* racecards from here.",
     listPath: "/racecards?mode=landscape",
     exampleSlug: "racecard",
@@ -63,7 +63,7 @@ const horseRacing: Pipeline[] = [
 
 const f1: Pipeline[] = [
   {
-    title: "F1 Grid",
+    title: "F1 Grid Template",
     description: "Landscape 1920×1080 starting grid: intro, two grid pages, outro. PNG + Landscape MP4.",
     listPath: "/f1-grid?mode=landscape",
     exampleSlug: "f1-grid",
@@ -71,7 +71,7 @@ const f1: Pipeline[] = [
     format: "f1-grid",
   },
   {
-    title: "F1 Results",
+    title: "F1 Results Template",
     description: "Race classification with stops; fastest lap on outro. Same landscape format.",
     listPath: "/f1-results?mode=landscape",
     exampleSlug: "f1-results",
@@ -82,7 +82,7 @@ const f1: Pipeline[] = [
 
 const teamtalk: Pipeline[] = [
   {
-    title: "TEAMtalk News",
+    title: "TEAMtalk News Template",
     description: "Transfer-style neon bars, player + club logos, footer CTA. tpl-* in data/local.",
     listPath: "/teamtalk-news?mode=landscape",
     exampleSlug: "teamtalk-news",
@@ -93,7 +93,7 @@ const teamtalk: Pipeline[] = [
 
 const planetRugby: Pipeline[] = [
   {
-    title: "League Tables",
+    title: "League Tables Template",
     description: "Import PlanetRugby tournament table URLs and build landscape table scenes.",
     listPath: "/planet-rugby-table?mode=landscape",
     exampleSlug: "planet-rugby-table",
@@ -103,7 +103,7 @@ const planetRugby: Pipeline[] = [
 
 const planetFootball: Pipeline[] = [
   {
-    title: "League Tables",
+    title: "League Tables Template",
     description: "Import Sport365 football standings URLs and build landscape table scenes.",
     listPath: "/planet-football-table?mode=landscape",
     exampleSlug: "planet-football-table",
@@ -113,7 +113,7 @@ const planetFootball: Pipeline[] = [
 
 const football365: Pipeline[] = [
   {
-    title: "Football line-ups",
+    title: "Football line-ups Template",
     description: "Pitch formation, bench, injuries — portrait boards. Open a fixture in the editor.",
     listPath: "/football-lineups",
     exampleSlug: "football-lineups",
@@ -263,7 +263,7 @@ export default async function LandscapePage() {
   return (
     <div className="space-y-12">
       <div>
-        <h1 className="text-3xl font-black tracking-tight text-[color:var(--text-primary)]">Landscape templates</h1>
+        <h1 className="text-3xl font-black tracking-tight text-[color:var(--text-primary)]">Landscape Studio</h1>
         <p className="mt-2 max-w-2xl text-[color:var(--text-secondary)]">
           Landscape video templates by vertical. Open a pipeline list, then create or edit{" "}
           <code className="ds-code">tpl-…</code> bundles. Optional preview: add a muted landscape MP4 at{" "}

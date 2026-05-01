@@ -66,7 +66,7 @@ function socialPostsFor(row: YouTubeScriptImport): LanguageSocialPost[] {
     headline: row.meta.title,
     text: `${base}\n\nSource: ${row.meta.url}`,
     hashtags: row.meta.channelName?.includes("Leeds United") ? ["LeedsUnited", "LUFC"] : ["YouTube"],
-    callToAction: "Watch the source clip and review the article in Plexa.",
+    callToAction: "Watch the source clip and review the article in Plexa Studio.",
   }));
 }
 

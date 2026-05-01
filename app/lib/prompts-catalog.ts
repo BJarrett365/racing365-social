@@ -385,7 +385,7 @@ export function getBuiltinPromptLibrary(): BuiltinPromptRow[] {
       source: "app/api/ai/improve-script/route.ts · promptFrom()",
       body: `The user message is built dynamically from format, tone, length, fields, and customPrompt. Structure:
 
-You are improving a sports video script for PLEXA Shorts.
+You are improving a sports video script for Plexa Studio Shorts.
 Critical constraints: British English, no invented facts, only use provided fields.
 Includes: style line, length guide, rhythm/social caption flags, then verbatim input fields (intro, tips, outro, caption, voiceover_script), JSON output keys, and "Journalist editable instruction:" + customPrompt or "(none)".`,
     },

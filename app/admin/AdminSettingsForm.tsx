@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
-import { useTheme, type ThemeMode } from "@/app/components/ThemeProvider";
 
 type Status = {
   elevenlabs: { configured: boolean };
@@ -40,7 +39,6 @@ const inputClass =
   "mt-1 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] px-3 py-2 text-sm text-white placeholder:text-slate-600";
 
 export function AdminSettingsForm() {
-  const { mode, resolvedTheme, setMode } = useTheme();
   const [status, setStatus] = useState<Status | null>(null);
   const [adminToken, setAdminToken] = useState("");
   const [elevenlabsApiKey, setElevenlabsApiKey] = useState("");
@@ -483,42 +481,6 @@ export function AdminSettingsForm() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <Panel title="Theme">
-        <p className="text-sm text-slate-400">
-          Choose how PLEXA appears across dashboard, admin, and editor screens.
-        </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          {([
-            { id: "light", label: "Light" },
-            { id: "dark", label: "Dark" },
-            { id: "system", label: "System" },
-          ] as Array<{ id: ThemeMode; label: string }>).map((opt) => {
-            const active = mode === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setMode(opt.id)}
-                className={`rounded-xl border p-3 text-left transition ${
-                  active ? "ring-2 ring-indigo-400" : "hover:border-slate-500"
-                }`}
-                style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-              >
-                <p className="text-sm font-semibold text-slate-200">{opt.label}</p>
-                <div className="mt-2 space-y-1">
-                  <div className="h-2 rounded" style={{ background: "var(--bg-elevated)" }} />
-                  <div className="h-2 rounded" style={{ background: "var(--surface-muted)" }} />
-                  <div className="h-2 w-2/3 rounded" style={{ background: "var(--primary-soft)" }} />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        <p className="mt-3 text-xs text-slate-500">
-          Active theme: <span className="font-semibold text-slate-300">{mode}</span> (resolved: {resolvedTheme})
-        </p>
-      </Panel>
-
       <Panel title="API keys & tools">
         <p className="text-sm text-slate-400">
           Values are stored server-side. Local development uses{" "}
@@ -580,38 +542,67 @@ export function AdminSettingsForm() {
         )}
       </Panel>
 
-      <Panel title="Secrets (leave blank to keep existing)">
+      <Panel title="AI provider API keys">
+        <div className="mb-4 rounded-lg border border-[#1f2d26] bg-[#0a0e0c] p-3">
+          <p className="text-sm font-semibold text-white">Secrets are write-only</p>
+          <p className="mt-1 text-xs leading-5 text-slate-400">
+            Leave a field unchanged to keep the existing stored value. Paste a new key to replace it, or tick remove to
+            clear the stored secret. Environment variables still override saved admin settings.
+          </p>
+        </div>
         <div className="space-y-4">
           {status?.adminTokenRequired && (
+            <div className="rounded-xl border border-[#1f2d26] bg-black/20 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-white">Admin token</p>
+                  <p className="mt-1 text-xs text-slate-500">Required before protected settings can be saved.</p>
+                </div>
+                <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-xs font-bold text-amber-200">
+                  Required
+                </span>
+              </div>
+              <label className="block text-xs font-semibold uppercase text-slate-500">
+                ADMIN_TOKEN
+                <input
+                  type="password"
+                  className={inputClass}
+                  value={adminToken}
+                  onChange={(e) => setAdminToken(e.target.value)}
+                  placeholder="Same as ADMIN_TOKEN in .env.local"
+                  autoComplete="off"
+                />
+              </label>
+            </div>
+          )}
+          <div className="rounded-xl border border-[#1f2d26] bg-black/20 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-white">ElevenLabs</p>
+                <p className="mt-1 text-xs text-slate-500">Voice generation and audio narration.</p>
+              </div>
+              <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${status?.elevenlabs.configured ? "border-[#22c55e]/30 bg-[#22c55e]/10 text-[#22c55e]" : "border-slate-700 bg-slate-900/40 text-slate-500"}`}>
+                {status?.elevenlabs.configured ? "Key on file" : "Not set"}
+              </span>
+            </div>
             <label className="block text-xs font-semibold uppercase text-slate-500">
-              Admin token
+              ELEVENLABS_API_KEY
               <input
                 type="password"
                 className={inputClass}
-                value={adminToken}
-                onChange={(e) => setAdminToken(e.target.value)}
-                placeholder="Same as ADMIN_TOKEN in .env.local"
+                value={
+                  clearElevenlabsKey
+                    ? ""
+                    : elevenlabsApiKey || (elevenlabsKeyDirty ? "" : (status?.elevenlabsApiKeyMasked ?? ""))
+                }
+                onChange={(e) => {
+                  setElevenlabsKeyDirty(true);
+                  setElevenlabsApiKey(e.target.value);
+                }}
+                placeholder={status?.elevenlabs.configured ? "Leave blank to keep existing, or enter new key" : "sk_…"}
                 autoComplete="off"
               />
             </label>
-          )}
-          <label className="block text-xs font-semibold uppercase text-slate-500">
-            ElevenLabs API key
-            <input
-              type="password"
-              className={inputClass}
-              value={
-                clearElevenlabsKey
-                  ? ""
-                  : elevenlabsApiKey || (elevenlabsKeyDirty ? "" : (status?.elevenlabsApiKeyMasked ?? ""))
-              }
-              onChange={(e) => {
-                setElevenlabsKeyDirty(true);
-                setElevenlabsApiKey(e.target.value);
-              }}
-              placeholder={status?.elevenlabs.configured ? "••••••••  enter new key to replace" : "sk_…"}
-              autoComplete="off"
-            />
             <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
               <input
                 type="checkbox"
@@ -638,24 +629,36 @@ export function AdminSettingsForm() {
                 </p>
               )}
             </div>
-          </label>
-          <label className="block text-xs font-semibold uppercase text-slate-500">
-            OpenAI API key
-            <input
-              type="password"
-              className={inputClass}
-              value={
-                clearOpenaiKey
-                  ? ""
-                  : openaiApiKey || (openaiKeyDirty ? "" : (status?.openaiApiKeyMasked ?? ""))
-              }
-              onChange={(e) => {
-                setOpenaiKeyDirty(true);
-                setOpenaiApiKey(e.target.value);
-              }}
-              placeholder={status?.openai.configured ? "••••••••  enter new key to replace" : "sk-…"}
-              autoComplete="off"
-            />
+          </div>
+
+          <div className="rounded-xl border border-[#1f2d26] bg-black/20 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-white">OpenAI</p>
+                <p className="mt-1 text-xs text-slate-500">AI generation, rewrite, captions, article creation and testing.</p>
+              </div>
+              <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${status?.openai.configured ? "border-[#22c55e]/30 bg-[#22c55e]/10 text-[#22c55e]" : "border-slate-700 bg-slate-900/40 text-slate-500"}`}>
+                {status?.openai.configured ? "Key on file" : "Not set"}
+              </span>
+            </div>
+            <label className="block text-xs font-semibold uppercase text-slate-500">
+              OPENAI_API_KEY
+              <input
+                type="password"
+                className={inputClass}
+                value={
+                  clearOpenaiKey
+                    ? ""
+                    : openaiApiKey || (openaiKeyDirty ? "" : (status?.openaiApiKeyMasked ?? ""))
+                }
+                onChange={(e) => {
+                  setOpenaiKeyDirty(true);
+                  setOpenaiApiKey(e.target.value);
+                }}
+                placeholder={status?.openai.configured ? "Leave blank to keep existing, or enter new key" : "sk-…"}
+                autoComplete="off"
+              />
+            </label>
             <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
               <input type="checkbox" checked={clearOpenaiKey} onChange={(e) => setClearOpenaiKey(e.target.checked)} />
               Remove stored OpenAI key
@@ -700,24 +703,36 @@ export function AdminSettingsForm() {
               </div>
               {openaiCheckMessage && <p className="mt-2 text-xs normal-case text-[#22c55e]">{openaiCheckMessage}</p>}
             </div>
-          </label>
-          <label className="block text-xs font-semibold uppercase text-slate-500">
-            Runway API secret
-            <input
-              type="password"
-              className={inputClass}
-              value={
-                clearRunwaymlKey
-                  ? ""
-                  : runwaymlApiKey || (runwayKeyDirty ? "" : (status?.runwaymlApiKeyMasked ?? ""))
-              }
-              onChange={(e) => {
-                setRunwayKeyDirty(true);
-                setRunwaymlApiKey(e.target.value);
-              }}
-              placeholder={status?.runwayml.configured ? "••••••••  enter new secret to replace" : "key_…"}
-              autoComplete="off"
-            />
+          </div>
+
+          <div className="rounded-xl border border-[#1f2d26] bg-black/20 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-white">Runway</p>
+                <p className="mt-1 text-xs text-slate-500">Image/video generation and creative media workflows.</p>
+              </div>
+              <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${status?.runwayml.configured ? "border-[#22c55e]/30 bg-[#22c55e]/10 text-[#22c55e]" : "border-slate-700 bg-slate-900/40 text-slate-500"}`}>
+                {status?.runwayml.configured ? "Secret on file" : "Not set"}
+              </span>
+            </div>
+            <label className="block text-xs font-semibold uppercase text-slate-500">
+              RUNWAYML_API_SECRET
+              <input
+                type="password"
+                className={inputClass}
+                value={
+                  clearRunwaymlKey
+                    ? ""
+                    : runwaymlApiKey || (runwayKeyDirty ? "" : (status?.runwaymlApiKeyMasked ?? ""))
+                }
+                onChange={(e) => {
+                  setRunwayKeyDirty(true);
+                  setRunwaymlApiKey(e.target.value);
+                }}
+                placeholder={status?.runwayml.configured ? "Leave blank to keep existing, or enter new secret" : "key_…"}
+                autoComplete="off"
+              />
+            </label>
             <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
               <input
                 type="checkbox"
@@ -750,7 +765,7 @@ export function AdminSettingsForm() {
                 <p className="mt-2 text-xs normal-case text-[#22c55e]">{runwayCheckMessage}</p>
               )}
             </div>
-          </label>
+          </div>
         </div>
       </Panel>
 

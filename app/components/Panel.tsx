@@ -9,7 +9,7 @@ export function Panel({
 }) {
   return (
     <section
-      className={`flex flex-col rounded-xl border ${className}`}
+      className={`flex flex-col overflow-hidden rounded-2xl border ${className}`}
       style={{
         borderColor: "var(--border)",
         backgroundColor: "var(--surface)",

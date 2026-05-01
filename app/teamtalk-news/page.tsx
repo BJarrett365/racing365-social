@@ -17,7 +17,7 @@ export default async function TeamtalkNewsPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white">TEAMtalk News Shorts</h1>
+          <h1 className="text-3xl font-black text-white">TEAMtalk News Template</h1>
           <p className="mt-2 max-w-xl text-slate-400">
             Transfer-style 9:16 graphics: mint headline bars, optional player + club crests, footer CTA. Your saved
             templates use ids <code className="text-slate-500">tpl-…</code> in{" "}

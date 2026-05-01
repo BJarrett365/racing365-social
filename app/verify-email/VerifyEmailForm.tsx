@@ -43,7 +43,7 @@ export function VerifyEmailForm() {
         Create password
         <input className={inputClass} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
       </label>
-      <p className="text-xs text-slate-500">This verifies your email and activates your Plexa login.</p>
+      <p className="text-xs text-slate-500">This verifies your email and activates your Plexa Studio login.</p>
       <R365Button type="submit" disabled={busy || !token}>{busy ? "Verifying..." : "Verify email and set password"}</R365Button>
     </form>
   );

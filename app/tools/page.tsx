@@ -72,10 +72,10 @@ export default function ToolsPage() {
       <div className="max-w-3xl">
         <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#eab308]">Tools</p>
         <h1 className="mt-2 text-4xl font-black tracking-tight text-[color:var(--text-primary)]">
-          Plexa utility hub
+          Plexa Studio utility hub
         </h1>
         <p className="mt-4 text-lg text-slate-400">
-          Import, convert and prepare content for Plexa projects without changing the existing template flows.
+          Import, convert and prepare content for Plexa Studio projects without changing the existing template flows.
         </p>
       </div>
 
@@ -107,6 +107,7 @@ export default function ToolsPage() {
           </Panel>
         ))}
       </div>
+
     </div>
   );
 }

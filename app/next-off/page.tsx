@@ -19,7 +19,7 @@ export default async function NextOffPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white">Next off Shorts</h1>
+          <h1 className="text-3xl font-black text-white">Next off Template</h1>
           <p className="mt-2 max-w-xl text-slate-400">
             Seed feed plus your saved templates. <strong className="text-slate-300">New template</strong>{" "}
             starts a blank layout you can edit and persist (tpl-… ids).

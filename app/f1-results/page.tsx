@@ -17,7 +17,7 @@ export default async function F1ResultsPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white">F1 Race Results</h1>
+          <h1 className="text-3xl font-black text-white">F1 Results Template</h1>
           <p className="mt-2 max-w-xl text-slate-400">
             {landscapeMode ? "Landscape" : "Portrait"}{" "}
             <strong className="text-slate-300">{landscapeMode ? "1920×1080" : "1080×1350"}</strong> graphics: Intro,

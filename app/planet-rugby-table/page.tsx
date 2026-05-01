@@ -18,7 +18,7 @@ export default async function PlanetRugbyTablePage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white">Planet Rugby Table Shorts</h1>
+          <h1 className="text-3xl font-black text-white">Planet Rugby Table Template</h1>
           <p className="mt-2 max-w-xl text-slate-400">
             Import a PlanetRugby tournament table URL, preview parsed rows, then create editable table Shorts templates.
           </p>

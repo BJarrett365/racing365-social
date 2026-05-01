@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PodcastTemplateApp } from "@/components/podcast-template/PodcastTemplateApp";
 
 export const metadata: Metadata = {
-  title: "Podcast Template",
+  title: "Podcast Studio",
   description: "Isolated multi-speaker podcast generation template.",
 };
 

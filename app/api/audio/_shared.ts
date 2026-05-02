@@ -12,15 +12,21 @@ import {
 } from "@/app/lib/audio-studio-store";
 
 export const supportedAudioTypes = new Set([
+  "audio/aac",
   "audio/mpeg",
   "audio/mp3",
   "audio/wav",
   "audio/x-wav",
   "audio/mp4",
   "audio/m4a",
+  "audio/x-m4a",
   "audio/webm",
   "video/mp4",
+  "video/quicktime",
+  "video/webm",
 ]);
+
+const supportedAudioExtensions = new Set([".aac", ".m4a", ".mp3", ".mp4", ".wav", ".webm"]);
 
 export function jsonError(error: unknown, fallback = "Audio Studio request failed", status = 500) {
   const message = error instanceof Error ? error.message : fallback;
@@ -35,10 +41,19 @@ export async function audioFileFromForm(form: FormData): Promise<File> {
   if (file.size > 200 * 1024 * 1024) {
     throw new Error("Audio file must be under 200MB");
   }
-  if (file.type && !supportedAudioTypes.has(file.type)) {
-    throw new Error("Unsupported audio format. Use mp3, wav, m4a or mp4.");
+  if (!isSupportedAudioFile(file)) {
+    throw new Error("Unsupported audio format. Use mp3, wav, m4a, mp4 or browser recording audio.");
   }
   return file;
+}
+
+function isSupportedAudioFile(file: File): boolean {
+  const mimeType = file.type.toLowerCase().split(";")[0]?.trim();
+  if (mimeType && supportedAudioTypes.has(mimeType)) return true;
+  if (mimeType?.startsWith("audio/")) return true;
+
+  const name = file.name.toLowerCase();
+  return Array.from(supportedAudioExtensions).some((extension) => name.endsWith(extension));
 }
 
 export async function saveAudioFileFromForm(

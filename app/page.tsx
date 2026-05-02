@@ -44,6 +44,14 @@ const primaryCards = [
     accent: "green",
   },
   {
+    title: "Audio Studio",
+    href: "/audio-studio",
+    heading: "Notes, transcription, TTS and voice workflows",
+    description: "Record, upload, transcribe, translate and create reusable voice assets with OpenAI and ElevenLabs.",
+    cta: "Open Audio Studio",
+    accent: "gold",
+  },
+  {
     title: "Tools",
     href: "/tools",
     heading: "Utility hub",

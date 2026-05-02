@@ -13,6 +13,7 @@ const plexaFont = Montserrat({
 
 const nav = [
   { href: "/", label: "Dashboard" },
+  { href: "/audio-studio", label: "Audio Studio" },
   { href: "/tools", label: "Tools" },
   { href: "/library", label: "Library" },
   { href: "/admin", label: "Admin" },
@@ -71,7 +72,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
       <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-5 pb-24 sm:px-6 sm:py-8 lg:px-8 lg:pb-8">{children}</main>
       <nav className="mobile-tab-bar fixed inset-x-0 bottom-0 z-50 border-t px-2 py-2 backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+        <div className="mx-auto grid max-w-lg grid-cols-5 gap-1">
           {nav.map((n) => (
             <Link
               key={n.href}

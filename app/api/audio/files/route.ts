@@ -1,7 +1,6 @@
-import fs from "fs/promises";
 import { NextResponse } from "next/server";
 import {
-  audioStudioAbsolutePath,
+  deleteAudioStudioFile,
   readAudioStudioStore,
   updateAudioStudioStore,
   type AudioFile,
@@ -89,7 +88,7 @@ export async function DELETE(req: Request) {
     });
 
     if (relPath) {
-      await fs.unlink(audioStudioAbsolutePath(relPath)).catch(() => {});
+      await deleteAudioStudioFile(relPath);
     }
 
     return NextResponse.json({ ok: true, deletedId: id });

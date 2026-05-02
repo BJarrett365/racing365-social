@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { getStore } from "@netlify/blobs";
 import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
 import { outputAudioDir, projectRoot } from "@/app/lib/paths";
 
@@ -116,6 +117,7 @@ export type AudioStudioStore = {
 
 const STORE_NAME = "plexa-audio-studio";
 const STORE_KEY = "audio-studio-store.json";
+const FILE_STORE_NAME = "plexa-audio-studio-files";
 const LOCAL_DIR = path.join(projectRoot(), "data", "local");
 const LOCAL_FILE = path.join(LOCAL_DIR, STORE_KEY);
 
@@ -156,14 +158,68 @@ export function audioStudioAbsolutePath(relPath: string): string {
   return path.join(outputAudioDir(), normalised.replace(/^audio\//, ""));
 }
 
-export async function writeAudioStudioFile(relPath: string, bytes: Buffer): Promise<void> {
+function audioStudioBlobKey(relPath: string): string {
+  const normalised = relPath.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  if (normalised.includes("..") || path.isAbsolute(normalised) || !normalised.startsWith("audio/audio-studio/")) {
+    throw new Error("Invalid Audio Studio path");
+  }
+  return normalised;
+}
+
+function bufferToArrayBuffer(bytes: Buffer): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+export async function writeAudioStudioFile(relPath: string, bytes: Buffer, contentType = "application/octet-stream"): Promise<void> {
+  if (shouldUseNetlifyBlobStore()) {
+    await getStore(FILE_STORE_NAME).set(audioStudioBlobKey(relPath), bufferToArrayBuffer(bytes), {
+      metadata: {
+        contentType,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    return;
+  }
+
   const fullPath = audioStudioAbsolutePath(relPath);
   await fs.mkdir(path.dirname(fullPath), { recursive: true });
   await fs.writeFile(fullPath, bytes);
 }
 
 export async function readAudioStudioFile(relPath: string): Promise<Buffer> {
+  if (shouldUseNetlifyBlobStore()) {
+    const data = await getStore(FILE_STORE_NAME).get(audioStudioBlobKey(relPath), { type: "arrayBuffer" });
+    if (!data) throw new Error("Audio Studio file not found");
+    return Buffer.from(data);
+  }
+
   return fs.readFile(audioStudioAbsolutePath(relPath));
+}
+
+export async function readAudioStudioBlobAsset(relPath: string): Promise<{ bytes: Buffer; contentType: string } | null> {
+  if (!shouldUseNetlifyBlobStore()) return null;
+  try {
+    const result = await getStore(FILE_STORE_NAME).getWithMetadata(audioStudioBlobKey(relPath), { type: "arrayBuffer" });
+    if (!result) return null;
+    return {
+      bytes: Buffer.from(result.data),
+      contentType:
+        typeof result.metadata?.contentType === "string"
+          ? result.metadata.contentType
+          : "application/octet-stream",
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteAudioStudioFile(relPath: string): Promise<void> {
+  if (shouldUseNetlifyBlobStore()) {
+    await getStore(FILE_STORE_NAME).delete(audioStudioBlobKey(relPath));
+    return;
+  }
+
+  await fs.unlink(audioStudioAbsolutePath(relPath)).catch(() => {});
 }
 
 export async function readAudioStudioStore(): Promise<AudioStudioStore> {

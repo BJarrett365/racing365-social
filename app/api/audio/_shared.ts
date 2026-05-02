@@ -64,7 +64,7 @@ export async function saveAudioFileFromForm(
   const fileName = `${id}-${slugForAudioFile(file.name || "audio.webm")}`;
   const relPath = audioStudioRelPath(project.id, fileName);
   const bytes = Buffer.from(await file.arrayBuffer());
-  await writeAudioStudioFile(relPath, bytes);
+  await writeAudioStudioFile(relPath, bytes, file.type || "application/octet-stream");
 
   const record: AudioFile = {
     id,
@@ -102,7 +102,7 @@ export async function saveGeneratedAudio(params: {
   const id = audioStudioId("aud_gen");
   const ext = params.extension || ".mp3";
   const relPath = audioStudioRelPath(project.id, `${id}-${params.provider}${ext}`);
-  await writeAudioStudioFile(relPath, params.bytes);
+  await writeAudioStudioFile(relPath, params.bytes, params.mimeType);
   const record: GeneratedAudio = {
     id,
     projectId: project.id,

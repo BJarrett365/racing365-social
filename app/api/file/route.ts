@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 import type { ManifestEntry } from "@/app/lib/asset-manifest";
+import { readAudioStudioBlobAsset } from "@/app/lib/audio-studio-store";
 import { readLibraryBlobAsset } from "@/app/lib/library-blob-assets";
 import { assetsManifestPath, outputDir } from "@/app/lib/paths";
 
@@ -115,6 +116,24 @@ export async function GET(req: Request) {
 
     return new NextResponse(buf, { headers });
   } catch {
+    const audioBlobAsset = await readAudioStudioBlobAsset(rel);
+    if (audioBlobAsset) {
+      const headers: Record<string, string> = {
+        "Content-Type": audioBlobAsset.contentType,
+        "Cache-Control": "public, max-age=60",
+      };
+      if (searchParams.get("download") === "1") {
+        const filename = path.basename(rel).replace(/"/g, "");
+        headers["Content-Disposition"] = `attachment; filename="${filename}"`;
+      }
+
+      const body = audioBlobAsset.bytes.buffer.slice(
+        audioBlobAsset.bytes.byteOffset,
+        audioBlobAsset.bytes.byteOffset + audioBlobAsset.bytes.byteLength,
+      ) as ArrayBuffer;
+      return new NextResponse(body, { headers });
+    }
+
     const blobAsset = await readLibraryBlobAsset(rel);
     if (!blobAsset) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });

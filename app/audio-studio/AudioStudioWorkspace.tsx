@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
+import { AudioMeter } from "./AudioMeter";
 import { audioStudioTools, type AudioStudioTool, type AudioStudioToolId } from "./audio-studio-config";
 
 type Provider = "openai" | "elevenlabs";
+type RecorderTab = "recorder" | "memos" | "settings";
 
 type ApiState = {
   loading: boolean;
@@ -69,12 +71,26 @@ export function AudioStudioWorkspace({ activeTool }: { activeTool: AudioStudioTo
   const [projectMedia, setProjectMedia] = useState<ProjectMediaItem[]>([]);
   const [selectedMediaId, setSelectedMediaId] = useState("");
   const [recording, setRecording] = useState(false);
+  const [recordingPaused, setRecordingPaused] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingLevel, setRecordingLevel] = useState(0);
+  const [displayMeterLevel, setDisplayMeterLevel] = useState(0);
+  const [recorderTab, setRecorderTab] = useState<RecorderTab>("recorder");
+  const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
+  const [micDeviceId, setMicDeviceId] = useState("");
+  const [recordingQuality, setRecordingQuality] = useState("High");
+  const [recordingFormat, setRecordingFormat] = useState("WebM");
+  const [recordedMimeType, setRecordedMimeType] = useState("audio/webm");
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [api, setApi] = useState<ApiState>({ loading: false, message: "", error: "" });
   const mediaRecorder = useRef<MediaRecorder | null>(null);
+  const recordingStream = useRef<MediaStream | null>(null);
+  const audioContext = useRef<AudioContext | null>(null);
+  const meterAnimation = useRef<number | null>(null);
   const chunks = useRef<BlobPart[]>([]);
 
   const featureCopy = useMemo(() => copyForTool(activeTool.id), [activeTool.id]);
-  const recordingFile = recordedBlob ? new File([recordedBlob], "browser-recording.webm", { type: "audio/webm" }) : null;
+  const recordingFile = recordedBlob ? new File([recordedBlob], `browser-recording.${extensionForMime(recordedMimeType)}`, { type: recordedMimeType }) : null;
   const fileForApi = recordingFile ?? uploadedFile;
 
   const loadProjectMedia = useCallback(async () => {
@@ -108,6 +124,42 @@ export function AudioStudioWorkspace({ activeTool }: { activeTool: AudioStudioTo
     void loadProjectMedia();
     void loadProjectNotes();
   }, [loadProjectMedia, loadProjectNotes]);
+
+  useEffect(() => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    void navigator.mediaDevices.enumerateDevices()
+      .then((devices) => setMicDevices(devices.filter((device) => device.kind === "audioinput")))
+      .catch(() => setMicDevices([]));
+  }, []);
+
+  useEffect(() => {
+    if (!recording || recordingPaused) return;
+    const interval = window.setInterval(() => setRecordingSeconds((seconds) => seconds + 1), 1000);
+    return () => window.clearInterval(interval);
+  }, [recording, recordingPaused]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (!recording || recordingPaused) {
+        setDisplayMeterLevel(0);
+        return;
+      }
+      const calibratedLevel = calibrateAudioMeterLevel(recordingLevel);
+      setDisplayMeterLevel((previous) => {
+        const smoothing = calibratedLevel < previous ? 0.18 : 0.48;
+        return Math.round((previous * smoothing) + (calibratedLevel * (1 - smoothing)));
+      });
+    }, 120);
+
+    return () => window.clearInterval(interval);
+  }, [recording, recordingPaused, recordingLevel]);
+
+  useEffect(() => {
+    return () => {
+      stopMeter();
+      recordingStream.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
 
   async function runApi<T>(label: string, action: () => Promise<T>): Promise<T | null> {
     setApi({ loading: true, message: label, error: "" });
@@ -329,95 +381,218 @@ export function AudioStudioWorkspace({ activeTool }: { activeTool: AudioStudioTo
     });
   }
 
+  function stopMeter() {
+    if (meterAnimation.current !== null) {
+      cancelAnimationFrame(meterAnimation.current);
+      meterAnimation.current = null;
+    }
+    void audioContext.current?.close().catch(() => undefined);
+    audioContext.current = null;
+    setRecordingLevel(0);
+  }
+
+  function startMeter(stream: MediaStream) {
+    stopMeter();
+    const context = new AudioContext();
+    const source = context.createMediaStreamSource(stream);
+    const analyser = context.createAnalyser();
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.35;
+    source.connect(analyser);
+    audioContext.current = context;
+
+    const tick = () => {
+      analyser.getByteTimeDomainData(data);
+      let sumSquares = 0;
+      for (const value of data) {
+        const centred = (value - 128) / 128;
+        sumSquares += centred * centred;
+      }
+      const rms = Math.sqrt(sumSquares / data.length);
+      const voiceLevel = Math.max(0, Math.min(1, (rms - 0.008) / 0.14));
+      setRecordingLevel((previous) => {
+        const smoothing = voiceLevel < previous ? 0.18 : 0.5;
+        return (previous * smoothing) + (voiceLevel * (1 - smoothing));
+      });
+      meterAnimation.current = requestAnimationFrame(tick);
+    };
+    tick();
+  }
+
   async function startRecording() {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const recorder = new MediaRecorder(stream);
-    chunks.current = [];
-    recorder.ondataavailable = (event) => {
-      if (event.data.size) chunks.current.push(event.data);
-    };
-    recorder.onstop = () => {
-      const blob = new Blob(chunks.current, { type: recorder.mimeType || "audio/webm" });
-      setRecordedBlob(blob);
-      setAudioUrl(URL.createObjectURL(blob));
-      stream.getTracks().forEach((track) => track.stop());
-    };
-    mediaRecorder.current = recorder;
-    recorder.start();
-    setRecording(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: micDeviceId ? { deviceId: { exact: micDeviceId } } : true,
+      });
+      const options = recorderOptionsForFormat(recordingFormat);
+      const recorder = new MediaRecorder(stream, options);
+      chunks.current = [];
+      setRecordedBlob(null);
+      setAudioUrl("");
+      setRecordingSeconds(0);
+      setRecordingPaused(false);
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) chunks.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(chunks.current, { type: recorder.mimeType || "audio/webm" });
+        setRecordedMimeType(blob.type || "audio/webm");
+        setRecordedBlob(blob);
+        setAudioUrl(URL.createObjectURL(blob));
+        stream.getTracks().forEach((track) => track.stop());
+        recordingStream.current = null;
+        stopMeter();
+      setDisplayMeterLevel(0);
+      };
+      mediaRecorder.current = recorder;
+      recordingStream.current = stream;
+      startMeter(stream);
+      recorder.start(3000);
+      setRecording(true);
+      void navigator.mediaDevices?.enumerateDevices?.()
+        .then((devices) => setMicDevices(devices.filter((device) => device.kind === "audioinput")))
+        .catch(() => undefined);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not start microphone";
+      setApi({ loading: false, message: "", error: message });
+    }
   }
 
   function stopRecording() {
     mediaRecorder.current?.stop();
     setRecording(false);
+    setRecordingPaused(false);
+  }
+
+  function toggleRecording() {
+    if (recording) {
+      stopRecording();
+      return;
+    }
+    void startRecording();
+  }
+
+  function pauseRecording() {
+    if (mediaRecorder.current?.state === "recording") {
+      mediaRecorder.current.pause();
+      setRecordingPaused(true);
+      setRecordingLevel(0);
+    }
+  }
+
+  function resumeRecording() {
+    if (mediaRecorder.current?.state === "paused") {
+      mediaRecorder.current.resume();
+      setRecordingPaused(false);
+    }
+  }
+
+  function cancelRecording() {
+    chunks.current = [];
+    recordingStream.current?.getTracks().forEach((track) => track.stop());
+    if (mediaRecorder.current && mediaRecorder.current.state !== "inactive") {
+      mediaRecorder.current.onstop = null;
+      mediaRecorder.current.stop();
+    }
+    mediaRecorder.current = null;
+    recordingStream.current = null;
+    setRecording(false);
+    setRecordingPaused(false);
+    setRecordingSeconds(0);
+    setRecordedBlob(null);
+    setAudioUrl("");
+    setRecordingLevel(0);
+    setDisplayMeterLevel(0);
+    stopMeter();
   }
 
   return (
     <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
-      <aside className="space-y-3">
+      <aside className="hidden space-y-3 lg:block">
         <Panel title="Audio Studio Tools">
-          <div className="space-y-2">
-            {audioStudioTools.map((tool) => (
-              <Link
-                key={tool.id}
-                href={tool.href}
-                className={`block rounded-xl border p-3 text-sm transition ${
-                  tool.id === activeTool.id
-                    ? "border-[#eab308] bg-[#eab308]/10 text-[color:var(--text-primary)]"
-                    : "border-[color:var(--border)] bg-[color:var(--surface-muted)] text-[color:var(--text-secondary)] hover:border-[#22c55e]/60"
-                }`}
-              >
-                <span className="font-bold">{tool.title}</span>
-                <span className="mt-1 block text-xs text-[color:var(--text-muted)]">{tool.eyebrow}</span>
-              </Link>
-            ))}
-          </div>
+          <AudioToolLinks activeTool={activeTool} onNavigate={() => undefined} />
         </Panel>
-        <Panel title="Project">
-          <label className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Project ID</label>
-          <input
-            value={projectId}
-            onChange={(event) => setProjectId(event.target.value)}
-            className="mt-2 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm"
-          />
-          <p className="mt-3 text-xs leading-5 text-[color:var(--text-muted)]">
-            Outputs can be routed into Video Studio, Podcast Template, Social Post Creator, Language Studio and Media Library.
-          </p>
-        </Panel>
+        <ProjectPanel projectId={projectId} setProjectId={setProjectId} />
       </aside>
 
       <main className="space-y-5">
         <section className="relative overflow-hidden rounded-3xl border border-[#24301f] bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.18),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(234,179,8,0.16),transparent_30%),#070b12] px-6 py-8 shadow-2xl md:px-8">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#eab308]">{activeTool.eyebrow}</p>
-          <h1 className="mt-3 text-3xl font-black tracking-tight text-white md:text-5xl">{activeTool.title}</h1>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#eab308]">{activeTool.eyebrow}</p>
+              <h1 className="mt-3 text-3xl font-black tracking-tight text-white md:text-5xl">{activeTool.title}</h1>
+            </div>
+            <button
+              type="button"
+              onClick={() => setToolsOpen((open) => !open)}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm font-bold text-white backdrop-blur transition hover:bg-white/15 lg:hidden"
+              aria-expanded={toolsOpen}
+            >
+              <span className="flex h-4 w-4 flex-col justify-center gap-1" aria-hidden="true">
+                <span className="block h-0.5 rounded-full bg-white" />
+                <span className="block h-0.5 rounded-full bg-white" />
+                <span className="block h-0.5 rounded-full bg-white" />
+              </span>
+              Audio Studio Tools
+            </button>
+          </div>
           <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300">{activeTool.description}</p>
+          {toolsOpen ? (
+            <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-3 lg:hidden">
+              <AudioToolLinks activeTool={activeTool} onNavigate={() => setToolsOpen(false)} />
+            </div>
+          ) : null}
         </section>
+
+        <div className="lg:hidden">
+          <ProjectPanel projectId={projectId} setProjectId={setProjectId} />
+        </div>
 
         <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
           <div className="space-y-5">
             <Panel title="Main Workspace">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Upload audio or video</label>
-                  <input
-                    type="file"
-                    accept={acceptedAudio}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0] ?? null;
-                      setUploadedFile(file);
-                      if (file && !audioTitle.trim()) setAudioTitle(titleFromFileName(file.name));
-                    }}
-                    className="mt-2 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm"
-                  />
+                  <p className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Main Workspace</p>
+                  <p className="mt-1 text-sm text-[color:var(--text-secondary)]">
+                    Record, title and review audio before transcription.
+                  </p>
                 </div>
-                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Browser recording</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <R365Button onClick={startRecording} disabled={recording}>Start Recording</R365Button>
-                    <R365Button variant="ghost" onClick={stopRecording} disabled={!recording}>Stop</R365Button>
-                  </div>
-                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${recording ? "bg-[#22c55e]/15 text-[#22c55e]" : "bg-red-500/15 text-red-300"}`}>
+                  {recording ? "Recording on" : "Mic off"}
+                </span>
               </div>
+              <RecorderConsole
+                activeTab={recorderTab}
+                setActiveTab={setRecorderTab}
+                recording={recording}
+                recordingPaused={recordingPaused}
+                recordingSeconds={recordingSeconds}
+                displayMeterLevel={displayMeterLevel}
+                recordedBlob={recordedBlob}
+                recordedMimeType={recordedMimeType}
+                projectMedia={projectMedia}
+                selectedMediaId={selectedMediaId}
+                micDevices={micDevices}
+                micDeviceId={micDeviceId}
+                setMicDeviceId={setMicDeviceId}
+                recordingQuality={recordingQuality}
+                setRecordingQuality={setRecordingQuality}
+                recordingFormat={recordingFormat}
+                setRecordingFormat={setRecordingFormat}
+                toggleRecording={toggleRecording}
+                pauseRecording={pauseRecording}
+                resumeRecording={resumeRecording}
+                stopRecording={stopRecording}
+                cancelRecording={cancelRecording}
+                saveRecording={() => runApi("Saving recording...", () => uploadCurrentAudio("recording"))}
+                transcribeAudio={transcribeAudio}
+                deleteProjectMedia={deleteProjectMedia}
+                setSelectedMediaId={setSelectedMediaId}
+                setAudioUrl={setAudioUrl}
+                apiLoading={api.loading}
+              />
 
               <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
                 <label className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Title Header</label>
@@ -444,15 +619,7 @@ export function AudioStudioWorkspace({ activeTool }: { activeTool: AudioStudioTo
                   <span className="text-xs text-[color:var(--text-muted)]">{uploadedFile?.name || (recordedBlob ? "Browser recording" : "No audio selected")}</span>
                 </div>
                 {audioUrl ? <audio controls src={audioUrl} className="w-full" /> : <div className="h-12 rounded-xl bg-[linear-gradient(90deg,rgba(234,179,8,.2),rgba(34,197,94,.25),rgba(234,179,8,.12))]" />}
-                <div className="mt-3 grid h-16 grid-cols-24 items-end gap-1 overflow-hidden rounded-xl bg-[color:var(--surface-muted)] p-2">
-                  {Array.from({ length: 48 }).map((_, index) => (
-                    <span
-                      key={index}
-                      className="rounded-full bg-[#22c55e]/70"
-                      style={{ height: `${18 + ((index * 17) % 44)}px` }}
-                    />
-                  ))}
-                </div>
+                <LiveWaveform level={recordingLevel} active={recording && !recordingPaused} hasAudio={Boolean(audioUrl || recordedBlob || uploadedFile)} />
                 <div className="mt-3 flex flex-wrap gap-2">
                   <R365Button variant="ghost" onClick={() => runApi("Saving upload...", () => uploadCurrentAudio("upload"))} disabled={!uploadedFile || api.loading}>Save to Project</R365Button>
                   <R365Button variant="ghost" onClick={() => runApi("Saving recording...", () => uploadCurrentAudio("recording"))} disabled={!recordingFile || api.loading}>Save Recording</R365Button>
@@ -549,6 +716,23 @@ export function AudioStudioWorkspace({ activeTool }: { activeTool: AudioStudioTo
               ) : null}
             </Panel>
 
+            <Panel title="Upload Audio or Video">
+              <label className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Choose source file</label>
+              <input
+                type="file"
+                accept={acceptedAudio}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  setUploadedFile(file);
+                  if (file && !audioTitle.trim()) setAudioTitle(titleFromFileName(file.name));
+                }}
+                className="mt-2 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm"
+              />
+              <p className="mt-3 text-xs leading-5 text-[color:var(--text-muted)]">
+                Select mp3, wav, m4a or mp4, then use Save to Project in the audio player.
+              </p>
+            </Panel>
+
             <Panel title="Export">
               <div className="grid grid-cols-2 gap-2">
                 {["txt", "docx", "srt", "vtt"].map((format) => (
@@ -621,6 +805,334 @@ export function AudioStudioWorkspace({ activeTool }: { activeTool: AudioStudioTo
         </div>
       </main>
     </div>
+  );
+}
+
+function RecorderConsole({
+  activeTab,
+  setActiveTab,
+  recording,
+  recordingPaused,
+  recordingSeconds,
+  displayMeterLevel,
+  recordedBlob,
+  recordedMimeType,
+  projectMedia,
+  selectedMediaId,
+  micDevices,
+  micDeviceId,
+  setMicDeviceId,
+  recordingQuality,
+  setRecordingQuality,
+  recordingFormat,
+  setRecordingFormat,
+  toggleRecording,
+  pauseRecording,
+  resumeRecording,
+  stopRecording,
+  cancelRecording,
+  saveRecording,
+  transcribeAudio,
+  deleteProjectMedia,
+  setSelectedMediaId,
+  setAudioUrl,
+  apiLoading,
+}: {
+  activeTab: RecorderTab;
+  setActiveTab: (value: RecorderTab) => void;
+  recording: boolean;
+  recordingPaused: boolean;
+  recordingSeconds: number;
+  displayMeterLevel: number;
+  recordedBlob: Blob | null;
+  recordedMimeType: string;
+  projectMedia: ProjectMediaItem[];
+  selectedMediaId: string;
+  micDevices: MediaDeviceInfo[];
+  micDeviceId: string;
+  setMicDeviceId: (value: string) => void;
+  recordingQuality: string;
+  setRecordingQuality: (value: string) => void;
+  recordingFormat: string;
+  setRecordingFormat: (value: string) => void;
+  toggleRecording: () => void;
+  pauseRecording: () => void;
+  resumeRecording: () => void;
+  stopRecording: () => void;
+  cancelRecording: () => void;
+  saveRecording: () => Promise<unknown>;
+  transcribeAudio: () => void;
+  deleteProjectMedia: (item: ProjectMediaItem) => Promise<void>;
+  setSelectedMediaId: (value: string) => void;
+  setAudioUrl: (value: string) => void;
+  apiLoading: boolean;
+}) {
+  const recordingSize = recordedBlob ? formatBytes(recordedBlob.size) : "0 B";
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-black/60 bg-black text-white shadow-2xl">
+      <div className="h-1 bg-red-600" />
+      <div className="p-4 sm:p-5">
+        {activeTab === "recorder" ? (
+          <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
+            <div className="flex justify-center lg:justify-end">
+              <RecordActionButton recording={recording} recordingPaused={recordingPaused} onClick={toggleRecording} />
+            </div>
+            <div className="text-center">
+              <RecorderSignalMonitor
+                displayLevel={displayMeterLevel}
+                recording={recording && !recordingPaused}
+              />
+              <div className="font-mono text-5xl tracking-tight sm:text-6xl">{formatDuration(recordingSeconds)}</div>
+              <p className="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-white/55">
+                {recording ? (recordingPaused ? "Paused" : "Recording live") : recordedBlob ? `${recordingSize} • ${recordedMimeType || "audio"}` : "Ready to record"}
+              </p>
+            </div>
+            <div className="flex justify-center lg:justify-start">
+              <button
+                type="button"
+                onClick={stopRecording}
+                disabled={!recording}
+                className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-white/35 bg-zinc-950 text-red-600 transition enabled:hover:border-white/60 disabled:opacity-40"
+                aria-label="Stop recording"
+              >
+                <span className="h-10 w-10 rounded-md bg-red-700" />
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {activeTab === "memos" ? (
+          <div className="mt-5 space-y-3">
+            {projectMedia.length ? projectMedia.slice(0, 5).map((item) => (
+              <div key={`${item.kind}-${item.id}`} className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMediaId(item.id);
+                      setAudioUrl(`/api/file?rel=${encodeURIComponent(item.relPath)}`);
+                    }}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <span className="block truncate text-sm font-bold">{item.title || item.originalName || item.name}</span>
+                    <span className="mt-1 block text-xs text-white/50">
+                      {new Date(item.createdAt).toLocaleDateString()} • {item.mimeType || "audio"}{item.size ? ` • ${formatBytes(item.size)}` : ""}
+                    </span>
+                  </button>
+                  <div className="flex gap-2">
+                    <R365Button variant="ghost" onClick={transcribeAudio} disabled={apiLoading || selectedMediaId !== item.id}>Transcribe</R365Button>
+                    <R365Button variant="danger" onClick={() => void deleteProjectMedia(item)} disabled={apiLoading}>Delete</R365Button>
+                  </div>
+                </div>
+              </div>
+            )) : (
+              <p className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/60">
+                No saved voice memos yet. Record, stop, then save the recording to project media.
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        {activeTab === "settings" ? (
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <label className="text-xs font-bold uppercase tracking-wide text-white/55">
+              Mic input
+              <select value={micDeviceId} onChange={(event) => setMicDeviceId(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white">
+                <option value="">Default microphone</option>
+                {micDevices.map((device, index) => (
+                  <option key={device.deviceId || index} value={device.deviceId}>
+                    {device.label || `Microphone ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs font-bold uppercase tracking-wide text-white/55">
+              Quality
+              <select value={recordingQuality} onChange={(event) => setRecordingQuality(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white">
+                <option>High</option>
+                <option>Standard</option>
+                <option>Draft</option>
+              </select>
+            </label>
+            <label className="text-xs font-bold uppercase tracking-wide text-white/55">
+              Preferred format
+              <select value={recordingFormat} onChange={(event) => setRecordingFormat(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white">
+                <option>WebM</option>
+                <option>M4A</option>
+                <option>WAV</option>
+              </select>
+            </label>
+          </div>
+        ) : null}
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          {(["recorder", "memos", "settings"] as RecorderTab[]).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`rounded-3xl px-4 py-3 text-center font-bold transition ${
+                activeTab === tab ? "bg-white/15 text-white" : "text-white/80 hover:bg-white/10"
+              }`}
+            >
+              <span className="mx-auto flex h-12 w-12 items-center justify-center text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.75)]">
+                <RecorderTabIcon tab={tab} />
+              </span>
+              <span className="mt-1 block text-sm capitalize">{tab === "memos" ? "Voice Memos" : tab}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          {recording ? (
+            recordingPaused ? (
+              <R365Button onClick={resumeRecording}>Resume</R365Button>
+            ) : (
+              <R365Button variant="ghost" onClick={pauseRecording}>Pause</R365Button>
+            )
+          ) : null}
+          <R365Button variant="ghost" onClick={() => void saveRecording()} disabled={!recordedBlob || recording || apiLoading}>Save Recording</R365Button>
+          <R365Button variant="ghost" onClick={transcribeAudio} disabled={recording || apiLoading || (!recordedBlob && !selectedMediaId)}>Transcribe</R365Button>
+          <R365Button variant="danger" onClick={cancelRecording} disabled={apiLoading || (!recordedBlob && !recording)}>Cancel</R365Button>
+        </div>
+
+        <p className="mt-4 text-center text-xs leading-5 text-white/45">
+          Draft chunks are captured locally every few seconds while recording. Save Recording stores the final audio in the Plexa project using local storage in development and Netlify Blobs on live.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function RecorderTabIcon({ tab }: { tab: RecorderTab }) {
+  const iconClass = "h-11 w-11";
+  if (tab === "recorder") {
+    return (
+      <svg viewBox="0 0 64 64" className={iconClass} aria-hidden="true">
+        <path d="M32 8c-5.5 0-10 4.5-10 10v16c0 5.5 4.5 10 10 10s10-4.5 10-10V18c0-5.5-4.5-10-10-10Z" fill="none" stroke="currentColor" strokeWidth="4" />
+        <path d="M15 31v3c0 9.4 7.6 17 17 17s17-7.6 17-17v-3M32 51v8M24 59h16" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="4" />
+      </svg>
+    );
+  }
+  if (tab === "memos") {
+    return (
+      <svg viewBox="0 0 64 64" className={iconClass} aria-hidden="true">
+        <path d="M10 38h9l14 12V14L19 26h-9v12Z" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="4" />
+        <path d="M42 25c3 4 3 10 0 14M49 18c7 8 7 20 0 28" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="4" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 64 64" className={iconClass} aria-hidden="true">
+      <path d="M27 8h10l2 7a20 20 0 0 1 5 3l7-3 5 9-5 5a20 20 0 0 1 0 6l5 5-5 9-7-3a20 20 0 0 1-5 3l-2 7H27l-2-7a20 20 0 0 1-5-3l-7 3-5-9 5-5a20 20 0 0 1 0-6l-5-5 5-9 7 3a20 20 0 0 1 5-3l2-7Z" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="4" />
+      <circle cx="32" cy="32" r="8" fill="none" stroke="currentColor" strokeWidth="4" />
+    </svg>
+  );
+}
+
+function RecorderSignalMonitor({ displayLevel, recording }: { displayLevel: number; recording: boolean }) {
+  const speaking = recording && displayLevel > 6;
+  const status =
+    !recording
+      ? { label: "Input monitor idle", detail: "Start recording to check level", tone: "text-white/45", clarity: 0 }
+      : !speaking
+        ? { label: "Silence detected", detail: "Move closer to the mic", tone: "text-white/65", clarity: 20 }
+        : displayLevel >= 88
+          ? { label: "Clipping warning", detail: "Too loud, lower input", tone: "text-red-400", clarity: 45 }
+          : displayLevel >= 70
+            ? { label: "Strong signal", detail: "Watch for peaks", tone: "text-yellow-300", clarity: 72 }
+            : { label: "Safe voice level", detail: "Clean recording range", tone: "text-green-400", clarity: 92 };
+
+  return (
+    <div className="mb-4">
+      <AudioMeter level={recording ? displayLevel : 0} className="mx-auto rounded-sm" />
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.16em]">
+        <span className={status.tone}>{status.label}</span>
+        <span className="text-white/25">•</span>
+        <span className="text-white/45">{status.detail}</span>
+        <span className="text-white/25">•</span>
+        <span className="text-white/45">Clarity {status.clarity}%</span>
+      </div>
+    </div>
+  );
+}
+
+function LiveWaveform({ level, active, hasAudio }: { level: number; active: boolean; hasAudio: boolean }) {
+  const liveLevel = active && level > 0.06 ? Math.min(1, level) : 0;
+  return (
+    <div className="mt-3 flex h-16 items-end gap-1 overflow-hidden rounded-xl bg-[color:var(--surface-muted)] p-2">
+      {Array.from({ length: 48 }).map((_, index) => {
+        const shape = 0.35 + (((index * 13) % 17) / 24);
+        const pulse = liveLevel ? Math.max(4, 8 + (liveLevel * 54 * shape)) : hasAudio ? 8 + ((index * 7) % 9) : 5;
+        const isActive = liveLevel > 0;
+        return (
+          <span
+            key={index}
+            className={`flex-1 rounded-full transition-all duration-75 ${isActive ? "bg-[#22c55e]" : hasAudio ? "bg-[#22c55e]/25" : "bg-zinc-800/40"}`}
+            style={{
+              height: `${Math.min(56, pulse)}px`,
+              opacity: isActive ? Math.max(0.35, liveLevel) : 0.55,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function RecordActionButton({ recording, recordingPaused, onClick }: { recording: boolean; recordingPaused: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-red-600 shadow-2xl transition ${
+        recording && !recordingPaused ? "shadow-red-500/60 ring-8 ring-red-500/20" : "shadow-red-500/30"
+      }`}
+      aria-pressed={recording}
+      aria-label={recording ? "Stop recording" : "Start recording"}
+    >
+      {recording && !recordingPaused ? <span className="absolute inset-0 animate-ping rounded-full bg-red-500/30" /> : null}
+      <span className="relative h-20 w-20 rounded-full bg-red-600" />
+    </button>
+  );
+}
+
+function AudioToolLinks({ activeTool, onNavigate }: { activeTool: AudioStudioTool; onNavigate: () => void }) {
+  return (
+    <div className="space-y-2">
+      {audioStudioTools.map((tool) => (
+        <Link
+          key={tool.id}
+          href={tool.href}
+          onClick={onNavigate}
+          className={`block rounded-xl border p-3 text-sm transition ${
+            tool.id === activeTool.id
+              ? "border-[#eab308] bg-[#eab308]/10 text-[color:var(--text-primary)]"
+              : "border-[color:var(--border)] bg-[color:var(--surface-muted)] text-[color:var(--text-secondary)] hover:border-[#22c55e]/60"
+          }`}
+        >
+          <span className="font-bold">{tool.title}</span>
+          <span className="mt-1 block text-xs text-[color:var(--text-muted)]">{tool.eyebrow}</span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function ProjectPanel({ projectId, setProjectId }: { projectId: string; setProjectId: (value: string) => void }) {
+  return (
+    <Panel title="Project">
+      <label className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Project ID</label>
+      <input
+        value={projectId}
+        onChange={(event) => setProjectId(event.target.value)}
+        className="mt-2 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm"
+      />
+      <p className="mt-3 text-xs leading-5 text-[color:var(--text-muted)]">
+        Outputs can be routed into Video Studio, Podcast Template, Social Post Creator, Language Studio and Media Library.
+      </p>
+    </Panel>
   );
 }
 
@@ -774,6 +1286,44 @@ function titleFromFileName(name: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (letter) => letter.toUpperCase()) || "Audio recording";
+}
+
+function formatDuration(seconds: number): string {
+  const total = Math.max(0, seconds);
+  const hours = Math.floor(total / 3600).toString().padStart(2, "0");
+  const minutes = Math.floor((total % 3600) / 60).toString().padStart(2, "0");
+  const secs = Math.floor(total % 60).toString().padStart(2, "0");
+  return `${hours}:${minutes}:${secs}`;
+}
+
+function calibrateAudioMeterLevel(rawLevel: number): number {
+  if (!Number.isFinite(rawLevel) || rawLevel < 0.025) return 0;
+  if (rawLevel < 0.7) return Math.round(6 + (rawLevel / 0.7) * 58);
+  if (rawLevel < 0.92) return Math.round(64 + ((rawLevel - 0.7) / 0.22) * 18);
+  return Math.round(84 + Math.min(1, (rawLevel - 0.92) / 0.08) * 16);
+}
+
+function recorderOptionsForFormat(format: string): MediaRecorderOptions | undefined {
+  const preferred =
+    format === "WAV"
+      ? "audio/wav"
+      : format === "M4A"
+        ? "audio/mp4"
+        : "audio/webm;codecs=opus";
+  if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(preferred)) {
+    return { mimeType: preferred };
+  }
+  if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+    return { mimeType: "audio/webm;codecs=opus" };
+  }
+  return undefined;
+}
+
+function extensionForMime(mimeType: string): string {
+  if (mimeType.includes("wav")) return "wav";
+  if (mimeType.includes("mp4") || mimeType.includes("m4a")) return "m4a";
+  if (mimeType.includes("mpeg") || mimeType.includes("mp3")) return "mp3";
+  return "webm";
 }
 
 function formatBytes(bytes: number): string {

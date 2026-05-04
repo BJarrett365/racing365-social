@@ -1,6 +1,5 @@
 export type AudioStudioToolId =
   | "notes"
-  | "transcribe"
   | "text-to-speech"
   | "voice-changer"
   | "voice-creator"
@@ -18,13 +17,14 @@ export type AudioStudioTool = {
   description: string;
   outputs: string[];
   providers: string[];
+  hidden?: boolean;
 };
 
 export const audioStudioTools: AudioStudioTool[] = [
   {
     id: "notes",
     title: "Audio Notes",
-    href: "/audio-studio/notes",
+    href: "/audio-studio?tool=notes",
     eyebrow: "Upload, record, summarise",
     description:
       "Transcribe audio, create clean notes, summaries, key points, action points, quotes, headlines and social ideas.",
@@ -32,19 +32,9 @@ export const audioStudioTools: AudioStudioTool[] = [
     providers: ["OpenAI"],
   },
   {
-    id: "transcribe",
-    title: "Speech to Text Notes",
-    href: "/audio-studio/transcribe",
-    eyebrow: "Transcript workspace",
-    description:
-      "OpenAI transcription with timestamps, speaker labels, export formats and conversions into articles or scripts.",
-    outputs: ["TXT", "DOCX", "SRT", "VTT"],
-    providers: ["OpenAI"],
-  },
-  {
     id: "text-to-speech",
     title: "Text to Speech",
-    href: "/audio-studio/text-to-speech",
+    href: "/audio-studio?tool=text-to-speech",
     eyebrow: "Generate voice",
     description:
       "Choose OpenAI for quick generation or ElevenLabs for premium voice output, then save to media library.",
@@ -54,17 +44,18 @@ export const audioStudioTools: AudioStudioTool[] = [
   {
     id: "voice-changer",
     title: "Voice Changer",
-    href: "/audio-studio/voice-changer",
+    href: "/audio-studio?tool=voice-changer",
     eyebrow: "Voice remix",
     description:
       "Upload audio, describe the target voice style, send to ElevenLabs and save original plus edited versions.",
     outputs: ["Original", "Changed voice"],
     providers: ["ElevenLabs"],
+    hidden: true,
   },
   {
     id: "voice-creator",
     title: "Voice Creator",
-    href: "/audio-studio/voice-creator",
+    href: "/audio-studio?tool=voice-creator",
     eyebrow: "Reusable voices",
     description:
       "Record or upload clean samples, confirm permission and store returned ElevenLabs voice IDs in Voice Library.",
@@ -74,7 +65,7 @@ export const audioStudioTools: AudioStudioTool[] = [
   {
     id: "guests",
     title: "Audio with Guests",
-    href: "/audio-studio/guests",
+    href: "/audio-studio?tool=guests",
     eyebrow: "Multi-speaker shows",
     description:
       "Handle long-form guest audio, speaker-separated transcripts, guest notes, quotes and strong clip moments.",
@@ -84,7 +75,7 @@ export const audioStudioTools: AudioStudioTool[] = [
   {
     id: "language",
     title: "Audio Language",
-    href: "/audio-studio/language",
+    href: "/audio-studio?tool=language",
     eyebrow: "Translate and revoice",
     description:
       "Translate original transcripts and generate new audio by language using OpenAI or ElevenLabs TTS.",
@@ -94,27 +85,29 @@ export const audioStudioTools: AudioStudioTool[] = [
   {
     id: "voice-isolator",
     title: "Voice Isolator",
-    href: "/audio-studio/voice-isolator",
+    href: "/audio-studio?tool=voice-isolator",
     eyebrow: "Clean noisy audio",
     description:
       "Send noisy audio to ElevenLabs voice isolation and compare before/after playback in the workspace.",
     outputs: ["Cleaned voice", "Before/after"],
     providers: ["ElevenLabs"],
+    hidden: true,
   },
   {
     id: "elevenlabs-recording",
     title: "Voice Recording",
-    href: "/audio-studio/elevenlabs-recording",
+    href: "/audio-studio?tool=elevenlabs-recording",
     eyebrow: "Browser recorder",
     description:
       "Record clean voice samples in browser, check quality, save them and optionally send to voice creation.",
     outputs: ["Voice sample", "Media library item"],
     providers: ["ElevenLabs"],
+    hidden: true,
   },
   {
     id: "elevenlabs-editing",
     title: "Voice Editing",
-    href: "/audio-studio/elevenlabs-editing",
+    href: "/audio-studio?tool=elevenlabs-editing",
     eyebrow: "Regenerate segments",
     description:
       "Load generated ElevenLabs audio, edit paragraphs, speed, emotion, pauses and pronunciation, then regenerate.",
@@ -122,6 +115,8 @@ export const audioStudioTools: AudioStudioTool[] = [
     providers: ["ElevenLabs"],
   },
 ];
+
+export const visibleAudioStudioTools = audioStudioTools.filter((tool) => !tool.hidden);
 
 export function audioStudioToolById(id: AudioStudioToolId): AudioStudioTool {
   const tool = audioStudioTools.find((item) => item.id === id);

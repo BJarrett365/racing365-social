@@ -28,6 +28,7 @@ export async function POST(req: Request) {
     const audio = await saveGeneratedAudio({
       projectId: original.projectId,
       provider: "elevenlabs",
+      sourceTool: "voice-isolator",
       sourceText: `Voice isolation for ${original.originalName}`,
       bytes: Buffer.from(await res.arrayBuffer()),
       mimeType: "audio/mpeg",

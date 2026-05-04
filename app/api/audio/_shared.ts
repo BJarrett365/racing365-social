@@ -9,6 +9,7 @@ import {
   writeAudioStudioFile,
   type AudioFile,
   type GeneratedAudio,
+  type GeneratedAudioTool,
 } from "@/app/lib/audio-studio-store";
 
 export const supportedAudioTypes = new Set([
@@ -27,10 +28,22 @@ export const supportedAudioTypes = new Set([
 ]);
 
 const supportedAudioExtensions = new Set([".aac", ".m4a", ".mp3", ".mp4", ".wav", ".webm"]);
+const generatedAudioTools = new Set<GeneratedAudioTool>([
+  "text-to-speech",
+  "language",
+  "voice-changer",
+  "voice-isolator",
+  "elevenlabs-editing",
+]);
 
 export function jsonError(error: unknown, fallback = "Audio Studio request failed", status = 500) {
   const message = error instanceof Error ? error.message : fallback;
   return NextResponse.json({ error: message }, { status });
+}
+
+export function normaliseGeneratedAudioTool(value: unknown, fallback: GeneratedAudioTool = "text-to-speech"): GeneratedAudioTool {
+  const tool = String(value ?? "").trim();
+  return generatedAudioTools.has(tool as GeneratedAudioTool) ? tool as GeneratedAudioTool : fallback;
 }
 
 export async function audioFileFromForm(form: FormData): Promise<File> {
@@ -107,6 +120,7 @@ export async function saveGeneratedAudio(params: {
   projectId?: string;
   title?: string;
   provider: "openai" | "elevenlabs";
+  sourceTool?: GeneratedAudio["sourceTool"];
   voiceId?: string;
   sourceText: string;
   bytes: Buffer;
@@ -123,6 +137,7 @@ export async function saveGeneratedAudio(params: {
     projectId: project.id,
     title: params.title,
     provider: params.provider,
+    sourceTool: params.sourceTool ?? "text-to-speech",
     voiceId: params.voiceId,
     sourceText: params.sourceText.slice(0, 12000),
     relPath,

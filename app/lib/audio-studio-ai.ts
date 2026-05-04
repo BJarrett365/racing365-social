@@ -11,6 +11,19 @@ export type AudioNotesPayload = {
   socialPostIdeas: string[];
 };
 
+export type GuestInterviewSummaryPayload = {
+  title: string;
+  shortSummary: string;
+  keyQuotes: string[];
+  mainStoryAngles: string[];
+  possibleHeadlines: string[];
+  actionPoints: string[];
+  followUpQuestions: string[];
+  cleanArticleBrief: string;
+  socialPostIdeas: string[];
+  whatEachGuestSaid: string[];
+};
+
 export type AudioTranscriptSegment = {
   id: string;
   start?: number;
@@ -172,6 +185,70 @@ export async function generateAudioNotes(transcript: string, context?: string): 
     quotes: arrayOfStrings(parsed.quotes),
     headlines: arrayOfStrings(parsed.headlines),
     socialPostIdeas: arrayOfStrings(parsed.socialPostIdeas),
+  };
+}
+
+export async function generateGuestInterviewSummary(
+  transcript: string,
+  context?: string,
+): Promise<GuestInterviewSummaryPayload> {
+  const key = await getServerSecretAsync("OPENAI_API_KEY");
+  if (!key) throw new Error("OPENAI_API_KEY is required for Audio with Guests summaries");
+
+  const fallback: GuestInterviewSummaryPayload = {
+    title: "Audio with Guests Summary",
+    shortSummary: transcript.slice(0, 500),
+    keyQuotes: [],
+    mainStoryAngles: [],
+    possibleHeadlines: [],
+    actionPoints: [],
+    followUpQuestions: [],
+    cleanArticleBrief: "",
+    socialPostIdeas: [],
+    whatEachGuestSaid: [],
+  };
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are Plexa Audio with Guests, an editorial assistant for sports journalists. Analyse interviews, press conferences and group discussions. Never guess real speaker names unless the user supplied them. Return strict JSON with title, shortSummary, keyQuotes, mainStoryAngles, possibleHeadlines, actionPoints, followUpQuestions, cleanArticleBrief, socialPostIdeas and whatEachGuestSaid.",
+        },
+        {
+          role: "user",
+          content: `Context: ${context || "Sports media interview"}\n\nTranscript with speaker labels:\n${transcript.slice(0, 30000)}`,
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`OpenAI guest summary failed (${res.status}): ${error.slice(0, 500)}`);
+  }
+
+  const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+  const parsed = parseJsonObject<GuestInterviewSummaryPayload>(data.choices?.[0]?.message?.content ?? "", fallback);
+  return {
+    title: String(parsed.title || fallback.title),
+    shortSummary: String(parsed.shortSummary || fallback.shortSummary),
+    keyQuotes: arrayOfStrings(parsed.keyQuotes),
+    mainStoryAngles: arrayOfStrings(parsed.mainStoryAngles),
+    possibleHeadlines: arrayOfStrings(parsed.possibleHeadlines),
+    actionPoints: arrayOfStrings(parsed.actionPoints),
+    followUpQuestions: arrayOfStrings(parsed.followUpQuestions),
+    cleanArticleBrief: String(parsed.cleanArticleBrief || ""),
+    socialPostIdeas: arrayOfStrings(parsed.socialPostIdeas),
+    whatEachGuestSaid: arrayOfStrings(parsed.whatEachGuestSaid),
   };
 }
 

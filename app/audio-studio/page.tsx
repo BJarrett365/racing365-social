@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
-import { audioStudioTools } from "./audio-studio-config";
+import { AudioStudioWorkspace } from "./AudioStudioWorkspace";
+import { audioStudioTools, visibleAudioStudioTools } from "./audio-studio-config";
 
 const destinations = [
   "Video Studio",
@@ -11,7 +12,19 @@ const destinations = [
   "Media Library",
 ];
 
-export default function AudioStudioPage() {
+type AudioStudioPageProps = {
+  searchParams?: Promise<{ tool?: string | string[] }>;
+};
+
+export default async function AudioStudioPage({ searchParams }: AudioStudioPageProps) {
+  const params = await searchParams;
+  const toolParam = Array.isArray(params?.tool) ? params?.tool[0] : params?.tool;
+  const activeTool = audioStudioTools.find((tool) => tool.id === toolParam);
+
+  if (activeTool) {
+    return <AudioStudioWorkspace activeTool={activeTool} />;
+  }
+
   return (
     <div className="space-y-8">
       <section className="relative overflow-hidden rounded-3xl border border-[#24301f] bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.18),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(234,179,8,0.16),transparent_30%),#070b12] px-6 py-10 shadow-2xl md:px-10">
@@ -29,7 +42,7 @@ export default function AudioStudioPage() {
       </section>
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {audioStudioTools.map((tool) => (
+        {visibleAudioStudioTools.map((tool) => (
           <Panel key={tool.id} title={tool.providers.join(" + ")}>
             <div className="flex h-full flex-col gap-4">
               <div className="flex-1">

@@ -10,6 +10,7 @@ import { scanVoiceRecordingRels } from "@/app/lib/scan-voice-recordings";
 import { assetsManifestPath, outputVideoDir } from "@/app/lib/paths";
 import { BRAND_SHORTS, BRAND_SUITE, BRAND_TAGLINE } from "@/app/lib/brand";
 import { readLibraryMetadataIndex } from "@/app/lib/library-metadata";
+import { readAudioStudioStore } from "@/app/lib/audio-studio-store";
 import { PODCAST_PROJECTS_FILE } from "@/lib/podcast-template/constants";
 import type { PodcastProject } from "@/types/podcast-template";
 
@@ -19,6 +20,16 @@ type LibraryPodcastAudio = {
   outputAudioRel: string;
   updatedAt: string;
   sourceUrl?: string;
+};
+
+type LibraryAudioStudioMedia = {
+  id: string;
+  title: string;
+  projectId: string;
+  source: string;
+  relPath: string;
+  mimeType: string;
+  createdAt: string;
 };
 
 export const metadata: Metadata = {
@@ -60,6 +71,31 @@ export default async function LibraryPage() {
   const libraryBackgroundImages = await scanLibraryBackgroundImageRels();
   const voiceRecordings = await scanVoiceRecordingRels();
   const libraryMetadataByContentId = await readLibraryMetadataIndex();
+  let audioStudioMedia: LibraryAudioStudioMedia[] = [];
+  try {
+    const audioStore = await readAudioStudioStore();
+    const files: LibraryAudioStudioMedia[] = audioStore.files.map((file) => ({
+      id: file.id,
+      title: file.title || file.originalName || file.name,
+      projectId: file.projectId,
+      source: file.source,
+      relPath: file.relPath,
+      mimeType: file.mimeType,
+      createdAt: file.createdAt,
+    }));
+    const generated: LibraryAudioStudioMedia[] = audioStore.generatedAudio.map((audio) => ({
+      id: audio.id,
+      title: audio.title || `${audio.provider} generated audio`,
+      projectId: audio.projectId,
+      source: "generated",
+      relPath: audio.relPath,
+      mimeType: audio.mimeType,
+      createdAt: audio.createdAt,
+    }));
+    audioStudioMedia = [...files, ...generated].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  } catch {
+    audioStudioMedia = [];
+  }
   let podcastAudios: LibraryPodcastAudio[] = [];
   try {
     const raw = await fs.readFile(path.join(process.cwd(), PODCAST_PROJECTS_FILE), "utf-8");
@@ -93,7 +129,7 @@ export default async function LibraryPage() {
           <strong className="font-semibold text-[color:var(--text-primary)]">Library images</strong> for background
           stills (<code className="text-[color:var(--text-muted)]">output/images/library/</code>), and{" "}
           <strong className="font-semibold text-[color:var(--text-primary)]">Voice recordings</strong> for saved News
-          Shorts mic takes (<code className="text-[color:var(--text-muted)]">output/audio/</code>), and{" "}
+          Shorts mic takes and Audio Studio recordings, and{" "}
           <strong className="font-semibold text-[color:var(--text-primary)]">Podcasts</strong> for generated Podcast
           Template audio. Assets live under the
           project <code className="text-[color:var(--text-muted)]">output/</code> folder.{" "}
@@ -109,6 +145,7 @@ export default async function LibraryPage() {
           backdropVideos={backdropVideos}
           libraryBackgroundImages={libraryBackgroundImages}
           voiceRecordings={voiceRecordings}
+          audioStudioMedia={audioStudioMedia}
           podcastAudios={podcastAudios}
           libraryMetadataByContentId={libraryMetadataByContentId}
         />

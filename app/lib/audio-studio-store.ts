@@ -5,6 +5,12 @@ import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/li
 import { outputAudioDir, projectRoot } from "@/app/lib/paths";
 
 export type AudioProviderName = "openai" | "elevenlabs";
+export type GeneratedAudioTool =
+  | "text-to-speech"
+  | "language"
+  | "voice-changer"
+  | "voice-isolator"
+  | "elevenlabs-editing";
 
 export type AudioProject = {
   id: string;
@@ -88,6 +94,7 @@ export type GeneratedAudio = {
   projectId: string;
   title?: string;
   provider: AudioProviderName;
+  sourceTool?: GeneratedAudioTool;
   voiceId?: string;
   sourceText: string;
   relPath: string;

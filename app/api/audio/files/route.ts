@@ -4,8 +4,12 @@ import {
   readAudioStudioStore,
   updateAudioStudioStore,
   type AudioFile,
+  type GeneratedAudio,
 } from "@/app/lib/audio-studio-store";
 import { jsonError } from "../_shared";
+
+type GeneratedAudioSourceTool = NonNullable<GeneratedAudio["sourceTool"]>;
+type MediaKindFilter = "all" | "files" | "generated";
 
 type ProjectMediaItem = {
   id: string;
@@ -26,25 +30,31 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get("projectId")?.trim();
     if (!projectId) return NextResponse.json({ error: "projectId is required" }, { status: 400 });
+    const kindFilter = normaliseKindFilter(searchParams.get("kind"));
+    const sourceTool = normaliseGeneratedSourceTool(searchParams.get("sourceTool"));
 
     const store = await readAudioStudioStore();
-    const files: ProjectMediaItem[] = store.files
-      .filter((file) => file.projectId === projectId)
-      .map((file) => ({
-        id: file.id,
-        kind: "file",
-        projectId: file.projectId,
-        title: file.title || file.originalName,
-        name: file.name,
-        originalName: file.originalName,
-        source: file.source,
-        mimeType: file.mimeType,
-        size: file.size,
-        relPath: file.relPath,
-        createdAt: file.createdAt,
-      }));
-    const generated: ProjectMediaItem[] = store.generatedAudio
-      .filter((audio) => audio.projectId === projectId)
+    const files: ProjectMediaItem[] = kindFilter === "generated"
+      ? []
+      : store.files
+        .filter((file) => file.projectId === projectId)
+        .map((file) => ({
+          id: file.id,
+          kind: "file",
+          projectId: file.projectId,
+          title: file.title || file.originalName,
+          name: file.name,
+          originalName: file.originalName,
+          source: file.source,
+          mimeType: file.mimeType,
+          size: file.size,
+          relPath: file.relPath,
+          createdAt: file.createdAt,
+        }));
+    const generated: ProjectMediaItem[] = kindFilter === "files"
+      ? []
+      : store.generatedAudio
+      .filter((audio) => audio.projectId === projectId && matchesGeneratedSourceTool(audio.sourceTool, sourceTool))
       .map((audio) => ({
         id: audio.id,
         kind: "generated",
@@ -95,4 +105,20 @@ export async function DELETE(req: Request) {
   } catch (error) {
     return jsonError(error, "Audio delete failed", 400);
   }
+}
+
+function normaliseKindFilter(value: string | null): MediaKindFilter {
+  if (value === "files" || value === "generated") return value;
+  return "all";
+}
+
+function normaliseGeneratedSourceTool(value: string | null): GeneratedAudioSourceTool | undefined {
+  if (value === "text-to-speech" || value === "language" || value === "voice-changer" || value === "voice-isolator") return value;
+  return undefined;
+}
+
+function matchesGeneratedSourceTool(sourceTool: GeneratedAudio["sourceTool"], filter: GeneratedAudioSourceTool | undefined): boolean {
+  if (!filter) return true;
+  if (sourceTool === filter) return true;
+  return filter === "text-to-speech" && !sourceTool;
 }

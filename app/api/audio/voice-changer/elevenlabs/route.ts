@@ -36,6 +36,7 @@ export async function POST(req: Request) {
     const audio = await saveGeneratedAudio({
       projectId: original.projectId,
       provider: "elevenlabs",
+      sourceTool: "voice-changer",
       voiceId,
       sourceText: targetVoiceStyle || original.originalName,
       bytes: Buffer.from(await res.arrayBuffer()),

@@ -1,14 +1,14 @@
 /**
  * Start Next.js dev (default distDir `.next` from next.config unless NEXT_DIST_DIR is set).
  *
- * Frees the dev port, then starts `next dev`. We no longer delete the dist dir on every
- * start — that was wiping webpack client output and led to HTML 200 + `/_next/static/*` 404
- * (unstyled pages). To force a clean tree: `npm run clean` or `FORCE_CLEAN_DEV_DIST=1 npm run dev`.
+ * Frees the dev port, then starts `next dev`. Turbopack is the default because webpack dev
+ * intermittently writes manifests without the matching `.next/static` client assets on this
+ * machine, which leaves the browser with unstyled HTML.
  *
  * Also stops any process already listening on the dev port (macOS/Linux) so an old
  * broken Node server cannot keep serving after the build folder was removed.
  */
-const { existsSync, rmSync, readFileSync } = require("fs");
+const { existsSync, mkdirSync, rmSync, readFileSync } = require("fs");
 const { join } = require("path");
 const { spawn, execSync, execFileSync } = require("child_process");
 
@@ -41,8 +41,8 @@ try {
   devHost = "0.0.0.0";
 }
 if (!devHost) devHost = "0.0.0.0";
-/** Turbopack is faster but can 500 or corrupt .next when mixed with webpack builds; webpack is the stable default. */
-const useTurbo = process.env.USE_TURBO === "1";
+/** Use `USE_TURBO=0 npm run dev` only if you need to debug webpack-specific behavior. */
+const useTurbo = process.env.USE_TURBO !== "0";
 
 function pidsListeningOnTcpPort(port) {
   const p = String(port);
@@ -115,6 +115,7 @@ if (process.env.FORCE_CLEAN_DEV_DIST === "1" && existsSync(nextDir)) {
   rmSync(nextDir, { recursive: true, force: true });
   console.error(`[run-dev] Removed ${distDir} (FORCE_CLEAN_DEV_DIST=1).`);
 }
+mkdirSync(join(nextDir, "static", "development"), { recursive: true });
 
 const nextCli = join(root, "node_modules", "next", "dist", "bin", "next");
 const args = [nextCli, "dev", "-p", devPort, "-H", devHost];
@@ -122,6 +123,9 @@ if (useTurbo) args.push("--turbo");
 
 /** Avoid EMFILE / broken CSS & HMR on macOS (too many file watchers). Disable: WATCHPACK_POLLING=0 */
 const devEnv = { ...process.env };
+if (useTurbo) {
+  devEnv.USE_TURBO = "1";
+}
 if (devEnv.WATCHPACK_POLLING === undefined || devEnv.WATCHPACK_POLLING === "") {
   devEnv.WATCHPACK_POLLING = "true";
 }
@@ -131,7 +135,7 @@ console.error(
     `[run-dev] Open: http://127.0.0.1:${devPort}/  or  http://localhost:${devPort}/\n` +
     `[run-dev] Quick restart: npm run dev:restart\n` +
     `[run-dev] If the site is blank or 500: npm run dev:restart  (or dev:kill-port then dev)\n` +
-    (devEnv.WATCHPACK_POLLING === "true"
+    (!useTurbo && devEnv.WATCHPACK_POLLING === "true"
       ? `[run-dev] WATCHPACK_POLLING=true + next.config webpack poll (dev). Disable poll: NEXT_WEBPACK_POLL=0; disable both: WATCHPACK_POLLING=0\n`
       : "") +
     `[run-dev] Do not use npm start until you run npm run build.\n`,

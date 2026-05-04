@@ -1,6 +1,7 @@
-import { AudioStudioWorkspace } from "../AudioStudioWorkspace";
-import { audioStudioToolById } from "../audio-studio-config";
+import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 export default function AudioTextToSpeechPage() {
-  return <AudioStudioWorkspace activeTool={audioStudioToolById("text-to-speech")} />;
+  redirect("/audio-studio?tool=text-to-speech");
 }

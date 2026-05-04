@@ -10,6 +10,7 @@ export async function POST(req: Request) {
       transcript?: string;
       transcriptId?: string;
       language?: string;
+      previewOnly?: boolean;
     };
     const transcript = String(body.transcript ?? "").trim();
     const language = String(body.language ?? "").trim();
@@ -17,8 +18,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "transcript and language are required" }, { status: 400 });
     }
 
-    const project = await ensureAudioProject(body.projectId);
     const translatedText = await translateAudioTranscript(transcript, language);
+    if (body.previewOnly) {
+      return NextResponse.json({ translatedText });
+    }
+
+    const project = await ensureAudioProject(body.projectId);
     const languageVersion = {
       id: audioStudioId("aud_lang"),
       projectId: project.id,
@@ -32,7 +37,7 @@ export async function POST(req: Request) {
       store.languageVersions.unshift(languageVersion);
     });
 
-    return NextResponse.json({ languageVersion });
+    return NextResponse.json({ languageVersion, translatedText });
   } catch (error) {
     return jsonError(error, "Audio translation failed");
   }

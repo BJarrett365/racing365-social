@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "clean": "node -e \"const fs=require('fs');for(const d of ['.next','.next-dev','.next-prod'])fs.rmSync(d,{recursive:true,force:true});\"",
+    "clean": "node -e \"const fs=require('fs');for(const d of ['.next','.next-dev','.next-prod','.next-8082'])fs.rmSync(d,{recursive:true,force:true});\"",
     "verify:dev": "node scripts/verify-dev.cjs",
     "dev:kill-port": "node scripts/run-dev.cjs --kill-port-only",
-    "dev:restart": "npm run dev:kill-port && npm run dev",
+    "dev:restart": "npm run dev:kill-port && FORCE_CLEAN_DEV_DIST=1 npm run dev",
     "dev": "node scripts/run-dev.cjs",
     "dev:incremental": "sh -c \"WATCHPACK_POLLING=true next dev -p 8081 -H \\\"$(node scripts/print-default-listen-host.cjs)\\\"\"",
     "dev:turbo": "USE_TURBO=1 node scripts/run-dev.cjs",

@@ -16,14 +16,14 @@ export function AuthControls() {
   const [me, setMe] = useState<Me | null>(null);
 
   useEffect(() => {
-    void fetch("/api/auth/me")
+    void fetch("/api/auth/me", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => setMe(data))
       .catch(() => setMe(null));
   }, []);
 
   const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     router.replace("/login");
     router.refresh();
   };

@@ -56,22 +56,58 @@ function groupLabelForVoice(v: ElevenLabsVoice): string {
 }
 
 const FALLBACK_DEFAULTS: ElevenLabsVoice[] = [
-  { voice_id: "EXAVITQu4vr4xnSDxMaL", name: "Bella", category: "premade", is_default: true },
-  {
-    voice_id: "JBFqnCBsd6RMkjVDRZzb",
-    name: "George",
-    category: "premade",
-    is_default: true,
-    labels: { gender: "male" },
-  },
-  { voice_id: "ErXwobaYiN019PkySvjV", name: "Antoni", category: "premade", is_default: true },
-  { voice_id: "MF3mGyEYCl7XYWbV9V6O", name: "Elli", category: "premade", is_default: true },
-  { voice_id: "TxGEqnHWrfWFTfGW9XjX", name: "Josh", category: "premade", is_default: true },
-  { voice_id: "VR6AewLTigWG4xSOukaG", name: "Arnold", category: "premade", is_default: true },
-  { voice_id: "pNInz6obpgDQGcFmaJgB", name: "Adam", category: "premade", is_default: true },
-  { voice_id: "yoZ06aMxZJJ28mfd3POQ", name: "Sam", category: "premade", is_default: true },
-  { voice_id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", category: "premade", is_default: true },
+  { voice_id: "9BWtsMINqrJLrRacOk9x", name: "Aria", category: "premade", is_default: true, labels: { gender: "female", accent: "American" } },
+  { voice_id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger", category: "premade", is_default: true, labels: { gender: "male", accent: "American" } },
+  { voice_id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", category: "premade", is_default: true, labels: { gender: "female", accent: "American" } },
+  { voice_id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura", category: "premade", is_default: true, labels: { gender: "female", accent: "American" } },
+  { voice_id: "IKne3meq5aSn9XLyUdCD", name: "Charlie", category: "premade", is_default: true, labels: { gender: "male", accent: "Australian" } },
+  { voice_id: "JBFqnCBsd6RMkjVDRZzb", name: "George", category: "premade", is_default: true, labels: { gender: "male", accent: "British" } },
+  { voice_id: "N2lVS1w4EtoT3dr4eOWO", name: "Callum", category: "premade", is_default: true, labels: { gender: "male", accent: "American" } },
+  { voice_id: "SAz9YHcvj6GT2YYXdXww", name: "River", category: "premade", is_default: true, labels: { gender: "neutral", accent: "American" } },
+  { voice_id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", category: "premade", is_default: true, labels: { gender: "male", accent: "American" } },
+  { voice_id: "XB0fDUnXU5powFXDhCwa", name: "Charlotte", category: "premade", is_default: true, labels: { gender: "female", accent: "Swedish" } },
+  { voice_id: "Xb7hH8MSUJpSbSDYk0k2", name: "Alice", category: "premade", is_default: true, labels: { gender: "female", accent: "British" } },
+  { voice_id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda", category: "premade", is_default: true, labels: { gender: "female", accent: "American" } },
+  { voice_id: "bIHbv24MWmeRgasZH58o", name: "Will", category: "premade", is_default: true, labels: { gender: "male", accent: "American" } },
+  { voice_id: "cgSgspJ2msm6clMCkdW9", name: "Jessica", category: "premade", is_default: true, labels: { gender: "female", accent: "American" } },
+  { voice_id: "cjVigY5qzO86Huf0OWal", name: "Eric", category: "premade", is_default: true, labels: { gender: "male", accent: "American" } },
+  { voice_id: "iP95p4xoKVk53GoZ742B", name: "Chris", category: "premade", is_default: true, labels: { gender: "male", accent: "American" } },
+  { voice_id: "nPczCjzI2devNBz1zQrb", name: "Brian", category: "premade", is_default: true, labels: { gender: "male", accent: "American" } },
+  { voice_id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", category: "premade", is_default: true, labels: { gender: "male", accent: "British" } },
+  { voice_id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", category: "premade", is_default: true, labels: { gender: "female", accent: "British" } },
+  { voice_id: "pqHfZKP75CvOlQylNhV4", name: "Bill", category: "premade", is_default: true, labels: { gender: "male", accent: "American" } },
+  { voice_id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel (legacy)", category: "premade", is_default: true, labels: { gender: "female", accent: "American" } },
 ];
+
+async function fetchVoiceEndpoint(url: string, key: string): Promise<ElevenLabsVoice[]> {
+  const res = await fetch(url, {
+    headers: { "xi-api-key": key },
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+  const data = (await res.json()) as { voices?: ElevenLabsVoice[] };
+  return Array.isArray(data.voices) ? data.voices : [];
+}
+
+async function fetchAvailableVoices(key: string): Promise<ElevenLabsVoice[]> {
+  const endpoints = [
+    "https://api.elevenlabs.io/v2/voices/search?page_size=100&sort=name&sort_direction=asc",
+    "https://api.elevenlabs.io/v1/voices?show_legacy=true",
+  ];
+
+  const seen = new Set<string>();
+  const voices: ElevenLabsVoice[] = [];
+  for (const endpoint of endpoints) {
+    const batch = await fetchVoiceEndpoint(endpoint, key);
+    for (const voice of batch) {
+      const id = String(voice.voice_id ?? "").trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      voices.push(voice);
+    }
+  }
+  return voices;
+}
 
 export async function GET() {
   const key = await getServerSecretAsync("ELEVENLABS_API_KEY");
@@ -86,25 +122,7 @@ export async function GET() {
   }
 
   try {
-    const res = await fetch("https://api.elevenlabs.io/v1/voices", {
-      headers: {
-        "xi-api-key": key,
-      },
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      const diagnostics = buildDiagnostics(FALLBACK_DEFAULTS);
-      return NextResponse.json({
-        voices: FALLBACK_DEFAULTS.map(toVoiceResponse),
-        diagnostics,
-        source: "fallback",
-        status: res.status === 401 ? "auth_failed" : "api_error",
-      });
-    }
-
-    const data = (await res.json()) as { voices?: ElevenLabsVoice[] };
-    const raw = Array.isArray(data.voices) ? data.voices : [];
+    const raw = await fetchAvailableVoices(key);
     /** Every voice the API key can use — premade library plus your cloned / generated / professional voices. */
     const all = raw.filter((v) => String(v.voice_id ?? "").trim() && String(v.name ?? "").trim());
     const sortForUi = (voices: ElevenLabsVoice[]) =>

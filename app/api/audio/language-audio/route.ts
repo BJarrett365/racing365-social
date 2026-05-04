@@ -8,29 +8,40 @@ export async function POST(req: Request) {
     const body = await req.json() as {
       projectId?: string;
       transcript?: string;
+      translatedText?: string;
       language?: string;
       provider?: "openai" | "elevenlabs";
       voice?: string;
+      voiceId?: string;
       speed?: number;
     };
     const transcript = String(body.transcript ?? "").trim();
+    const suppliedTranslatedText = String(body.translatedText ?? "").trim();
     const language = String(body.language ?? "").trim();
-    if (!transcript || !language) {
-      return NextResponse.json({ error: "transcript and language are required" }, { status: 400 });
+    if ((!transcript && !suppliedTranslatedText) || !language) {
+      return NextResponse.json({ error: "transcript or translatedText and language are required" }, { status: 400 });
     }
 
     const project = await ensureAudioProject(body.projectId);
-    const translatedText = await translateAudioTranscript(transcript, language);
+    const translatedText = suppliedTranslatedText || await translateAudioTranscript(transcript, language);
     const baseUrl = new URL(req.url);
-    const ttsPath = body.provider === "elevenlabs" ? "/api/audio/tts/elevenlabs" : "/api/audio/tts/openai";
+    const isElevenLabs = body.provider === "elevenlabs";
+    const ttsPath = isElevenLabs ? "/api/audio/tts/elevenlabs" : "/api/audio/tts/openai";
+    const voicePayload = isElevenLabs
+      ? { voiceId: normaliseElevenLabsVoiceId(body.voiceId || body.voice) }
+      : { voice: body.voice };
     const ttsRes = await fetch(new URL(ttsPath, baseUrl.origin), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: req.headers.get("cookie") ?? "",
+      },
       body: JSON.stringify({
         projectId: project.id,
         text: translatedText,
+        sourceTool: "language",
         language,
-        voice: body.voice,
+        ...voicePayload,
         speed: body.speed,
       }),
     });
@@ -56,4 +67,11 @@ export async function POST(req: Request) {
   } catch (error) {
     return jsonError(error, "Language audio generation failed");
   }
+}
+
+function normaliseElevenLabsVoiceId(value?: string): string {
+  const voiceId = String(value ?? "").trim();
+  const openAiVoiceNames = new Set(["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"]);
+  if (!voiceId || openAiVoiceNames.has(voiceId.toLowerCase())) return "admin-default";
+  return voiceId;
 }

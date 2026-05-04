@@ -1,6 +1,7 @@
-import { AudioStudioWorkspace } from "../AudioStudioWorkspace";
-import { audioStudioToolById } from "../audio-studio-config";
+import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 export default function AudioVoiceIsolatorPage() {
-  return <AudioStudioWorkspace activeTool={audioStudioToolById("voice-isolator")} />;
+  redirect("/audio-studio?tool=voice-isolator");
 }

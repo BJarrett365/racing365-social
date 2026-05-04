@@ -58,6 +58,15 @@ type Props = {
   libraryBackgroundImages: string[];
   /** Saved mic takes: `audio/{contentId}-voice-record.webm` */
   voiceRecordings: string[];
+  audioStudioMedia: Array<{
+    id: string;
+    title: string;
+    projectId: string;
+    source: string;
+    relPath: string;
+    mimeType: string;
+    createdAt: string;
+  }>;
   podcastAudios: Array<{
     projectId: string;
     title: string;
@@ -140,6 +149,7 @@ export function LibraryClient({
   backdropVideos,
   libraryBackgroundImages,
   voiceRecordings,
+  audioStudioMedia,
   podcastAudios,
   libraryMetadataByContentId,
 }: Props) {
@@ -202,6 +212,9 @@ export function LibraryClient({
       inferSiteBrandTags([rel, cid, entry?.seoTitle, ...(entry?.keywords ?? []), meta?.title, meta?.sourceUrl, ...(meta?.keywords ?? [])]).forEach((t) =>
         tags.add(t),
       );
+    }
+    for (const audio of audioStudioMedia) {
+      inferSiteBrandTags([audio.projectId, audio.title, audio.source, audio.relPath, "audio studio"]).forEach((t) => tags.add(t));
     }
     for (const pod of podcastAudios) {
       inferSiteBrandTags([pod.projectId, pod.title, pod.outputAudioRel, pod.sourceUrl]).forEach((t) => tags.add(t));
@@ -296,6 +309,24 @@ export function LibraryClient({
     if (!needle) return true;
     return toSearchPool(values).includes(needle);
   });
+  const audioStudioMediaFiltered = audioStudioMedia.filter((audio) => {
+    const values = [
+      audio.id,
+      audio.projectId,
+      audio.title,
+      audio.source,
+      audio.relPath,
+      audio.mimeType,
+      "audio studio",
+      "voice notes",
+      "voice recording",
+      "audio",
+    ];
+    if (!hasBrand(values)) return false;
+    if (!hasLanguage(values)) return false;
+    if (!needle) return true;
+    return toSearchPool(values).includes(needle);
+  });
   const podcastAudiosFiltered = podcastAudios.filter((pod) => {
     const values = [
       pod.projectId,
@@ -373,7 +404,7 @@ export function LibraryClient({
           className="library-tab focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]"
         >
           Voice recordings
-          <span className="ml-2 tabular-nums text-xs font-normal opacity-80">({voiceRecordingsFiltered.length})</span>
+          <span className="ml-2 tabular-nums text-xs font-normal opacity-80">({voiceRecordingsFiltered.length + audioStudioMediaFiltered.length})</span>
         </button>
         <button
           type="button"
@@ -777,17 +808,47 @@ export function LibraryClient({
 
         {tab === "voiceRecordings" && (
           <div id="panel-voice-recordings" role="tabpanel" aria-labelledby="tab-voice-recordings">
-            <Panel title="Voice recordings (News Shorts)">
-              {voiceRecordingsFiltered.length === 0 ? (
+            <Panel title="Voice recordings and Audio Studio">
+              {voiceRecordingsFiltered.length === 0 && audioStudioMediaFiltered.length === 0 ? (
                 <p className="text-sm text-[color:var(--text-muted)]">
-                  No saved voice takes yet — record and <strong className="font-semibold text-[color:var(--text-primary)]">Save recording</strong> in{" "}
-                  <strong className="font-semibold text-[color:var(--text-primary)]">News Shorts → Voice Record</strong>.
-                  Files are stored under{" "}
-                  <code className="text-[color:var(--text-secondary)]">output/audio/&lt;content-id&gt;-voice-record.*</code>{" "}
-                  and appear here after save.
+                  No saved voice takes yet. Record in <strong className="font-semibold text-[color:var(--text-primary)]">Audio Studio</strong> or{" "}
+                  <strong className="font-semibold text-[color:var(--text-primary)]">News Shorts → Voice Record</strong>, then save the recording.
                 </p>
               ) : (
                 <ul className="space-y-6">
+                  {audioStudioMediaFiltered.map((audio) => (
+                    <li key={audio.id} className="library-card p-4">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h2 className="text-lg font-semibold leading-snug text-[color:var(--text-primary)]">{audio.title}</h2>
+                        <p className="font-mono text-xs text-[#eab308]">{audio.projectId}</p>
+                      </div>
+                      <p className="mt-1 text-xs text-[color:var(--text-muted)]">{audio.relPath}</p>
+                      <p className="text-xs text-[color:var(--text-muted)]">
+                        Audio Studio · {audio.source} · {audio.mimeType || "audio"} ·{" "}
+                        {new Date(audio.createdAt).toLocaleString("en-GB", { timeZone: "UTC" })} UTC
+                      </p>
+                      <audio
+                        src={fileUrl(audio.relPath)}
+                        controls
+                        className="library-media-chrome mt-3 w-full max-w-md"
+                        title={audio.title}
+                      />
+                      <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
+                        <a className="text-[color:var(--accent)] hover:underline" href={downloadUrl(audio.relPath)}>
+                          Download audio
+                        </a>
+                        <span aria-hidden="true">·</span>
+                        <a
+                          className="text-[color:var(--accent)] hover:underline"
+                          href={fileUrl(audio.relPath)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Open in new tab
+                        </a>
+                      </p>
+                    </li>
+                  ))}
                   {voiceRecordingsFiltered.map((rel) => {
                     const cid = contentIdFromVoiceRecordingRel(rel);
                     const meta = cid ? libraryMetadataByContentId[cid] : undefined;

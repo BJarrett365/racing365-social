@@ -27,6 +27,9 @@ const footerLinks = [
   { href: "/prompts", label: "Prompts" },
   { href: "/brand-guidelines", label: "Brand Guidelines" },
   { href: "/guard-rails", label: "Guard Rails" },
+  { href: "/privacy-policy", label: "Privacy Policy" },
+  { href: "/terms", label: "Terms" },
+  { href: "/use-policy", label: "Use Policy" },
   { href: "/docs/news-shorts-manual", label: "News Shorts manual" },
 ];
 

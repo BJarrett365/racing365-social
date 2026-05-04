@@ -13,6 +13,8 @@
 
 # next
 /.next/
+/.next 2/
+/.next-8082/
 /.next-prod/
 /out/
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSecretAsync } from "@/app/lib/server-secrets";
-import { jsonError, normaliseSpeed, saveGeneratedAudio } from "../../_shared";
+import { jsonError, normaliseGeneratedAudioTool, normaliseSpeed, saveGeneratedAudio } from "../../_shared";
 
 export async function POST(req: Request) {
   try {
@@ -11,6 +11,7 @@ export async function POST(req: Request) {
       speed?: number;
       language?: string;
       tone?: string;
+      sourceTool?: string;
     };
     const text = String(body.text ?? "").trim();
     if (!text) return NextResponse.json({ error: "text is required" }, { status: 400 });
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         model: "tts-1",
         voice: String(body.voice || "nova").trim(),
-        input: [body.tone, body.language ? `Language: ${body.language}` : "", text].filter(Boolean).join("\n\n").slice(0, 4096),
+        input: text.slice(0, 4096),
         response_format: "mp3",
         speed: normaliseSpeed(body.speed),
       }),
@@ -40,6 +41,7 @@ export async function POST(req: Request) {
     const audio = await saveGeneratedAudio({
       projectId: body.projectId,
       provider: "openai",
+      sourceTool: normaliseGeneratedAudioTool(body.sourceTool),
       voiceId: body.voice,
       sourceText: text,
       bytes: Buffer.from(await res.arrayBuffer()),

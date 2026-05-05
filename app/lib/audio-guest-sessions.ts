@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
 import { projectRoot } from "@/app/lib/paths";
 
 export type GuestSessionSpeaker = {
@@ -39,6 +40,8 @@ type GuestSessionsStore = {
 };
 
 const SESSIONS_FILE = path.join(projectRoot(), "data", "local", "audio-guest-sessions.json");
+const BLOB_STORE_NAME = "plexa-audio-guest-sessions";
+const BLOB_STORE_KEY = "audio-guest-sessions.json";
 
 export function audioGuestSessionId(): string {
   return `guest_session_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
@@ -49,6 +52,11 @@ export function audioGuestTrackId(): string {
 }
 
 export async function readAudioGuestSessions(): Promise<GuestSessionsStore> {
+  if (shouldUseNetlifyBlobStore()) {
+    const blobStore = await readJsonBlob<GuestSessionsStore>(BLOB_STORE_NAME, BLOB_STORE_KEY);
+    return { sessions: Array.isArray(blobStore?.sessions) ? blobStore.sessions : [] };
+  }
+
   try {
     const raw = await fs.readFile(SESSIONS_FILE, "utf-8");
     const parsed = JSON.parse(raw) as Partial<GuestSessionsStore>;
@@ -59,6 +67,11 @@ export async function readAudioGuestSessions(): Promise<GuestSessionsStore> {
 }
 
 export async function writeAudioGuestSessions(store: GuestSessionsStore): Promise<void> {
+  if (shouldUseNetlifyBlobStore()) {
+    await writeJsonBlob(BLOB_STORE_NAME, BLOB_STORE_KEY, store);
+    return;
+  }
+
   await fs.mkdir(path.dirname(SESSIONS_FILE), { recursive: true });
   await fs.writeFile(SESSIONS_FILE, JSON.stringify(store, null, 2), "utf-8");
 }

@@ -73,11 +73,11 @@ export async function POST(request: Request) {
     });
 
     const storedVoiceId = await getStoredVoiceOptionAsync("ELEVENLABS_VOICE_ID", "elevenlabsVoiceId") || "";
-    const voiceId =
-      storedVoiceId ||
-      (defaultVoices[0] && typeof defaultVoices[0].voice_id === "string"
-        ? String(defaultVoices[0].voice_id)
-        : FALLBACK_VOICE_ID);
+    const firstDefaultVoiceId = defaultVoices[0] && typeof defaultVoices[0].voice_id === "string"
+      ? String(defaultVoices[0].voice_id)
+      : "";
+    const storedVoiceExists = Boolean(storedVoiceId && voices.some((voice) => voice?.voice_id === storedVoiceId));
+    const voiceId = storedVoiceExists ? storedVoiceId : firstDefaultVoiceId || FALLBACK_VOICE_ID;
 
     const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: "POST",
@@ -92,6 +92,34 @@ export async function POST(request: Request) {
       }),
       cache: "no-store",
     });
+
+    if (!ttsRes.ok && storedVoiceExists && firstDefaultVoiceId && firstDefaultVoiceId !== voiceId) {
+      const retryRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${firstDefaultVoiceId}`, {
+        method: "POST",
+        headers: {
+          "xi-api-key": key,
+          "Content-Type": "application/json",
+          Accept: "audio/mpeg",
+        },
+        body: JSON.stringify({
+          text: "Racing three six five audio check.",
+          model_id: await getStoredVoiceOptionAsync("ELEVENLABS_MODEL", "elevenlabsModel") || "eleven_multilingual_v2",
+        }),
+        cache: "no-store",
+      });
+
+      if (retryRes.ok) {
+        return NextResponse.json({
+          ok: true,
+          voicesReadOk: true,
+          ttsOk: true,
+          defaultVoiceCount: defaultVoices.length,
+          labelledDefaultCount: labelledDefaults.length,
+          voiceIdTested: firstDefaultVoiceId,
+          warning: "Stored ElevenLabs voice failed the TTS check, but a default ElevenLabs voice passed.",
+        });
+      }
+    }
 
     if (!ttsRes.ok) {
       const ttsData = await ttsRes.json().catch(() => ({}));

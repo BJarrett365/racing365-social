@@ -636,32 +636,6 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
             </div>
           </Panel>
 
-          {recordingMode === "guest-room" ? (
-            <Panel title="Host Room + Video">
-              <div className="overflow-hidden rounded-3xl border border-[color:var(--border)] bg-slate-950">
-                <video ref={hostVideoRef} autoPlay muted playsInline className="aspect-video w-full object-cover" />
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <StatusPill ok={hostMeetingStarted} label={hostMeetingStarted ? "Meeting started" : "Meeting not started"} />
-                <StatusPill ok={hostCameraConnected} label="Camera connected" />
-                <StatusPill ok={hostMicConnected} label="Mic connected" />
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <StudioButton onClick={hostMeetingStarted ? stopHostMeeting : startHostMeeting} tone={hostMeetingStarted ? "danger" : "primary"}>
-                  {hostMeetingStarted ? "End Meeting" : "Start Meeting"}
-                </StudioButton>
-                <StudioButton onClick={createInviteSession} disabled={api.loading} tone="primary">Create Invite Link</StudioButton>
-                {inviteUrl ? <StudioButton onClick={() => void navigator.clipboard?.writeText(inviteUrl)}>Copy Link</StudioButton> : null}
-              </div>
-              {inviteUrl ? (
-                <input readOnly value={inviteUrl} className="mt-3 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-xs" />
-              ) : null}
-              <p className="mt-3 text-xs leading-5 text-[color:var(--text-secondary)]">
-                Start Meeting connects the host camera and mic for confidence. Plexa still records audio only; use Guest Room Audio below for the host recording or upload.
-              </p>
-            </Panel>
-          ) : null}
-
           <Panel title={recordingMode === "guest-room" ? "Guest Room Audio" : "Same Room Record or Upload"}>
             <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-[color:var(--text-primary)] shadow-sm">
               <LiveBars level={recordingLevel} active={recording && !recordingPaused} />
@@ -730,6 +704,32 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
         </div>
 
         <div className="space-y-6">
+          {recordingMode === "guest-room" ? (
+            <Panel title="Host Room + Video">
+              <div className="overflow-hidden rounded-3xl border border-[color:var(--border)] bg-slate-950">
+                <video ref={hostVideoRef} autoPlay muted playsInline className="aspect-video w-full object-cover" />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <StatusPill ok={hostMeetingStarted} label={hostMeetingStarted ? "Meeting started" : "Meeting not started"} />
+                <StatusPill ok={hostCameraConnected} label="Camera connected" />
+                <StatusPill ok={hostMicConnected} label="Mic connected" />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <StudioButton onClick={hostMeetingStarted ? stopHostMeeting : startHostMeeting} tone={hostMeetingStarted ? "danger" : "primary"}>
+                  {hostMeetingStarted ? "End Meeting" : "Start Meeting"}
+                </StudioButton>
+                <StudioButton onClick={createInviteSession} disabled={api.loading} tone="primary">Create Invite Link</StudioButton>
+                {inviteUrl ? <StudioButton onClick={() => void navigator.clipboard?.writeText(inviteUrl)}>Copy Link</StudioButton> : null}
+              </div>
+              {inviteUrl ? (
+                <input readOnly value={inviteUrl} className="mt-3 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-xs" />
+              ) : null}
+              <p className="mt-3 text-xs leading-5 text-[color:var(--text-secondary)]">
+                Start Meeting connects the host camera and mic for confidence. Plexa still records audio only; use Guest Room Audio in the left column for the host recording or upload.
+              </p>
+            </Panel>
+          ) : null}
+
           <Panel title="Transcript Editor">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <input

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/app/lib/auth/guards";
-import { audioGuestTrackId, readAudioGuestSessions, updateAudioGuestSessions } from "@/app/lib/audio-guest-sessions";
+import { audioGuestTrackId, readAudioGuestSession, updateAudioGuestSession } from "@/app/lib/audio-guest-sessions";
 import { jsonError, saveAudioFileFromForm } from "../../../../_shared";
 
 export async function POST(req: Request, ctx: { params: Promise<{ sessionId: string }> }) {
@@ -9,8 +9,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ sessionId: str
     if ("response" in auth) return auth.response;
 
     const { sessionId } = await ctx.params;
-    const store = await readAudioGuestSessions();
-    const session = store.sessions.find((item) => item.id === sessionId);
+    const session = await readAudioGuestSession(sessionId);
     if (!session) return NextResponse.json({ error: "Guest session not found" }, { status: 404 });
     if (session.status !== "open") return NextResponse.json({ error: "Guest session is closed" }, { status: 400 });
 
@@ -31,9 +30,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ sessionId: str
       createdAt: now,
     };
 
-    await updateAudioGuestSessions((draft) => {
-      const target = draft.sessions.find((item) => item.id === sessionId);
-      if (!target) return;
+    await updateAudioGuestSession(sessionId, (target) => {
       target.tracks.unshift(track);
       target.updatedAt = now;
     });

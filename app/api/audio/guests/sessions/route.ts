@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/app/lib/auth/guards";
 import {
   audioGuestSessionId,
-  updateAudioGuestSessions,
+  upsertAudioGuestSession,
   type AudioGuestSession,
   type GuestSessionSpeaker,
 } from "@/app/lib/audio-guest-sessions";
@@ -33,9 +33,7 @@ export async function POST(req: Request) {
       updatedAt: now,
     };
 
-    await updateAudioGuestSessions((store) => {
-      store.sessions.unshift(session);
-    });
+    await upsertAudioGuestSession(session);
 
     const url = new URL(req.url);
     return NextResponse.json({

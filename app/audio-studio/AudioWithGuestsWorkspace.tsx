@@ -120,6 +120,9 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
   const [namesSaved, setNamesSaved] = useState(false);
   const [inviteUrl, setInviteUrl] = useState("");
   const [translatedScript, setTranslatedScript] = useState("");
+  const [hostMeetingStarted, setHostMeetingStarted] = useState(false);
+  const [hostCameraConnected, setHostCameraConnected] = useState(false);
+  const [hostMicConnected, setHostMicConnected] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -127,6 +130,8 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
   const audioContextRef = useRef<AudioContext | null>(null);
   const meterAnimationRef = useRef<number | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const hostVideoRef = useRef<HTMLVideoElement | null>(null);
+  const hostPreviewStreamRef = useRef<MediaStream | null>(null);
 
   const fileForProcessing = recordedFile ?? uploadedFile;
   const transcriptText = useMemo(() => serialiseTranscript(speakers, segments), [segments, speakers]);
@@ -152,6 +157,7 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
   useEffect(() => {
     return () => {
       stopRecordingCleanup();
+      stopHostMeeting();
       if (audioUrl.startsWith("blob:")) URL.revokeObjectURL(audioUrl);
     };
     // Cleanup only on unmount; the active blob URL is revoked when replaced.
@@ -195,6 +201,32 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
       stopRecordingCleanup();
       setApi({ loading: false, message: "", error: error instanceof Error ? error.message : "Could not start recording." });
     }
+  }
+
+  async function startHostMeeting() {
+    try {
+      setApi({ loading: false, message: "", error: "" });
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera and microphone are not supported in this browser.");
+      stopHostMeeting();
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      hostPreviewStreamRef.current = stream;
+      setHostCameraConnected(stream.getVideoTracks().some((track) => track.readyState === "live"));
+      setHostMicConnected(stream.getAudioTracks().some((track) => track.readyState === "live"));
+      setHostMeetingStarted(true);
+      if (hostVideoRef.current) hostVideoRef.current.srcObject = stream;
+    } catch (error) {
+      stopHostMeeting();
+      setApi({ loading: false, message: "", error: error instanceof Error ? error.message : "Could not start host meeting." });
+    }
+  }
+
+  function stopHostMeeting() {
+    hostPreviewStreamRef.current?.getTracks().forEach((track) => track.stop());
+    hostPreviewStreamRef.current = null;
+    if (hostVideoRef.current) hostVideoRef.current.srcObject = null;
+    setHostMeetingStarted(false);
+    setHostCameraConnected(false);
+    setHostMicConnected(false);
   }
 
   function pauseRecording() {
@@ -502,7 +534,10 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
                 title="Same room"
                 active={recordingMode === "same-room"}
                 body="Everyone is together and Plexa records one shared microphone."
-                onSelect={() => setRecordingMode("same-room")}
+                onSelect={() => {
+                  setRecordingMode("same-room");
+                  stopHostMeeting();
+                }}
               />
               <ModeCard
                 title="Guest room + video"
@@ -600,6 +635,32 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
               {namesSaved ? <span className="text-xs font-semibold text-emerald-600">Names saved</span> : null}
             </div>
           </Panel>
+
+          {recordingMode === "guest-room" ? (
+            <Panel title="Host Room + Video">
+              <div className="overflow-hidden rounded-3xl border border-[color:var(--border)] bg-slate-950">
+                <video ref={hostVideoRef} autoPlay muted playsInline className="aspect-video w-full object-cover" />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <StatusPill ok={hostMeetingStarted} label={hostMeetingStarted ? "Meeting started" : "Meeting not started"} />
+                <StatusPill ok={hostCameraConnected} label="Camera connected" />
+                <StatusPill ok={hostMicConnected} label="Mic connected" />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <StudioButton onClick={hostMeetingStarted ? stopHostMeeting : startHostMeeting} tone={hostMeetingStarted ? "danger" : "primary"}>
+                  {hostMeetingStarted ? "End Meeting" : "Start Meeting"}
+                </StudioButton>
+                <StudioButton onClick={createInviteSession} disabled={api.loading} tone="primary">Create Invite Link</StudioButton>
+                {inviteUrl ? <StudioButton onClick={() => void navigator.clipboard?.writeText(inviteUrl)}>Copy Link</StudioButton> : null}
+              </div>
+              {inviteUrl ? (
+                <input readOnly value={inviteUrl} className="mt-3 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-xs" />
+              ) : null}
+              <p className="mt-3 text-xs leading-5 text-[color:var(--text-secondary)]">
+                Start Meeting connects the host camera and mic for confidence. Plexa still records audio only; use Guest Room Audio below for the host recording or upload.
+              </p>
+            </Panel>
+          ) : null}
 
           <Panel title={recordingMode === "guest-room" ? "Guest Room Audio" : "Same Room Record or Upload"}>
             <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-[color:var(--text-primary)] shadow-sm">
@@ -884,6 +945,14 @@ function TextInput({ label, value, onChange }: { label: string; value: string; o
       {label}
       <input value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm font-semibold text-[color:var(--text-primary)]" />
     </label>
+  );
+}
+
+function StatusPill({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-black ${ok ? "bg-emerald-500/10 text-emerald-700" : "bg-slate-500/10 text-[color:var(--text-muted)]"}`}>
+      {label}
+    </span>
   );
 }
 

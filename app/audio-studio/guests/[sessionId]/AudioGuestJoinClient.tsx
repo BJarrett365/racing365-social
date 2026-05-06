@@ -15,6 +15,7 @@ type GuestSessionSpeaker = {
 type GuestSession = {
   id: string;
   title: string;
+  dailyRoomUrl?: string;
   speakers: GuestSessionSpeaker[];
   tracks: Array<{ id: string; displayName: string; createdAt: string }>;
 };
@@ -37,6 +38,7 @@ const languages = [
   ["fr", "French"],
   ["de", "German"],
 ] as const;
+const dailyIframeAllow = "microphone; camera; autoplay; display-capture; fullscreen; screen-wake-lock";
 
 export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
   const [session, setSession] = useState<GuestSession | null>(null);
@@ -44,13 +46,11 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
   const [speakerId, setSpeakerId] = useState("");
   const [languageIn, setLanguageIn] = useState("en");
   const [languageOut, setLanguageOut] = useState("en");
-  const [cameraConnected, setCameraConnected] = useState(false);
   const [micConnected, setMicConnected] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [api, setApi] = useState<ApiState>({ loading: false, message: "", error: "" });
-  const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -58,12 +58,18 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     void loadSession();
-    return () => cleanup();
+    const refresh = window.setInterval(() => {
+      if (!session?.dailyRoomUrl) void loadSession({ quiet: true });
+    }, 10000);
+    return () => {
+      window.clearInterval(refresh);
+      cleanup();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
-  async function loadSession() {
-    setApi({ loading: true, message: "Loading guest session...", error: "" });
+  async function loadSession(options: { quiet?: boolean } = {}) {
+    if (!options.quiet) setApi({ loading: true, message: "Loading guest session...", error: "" });
     try {
       const res = await fetch(`/api/audio/guests/sessions/${sessionId}`, { credentials: "include", cache: "no-store" });
       const data = await jsonOrThrow<{ session: GuestSession; user: { name?: string; email?: string } }>(res);
@@ -73,23 +79,21 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
       setDisplayName(firstGuest?.displayName || data.user.name || data.user.email || "Guest");
       setLanguageIn(firstGuest?.languageIn || "en");
       setLanguageOut(firstGuest?.languageOut || "en");
-      setApi({ loading: false, message: "", error: "" });
+      if (!options.quiet) setApi({ loading: false, message: "", error: "" });
     } catch (error) {
-      setApi({ loading: false, message: "", error: error instanceof Error ? error.message : "Could not load session." });
+      if (!options.quiet) setApi({ loading: false, message: "", error: error instanceof Error ? error.message : "Could not load session." });
     }
   }
 
-  async function connectCameraAndMic() {
+  async function connectMicForRecording() {
     setApi({ loading: false, message: "", error: "" });
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       cleanup();
       streamRef.current = stream;
-      setCameraConnected(stream.getVideoTracks().some((track) => track.readyState === "live"));
       setMicConnected(stream.getAudioTracks().some((track) => track.readyState === "live"));
-      if (videoRef.current) videoRef.current.srcObject = stream;
     } catch (error) {
-      setApi({ loading: false, message: "", error: error instanceof Error ? error.message : "Could not connect camera and microphone." });
+      setApi({ loading: false, message: "", error: error instanceof Error ? error.message : "Could not connect microphone for recording." });
     }
   }
 
@@ -157,9 +161,9 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
   function cleanup() {
     if (timerRef.current !== null) window.clearInterval(timerRef.current);
     timerRef.current = null;
+    recorderRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
-    setCameraConnected(false);
     setMicConnected(false);
   }
 
@@ -169,22 +173,53 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
         <p className="text-xs font-bold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">Plexa guest interview</p>
         <h1 className="mt-2 text-3xl font-black">Join Audio with Guests</h1>
         <p className="mt-2 text-sm text-[color:var(--text-secondary)]">
-          {session?.title || "Loading session..."} - camera is shown for connection confidence, but Plexa records audio only.
+          {session?.title || "Loading session..."} - use the shared video room for the call, then record/upload audio only for Plexa.
         </p>
       </section>
 
+      <Panel title="Shared Video Room">
+        <div className="overflow-hidden rounded-3xl border border-[color:var(--border)] bg-slate-950">
+          {session?.dailyRoomUrl ? (
+            <iframe
+              title="Plexa Daily guest room"
+              src={session.dailyRoomUrl}
+              allow={dailyIframeAllow}
+              allowFullScreen
+              className="aspect-video w-full"
+            />
+          ) : (
+            <div className="flex aspect-video w-full items-center justify-center p-6 text-center text-sm font-semibold text-white/70">
+              Waiting for the host to start the shared video room. This page checks again automatically.
+            </div>
+          )}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <StatusPill ok={Boolean(session?.dailyRoomUrl)} label={session?.dailyRoomUrl ? "Video room live" : "Waiting for host"} />
+          {session?.dailyRoomUrl ? (
+            <a
+              href={session.dailyRoomUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2.5 text-sm font-semibold text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[color:var(--text-primary)]"
+            >
+              Open Video Room
+            </a>
+          ) : null}
+          <R365Button variant="ghost" onClick={() => void loadSession()} disabled={api.loading}>Refresh Room</R365Button>
+        </div>
+      </Panel>
+
       <div className="grid gap-6 md:grid-cols-[1fr_320px]">
-        <Panel title="Camera and Mic">
-          <div className="overflow-hidden rounded-3xl border border-[color:var(--border)] bg-black">
-            <video ref={videoRef} autoPlay muted playsInline className="aspect-video w-full object-cover" />
+        <Panel title="Audio Track Recording">
+          <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm leading-6 text-[color:var(--text-secondary)]">
+            Use the shared video room above to see and hear each other. This section records your microphone only so Plexa can upload a clean audio track for transcript and summary.
           </div>
           <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
-            <StatusPill ok={cameraConnected} label="Camera connected" />
-            <StatusPill ok={micConnected} label="Mic connected" />
+            <StatusPill ok={micConnected} label="Mic ready for recording" />
             <StatusPill ok={Boolean(recordedBlob)} label="Audio recorded" />
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <R365Button onClick={connectCameraAndMic} disabled={api.loading}>Connect</R365Button>
+            <R365Button onClick={connectMicForRecording} disabled={api.loading}>Connect Mic</R365Button>
             <R365Button onClick={recording ? stopRecording : startRecording} disabled={api.loading || !micConnected}>
               {recording ? "Stop" : "Record audio"}
             </R365Button>

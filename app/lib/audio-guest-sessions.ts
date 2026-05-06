@@ -29,6 +29,9 @@ export type AudioGuestSession = {
   title: string;
   hostUserId: string;
   status: "open" | "closed";
+  dailyRoomName?: string;
+  dailyRoomUrl?: string;
+  dailyRoomCreatedAt?: string;
   speakers: GuestSessionSpeaker[];
   tracks: GuestSessionTrack[];
   createdAt: string;

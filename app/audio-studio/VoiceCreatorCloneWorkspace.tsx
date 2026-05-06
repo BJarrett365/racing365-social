@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
-import type { AudioStudioTool } from "./audio-studio-config";
 
 type CloneSample = {
   id: string;
@@ -29,7 +28,7 @@ const accentOptions = ["British", "American", "Australian", "Irish", "Neutral"];
 const genderOptions = ["Female", "Male", "Neutral"];
 const ageOptions = ["Young adult", "Adult", "Middle aged", "Senior"];
 
-export function VoiceCreatorCloneWorkspace({ activeTool }: { activeTool: AudioStudioTool }) {
+export function VoiceCreatorCloneWorkspace() {
   const projectId = "default-audio-project";
   const [provider, setProvider] = useState<"elevenlabs" | "openai">("elevenlabs");
   const [step, setStep] = useState<"samples" | "details" | "done">("samples");
@@ -290,23 +289,14 @@ export function VoiceCreatorCloneWorkspace({ activeTool }: { activeTool: AudioSt
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <section className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">{activeTool.eyebrow}</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-[color:var(--text-primary)]">Create or clone a voice</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-[color:var(--text-secondary)]">
-              ElevenLabs allows very short instant clones, but Plexa targets 180 seconds for quality: six clean 30-second takes from uploads, recordings, or both. Each browser recording stops automatically at 30 seconds.
-            </p>
-          </div>
-          <label className="text-sm font-semibold text-[color:var(--text-primary)]">
-            Provider
-            <select value={provider} onChange={(event) => setProvider(event.target.value as "elevenlabs" | "openai")} className="mt-2 block rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2">
-              <option value="elevenlabs">ElevenLabs instant clone</option>
-              <option value="openai">OpenAI TTS only</option>
-            </select>
-          </label>
-        </div>
+      <section className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-sm">
+        <label className="block max-w-sm text-sm font-semibold text-[color:var(--text-primary)]">
+          Provider
+          <select value={provider} onChange={(event) => setProvider(event.target.value as "elevenlabs" | "openai")} className="mt-2 block w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2">
+            <option value="elevenlabs">ElevenLabs instant clone</option>
+            <option value="openai">OpenAI TTS only</option>
+          </select>
+        </label>
         {!recommended ? (
           <p className="mt-4 rounded-2xl border border-amber-400/50 bg-amber-400/10 p-3 text-sm text-[color:var(--text-secondary)]">
             OpenAI does not expose custom voice cloning for this product flow. Switch back to ElevenLabs to create a reusable cloned voice.

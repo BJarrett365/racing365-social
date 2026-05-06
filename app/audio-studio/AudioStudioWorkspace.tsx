@@ -152,7 +152,6 @@ export function AudioStudioWorkspace({ activeTool }: { activeTool: AudioStudioTo
   const [languageSpeechRecording, setLanguageSpeechRecording] = useState(false);
   const [targetLanguageSpeechRecording, setTargetLanguageSpeechRecording] = useState(false);
   const [sourceLanguageAudioUrl, setSourceLanguageAudioUrl] = useState("");
-  const [toolsOpen, setToolsOpen] = useState(false);
   const [api, setApi] = useState<ApiState>({ loading: false, message: "", error: "" });
   const [translationPreviewStatus, setTranslationPreviewStatus] = useState("");
   const [autoTranscriptStatus, setAutoTranscriptStatus] = useState("");
@@ -990,10 +989,10 @@ export function AudioStudioWorkspace({ activeTool }: { activeTool: AudioStudioTo
   }
 
   if (activeTool.id === "voice-creator") {
-    return <VoiceCreatorCloneWorkspace activeTool={activeTool} />;
+    return <VoiceCreatorCloneWorkspace />;
   }
   if (activeTool.id === "guests") {
-    return <AudioWithGuestsWorkspace activeTool={activeTool} />;
+    return <AudioWithGuestsWorkspace />;
   }
 
   return (
@@ -1006,34 +1005,6 @@ export function AudioStudioWorkspace({ activeTool }: { activeTool: AudioStudioTo
       </aside>
 
       <main className="space-y-5">
-        <section className="relative overflow-hidden rounded-3xl border border-[#24301f] bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.18),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(234,179,8,0.16),transparent_30%),#070b12] px-6 py-8 shadow-2xl md:px-8">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#eab308]">{activeTool.eyebrow}</p>
-              <h1 className="mt-3 text-3xl font-black tracking-tight text-white md:text-5xl">{activeTool.title}</h1>
-            </div>
-            <button
-              type="button"
-              onClick={() => setToolsOpen((open) => !open)}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm font-bold text-white backdrop-blur transition hover:bg-white/15 lg:hidden"
-              aria-expanded={toolsOpen}
-            >
-              <span className="flex h-4 w-4 flex-col justify-center gap-1" aria-hidden="true">
-                <span className="block h-0.5 rounded-full bg-white" />
-                <span className="block h-0.5 rounded-full bg-white" />
-                <span className="block h-0.5 rounded-full bg-white" />
-              </span>
-              Audio Studio Tools
-            </button>
-          </div>
-          <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300">{activeTool.description}</p>
-          {toolsOpen ? (
-            <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-3 lg:hidden">
-              <AudioToolLinks activeTool={activeTool} onNavigate={() => setToolsOpen(false)} />
-            </div>
-          ) : null}
-        </section>
-
         <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
           <div className="space-y-5">
             {activeTool.id === "language" ? (

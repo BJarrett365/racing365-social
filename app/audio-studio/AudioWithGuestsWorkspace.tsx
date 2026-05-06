@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
-import type { AudioStudioTool } from "./audio-studio-config";
 
 type ApiState = {
   loading: boolean;
@@ -78,7 +77,19 @@ type ProcessResponse = {
   transcript: { id: string; audioFileId?: string };
 };
 
+type GuestInviteResponse = {
+  session: { id: string; dailyRoomUrl?: string };
+  joinUrl: string;
+};
+
+type DailyRoomResponse = {
+  session?: { id: string; dailyRoomUrl?: string };
+  roomUrl: string;
+  roomName?: string;
+};
+
 const acceptedAudio = ".mp3,.wav,.m4a,.mp4,.webm,audio/*,video/mp4,video/webm";
+const dailyIframeAllow = "microphone; camera; autoplay; display-capture; fullscreen; screen-wake-lock";
 const speakerColours = ["#38bdf8", "#22c55e", "#f97316", "#a78bfa", "#f43f5e", "#14b8a6", "#eab308", "#6366f1", "#84cc16", "#ec4899", "#06b6d4"];
 const languageOptions = [
   ["en", "English"],
@@ -93,11 +104,11 @@ const languageOptions = [
   ["de", "German"],
 ] as const;
 
-export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStudioTool }) {
+export function AudioWithGuestsWorkspace() {
   const [projectId, setProjectId] = useState("default-audio-project");
   const [title, setTitle] = useState("Post-match interview");
   const [language, setLanguage] = useState("en");
-  const [recordingMode, setRecordingMode] = useState<RecordingMode>("same-room");
+  const [recordingMode, setRecordingMode] = useState<RecordingMode>("guest-room");
   const [guestCount, setGuestCount] = useState(1);
   const [speakers, setSpeakers] = useState<GuestSpeaker[]>(() => createDefaultSpeakers(1));
   const [segments, setSegments] = useState<GuestTranscriptSegment[]>([]);
@@ -118,11 +129,11 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
   const [api, setApi] = useState<ApiState>({ loading: false, message: "", error: "" });
   const [diarisationStatus, setDiarisationStatus] = useState("");
   const [namesSaved, setNamesSaved] = useState(false);
+  const [guestSessionId, setGuestSessionId] = useState("");
   const [inviteUrl, setInviteUrl] = useState("");
+  const [dailyRoomUrl, setDailyRoomUrl] = useState("");
   const [translatedScript, setTranslatedScript] = useState("");
   const [hostMeetingStarted, setHostMeetingStarted] = useState(false);
-  const [hostCameraConnected, setHostCameraConnected] = useState(false);
-  const [hostMicConnected, setHostMicConnected] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -130,8 +141,6 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
   const audioContextRef = useRef<AudioContext | null>(null);
   const meterAnimationRef = useRef<number | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
-  const hostVideoRef = useRef<HTMLVideoElement | null>(null);
-  const hostPreviewStreamRef = useRef<MediaStream | null>(null);
 
   const fileForProcessing = recordedFile ?? uploadedFile;
   const transcriptText = useMemo(() => serialiseTranscript(speakers, segments), [segments, speakers]);
@@ -205,15 +214,17 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
 
   async function startHostMeeting() {
     try {
-      setApi({ loading: false, message: "", error: "" });
-      if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera and microphone are not supported in this browser.");
-      stopHostMeeting();
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      hostPreviewStreamRef.current = stream;
-      setHostCameraConnected(stream.getVideoTracks().some((track) => track.readyState === "live"));
-      setHostMicConnected(stream.getAudioTracks().some((track) => track.readyState === "live"));
+      setApi({ loading: true, message: "Starting Daily video room...", error: "" });
+      const sessionId = guestSessionId || (await createInviteSession({ silent: true })).sessionId;
+      const data = await jsonOrThrow<DailyRoomResponse>(
+        await fetch(`/api/audio/guests/sessions/${sessionId}/daily-room`, {
+          method: "POST",
+          credentials: "include",
+        }),
+      );
+      setDailyRoomUrl(data.roomUrl);
       setHostMeetingStarted(true);
-      if (hostVideoRef.current) hostVideoRef.current.srcObject = stream;
+      setApi({ loading: false, message: "Daily video room started. Guests using the invite link can join the same room.", error: "" });
     } catch (error) {
       stopHostMeeting();
       setApi({ loading: false, message: "", error: error instanceof Error ? error.message : "Could not start host meeting." });
@@ -221,12 +232,8 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
   }
 
   function stopHostMeeting() {
-    hostPreviewStreamRef.current?.getTracks().forEach((track) => track.stop());
-    hostPreviewStreamRef.current = null;
-    if (hostVideoRef.current) hostVideoRef.current.srcObject = null;
     setHostMeetingStarted(false);
-    setHostCameraConnected(false);
-    setHostMicConnected(false);
+    setDailyRoomUrl("");
   }
 
   function pauseRecording() {
@@ -394,10 +401,11 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
     }
   }
 
-  async function createInviteSession() {
-    setApi({ loading: true, message: "Creating guest invite link...", error: "" });
+  async function createInviteSession(options: { silent?: boolean } = {}): Promise<{ sessionId: string; joinUrl: string }> {
+    if (guestSessionId && inviteUrl) return { sessionId: guestSessionId, joinUrl: inviteUrl };
+    if (!options.silent) setApi({ loading: true, message: "Creating guest invite link...", error: "" });
     try {
-      const data = await jsonOrThrow<{ joinUrl: string }>(
+      const data = await jsonOrThrow<GuestInviteResponse>(
         await fetch("/api/audio/guests/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -415,11 +423,15 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
           }),
         }),
       );
+      setGuestSessionId(data.session.id);
       setInviteUrl(data.joinUrl);
+      if (data.session.dailyRoomUrl) setDailyRoomUrl(data.session.dailyRoomUrl);
       await navigator.clipboard?.writeText(data.joinUrl).catch(() => undefined);
-      setApi({ loading: false, message: "Invite link created and copied.", error: "" });
+      if (!options.silent) setApi({ loading: false, message: "Invite link created and copied.", error: "" });
+      return { sessionId: data.session.id, joinUrl: data.joinUrl };
     } catch (error) {
-      setApi({ loading: false, message: "", error: error instanceof Error ? error.message : "Could not create invite link." });
+      if (!options.silent) setApi({ loading: false, message: "", error: error instanceof Error ? error.message : "Could not create invite link." });
+      throw error;
     }
   }
 
@@ -521,65 +533,21 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <section className="overflow-hidden rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-primary)] shadow-sm">
-        <div className="grid gap-6 p-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">{activeTool.eyebrow}</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight">Audio with Guests</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-[color:var(--text-secondary)]">
-              Choose Same room for one shared microphone, or Guest room for invite links with video connection and audio-only recording.
-            </p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <ModeCard
-                title="Same room"
-                active={recordingMode === "same-room"}
-                body="Everyone is together and Plexa records one shared microphone."
-                onSelect={() => {
-                  setRecordingMode("same-room");
-                  stopHostMeeting();
-                }}
-              />
-              <ModeCard
-                title="Guest room + video"
-                active={recordingMode === "guest-room"}
-                body="Send guests a login-protected link. They connect camera and mic, but Plexa records audio only."
-                onSelect={() => setRecordingMode("guest-room")}
-              >
-                {recordingMode === "guest-room" ? (
-                  <>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <StudioButton onClick={createInviteSession} disabled={api.loading} tone="primary">Create Invite Link</StudioButton>
-                      {inviteUrl ? <StudioButton onClick={() => void navigator.clipboard?.writeText(inviteUrl)}>Copy Link</StudioButton> : null}
-                    </div>
-                    {inviteUrl ? (
-                      <input readOnly value={inviteUrl} className="mt-3 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs" />
-                    ) : null}
-                  </>
-                ) : (
-                  <p className="mt-3 text-xs font-bold text-[color:var(--accent)]">Select Guest room to create an invite.</p>
-                )}
-              </ModeCard>
-            </div>
-          </div>
-          <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-            <p className="text-sm font-bold text-[color:var(--text-primary)]">Session details</p>
-            <div className="mt-4 grid gap-3">
-              <TextInput label="Title" value={title} onChange={setTitle} />
-              <label className="block text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
-                Transcript language
-                <select value={language} onChange={(event) => setLanguage(event.target.value)} className="mt-2 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm font-semibold text-[color:var(--text-primary)]">
-                  <option value="en">English</option>
-                  <option value="auto">Auto detect</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                  <option value="it">Italian</option>
-                  <option value="pt">Portuguese</option>
-                </select>
-              </label>
-              <TextInput label="Project ID" value={projectId} onChange={setProjectId} />
-            </div>
-          </div>
+      <section className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-[color:var(--text-primary)] shadow-sm">
+        <div className="flex flex-wrap gap-2">
+          <ModeButton
+            title="Same room"
+            active={recordingMode === "same-room"}
+            onSelect={() => {
+              setRecordingMode("same-room");
+              stopHostMeeting();
+            }}
+          />
+          <ModeButton
+            title="Guest room + video"
+            active={recordingMode === "guest-room"}
+            onSelect={() => setRecordingMode("guest-room")}
+          />
         </div>
       </section>
 
@@ -701,31 +669,72 @@ export function AudioWithGuestsWorkspace({ activeTool }: { activeTool: AudioStud
             {diarisationStatus ? <p className="mt-2 text-xs font-semibold text-[color:var(--text-secondary)]">{diarisationStatus}</p> : null}
             {api.error ? <p className="mt-3 rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-500">{api.error}</p> : null}
           </Panel>
+
+          <Panel title="Session details">
+            <div className="grid gap-3">
+              <TextInput label="Title" value={title} onChange={setTitle} />
+              <label className="block text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+                Transcript language
+                <select value={language} onChange={(event) => setLanguage(event.target.value)} className="mt-2 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm font-semibold text-[color:var(--text-primary)]">
+                  <option value="en">English</option>
+                  <option value="auto">Auto detect</option>
+                  <option value="es">Spanish</option>
+                  <option value="fr">French</option>
+                  <option value="de">German</option>
+                  <option value="it">Italian</option>
+                  <option value="pt">Portuguese</option>
+                </select>
+              </label>
+              <TextInput label="Project ID" value={projectId} onChange={setProjectId} />
+            </div>
+          </Panel>
         </div>
 
         <div className="space-y-6">
           {recordingMode === "guest-room" ? (
             <Panel title="Host Room + Video">
               <div className="overflow-hidden rounded-3xl border border-[color:var(--border)] bg-slate-950">
-                <video ref={hostVideoRef} autoPlay muted playsInline className="aspect-video w-full object-cover" />
+                {dailyRoomUrl ? (
+                  <iframe
+                    title="Plexa Daily host room"
+                    src={dailyRoomUrl}
+                    allow={dailyIframeAllow}
+                    allowFullScreen
+                    className="aspect-video w-full"
+                  />
+                ) : (
+                  <div className="flex aspect-video w-full items-center justify-center p-6 text-center text-sm font-semibold text-white/70">
+                    Start the meeting to open the shared Daily video room for host and guests.
+                  </div>
+                )}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <StatusPill ok={hostMeetingStarted} label={hostMeetingStarted ? "Meeting started" : "Meeting not started"} />
-                <StatusPill ok={hostCameraConnected} label="Camera connected" />
-                <StatusPill ok={hostMicConnected} label="Mic connected" />
+                <StatusPill ok={Boolean(dailyRoomUrl)} label="Shared video room" />
+                <StatusPill ok={Boolean(inviteUrl)} label="Invite link ready" />
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <StudioButton onClick={hostMeetingStarted ? stopHostMeeting : startHostMeeting} tone={hostMeetingStarted ? "danger" : "primary"}>
+                <StudioButton onClick={hostMeetingStarted ? stopHostMeeting : () => void startHostMeeting()} disabled={api.loading} tone={hostMeetingStarted ? "danger" : "primary"}>
                   {hostMeetingStarted ? "End Meeting" : "Start Meeting"}
                 </StudioButton>
-                <StudioButton onClick={createInviteSession} disabled={api.loading} tone="primary">Create Invite Link</StudioButton>
+                {dailyRoomUrl ? (
+                  <a
+                    href={dailyRoomUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="inline-flex items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 text-sm font-bold text-[color:var(--text-primary)] transition hover:bg-[color:var(--surface-hover)]"
+                  >
+                    Open Video Room
+                  </a>
+                ) : null}
+                <StudioButton onClick={() => void createInviteSession()} disabled={api.loading} tone="primary">Create Invite Link</StudioButton>
                 {inviteUrl ? <StudioButton onClick={() => void navigator.clipboard?.writeText(inviteUrl)}>Copy Link</StudioButton> : null}
               </div>
               {inviteUrl ? (
                 <input readOnly value={inviteUrl} className="mt-3 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-xs" />
               ) : null}
               <p className="mt-3 text-xs leading-5 text-[color:var(--text-secondary)]">
-                Start Meeting connects the host camera and mic for confidence. Plexa still records audio only; use Guest Room Audio in the left column for the host recording or upload.
+                Start Meeting opens the same Daily video room for host and guests. If browser permissions block the embedded room, open it directly in a new tab.
               </p>
             </Panel>
           ) : null}
@@ -904,38 +913,27 @@ function SummarySection({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function ModeCard({
+function ModeButton({
   title,
-  body,
   active = false,
-  children,
   onSelect,
 }: {
   title: string;
-  body: string;
   active?: boolean;
-  children?: React.ReactNode;
-  onSelect?: () => void;
+  onSelect: () => void;
 }) {
   return (
-    <div
-      role={onSelect ? "button" : undefined}
-      tabIndex={onSelect ? 0 : undefined}
+    <button
+      type="button"
       onClick={onSelect}
-      onKeyDown={(event) => {
-        if (!onSelect || (event.key !== "Enter" && event.key !== " ")) return;
-        event.preventDefault();
-        onSelect();
-      }}
-      className={`rounded-2xl border p-4 ${onSelect ? "cursor-pointer" : ""} ${active ? "border-[color:var(--accent)] bg-[color:var(--accent)]/10" : "border-[color:var(--border)] bg-[color:var(--surface-muted)]"}`}
+      className={`rounded-xl border px-4 py-2.5 text-sm font-black transition ${
+        active
+          ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-foreground)]"
+          : "border-[color:var(--border)] bg-[color:var(--surface-muted)] text-[color:var(--text-secondary)] hover:bg-[color:var(--surface-hover)]"
+      }`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-black">{title}</p>
-        {active ? <span className="rounded-full bg-[color:var(--accent)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[color:var(--accent-foreground)]">Selected</span> : null}
-      </div>
-      <p className="mt-1 text-xs leading-5 text-[color:var(--text-secondary)]">{body}</p>
-      {children}
-    </div>
+      {title}
+    </button>
   );
 }
 

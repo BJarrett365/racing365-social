@@ -1,7 +1,3 @@
-import { AdminSettingsForm } from "@/app/admin/AdminSettingsForm";
-import { LanguageStudioSettingsForm } from "@/app/admin/LanguageStudioSettingsForm";
-import { ThemeSettingsPanel } from "@/app/admin/ThemeSettingsPanel";
-import { UserManagementPanel } from "@/app/admin/UserManagementPanel";
 import Link from "next/link";
 import { BRAND_SUITE } from "@/app/lib/brand";
 
@@ -10,6 +6,24 @@ export const metadata = {
 };
 
 const adminLinks = [
+  {
+    title: "Users and permissions",
+    href: "/admin/users-and-permissions",
+    description: "Invite registered users and manage meeting, audio, editor and admin roles.",
+    status: "Admin",
+  },
+  {
+    title: "Theme and display",
+    href: "/admin/theme-and-display",
+    description: "Manage Plexa display settings, visual defaults and theme controls.",
+    status: "Admin",
+  },
+  {
+    title: "Provider keys and platform services",
+    href: "/admin/provider-keys-and-platform-services",
+    description: "Manage OpenAI, ElevenLabs, Daily, video, live and translation/localisation providers.",
+    status: "Admin",
+  },
   {
     title: "R&D Reports",
     href: "/admin/reports",
@@ -106,8 +120,8 @@ export default function AdminPage() {
 
       <section className="space-y-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#22c55e]">Admin Shortcuts</p>
-          <h2 className="mt-1 text-2xl font-black text-white">Reference and reporting</h2>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#22c55e]">Admin Pages</p>
+          <h2 className="mt-1 text-2xl font-black text-white">Settings, access and reference</h2>
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           {adminLinks.map((item) => (
@@ -127,38 +141,6 @@ export default function AdminPage() {
             </Link>
           ))}
         </div>
-      </section>
-
-      <section className="space-y-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#22c55e]">Access</p>
-          <h2 className="mt-1 text-2xl font-black text-white">Users and permissions</h2>
-        </div>
-        <UserManagementPanel />
-      </section>
-
-      <section className="space-y-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#22c55e]">Appearance</p>
-          <h2 className="mt-1 text-2xl font-black text-white">Theme and display</h2>
-        </div>
-        <ThemeSettingsPanel />
-      </section>
-
-      <section className="space-y-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#22c55e]">Environment</p>
-          <h2 className="mt-1 text-2xl font-black text-white">Provider keys and platform services</h2>
-        </div>
-        <AdminSettingsForm />
-      </section>
-
-      <section className="space-y-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#22c55e]">Language Studio</p>
-          <h2 className="mt-1 text-2xl font-black text-white">Translation and localisation providers</h2>
-        </div>
-        <LanguageStudioSettingsForm />
       </section>
     </div>
   );

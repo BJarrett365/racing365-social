@@ -17,6 +17,7 @@ type GuestSpeaker = {
   role: string;
   language_in: string;
   language_out: string;
+  assigned_user_id?: string;
   colour: string;
   confidence_score: number | null;
 };
@@ -78,14 +79,45 @@ type ProcessResponse = {
 };
 
 type GuestInviteResponse = {
-  session: { id: string; dailyRoomUrl?: string };
+  session: GuestSessionState;
   joinUrl: string;
 };
 
 type DailyRoomResponse = {
-  session?: { id: string; dailyRoomUrl?: string };
+  session?: GuestSessionState;
   roomUrl: string;
   roomName?: string;
+};
+
+type GuestSessionState = {
+  id: string;
+  hostUserId: string;
+  hostName?: string;
+  hostEmail?: string;
+  dailyRoomUrl?: string;
+  speakers: Array<{ id: string; displayName: string; role: string; languageIn: string; languageOut: string; assignedUserId?: string }>;
+  participants?: GuestSessionParticipant[];
+  tracks: Array<{ id: string; userId: string; displayName: string; createdAt: string }>;
+};
+
+type GuestSessionParticipant = {
+  userId: string;
+  name: string;
+  email: string;
+  role: "host" | "guest";
+  speakerId?: string;
+  displayName: string;
+  languageIn: string;
+  languageOut: string;
+  recordingConsentAcceptedAt?: string;
+  lastTrackAt?: string;
+};
+
+type RegisteredMeetingUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
 };
 
 const acceptedAudio = ".mp3,.wav,.m4a,.mp4,.webm,audio/*,video/mp4,video/webm";
@@ -129,7 +161,10 @@ export function AudioWithGuestsWorkspace() {
   const [api, setApi] = useState<ApiState>({ loading: false, message: "", error: "" });
   const [diarisationStatus, setDiarisationStatus] = useState("");
   const [namesSaved, setNamesSaved] = useState(false);
+  const [currentUser, setCurrentUser] = useState<RegisteredMeetingUser | null>(null);
+  const [registeredUsers, setRegisteredUsers] = useState<RegisteredMeetingUser[]>([]);
   const [guestSessionId, setGuestSessionId] = useState("");
+  const [guestSession, setGuestSession] = useState<GuestSessionState | null>(null);
   const [inviteUrl, setInviteUrl] = useState("");
   const [dailyRoomUrl, setDailyRoomUrl] = useState("");
   const [translatedScript, setTranslatedScript] = useState("");
@@ -164,6 +199,10 @@ export function AudioWithGuestsWorkspace() {
   }, [guestCount]);
 
   useEffect(() => {
+    void loadMeetingUsers();
+  }, []);
+
+  useEffect(() => {
     return () => {
       stopRecordingCleanup();
       stopHostMeeting();
@@ -172,6 +211,22 @@ export function AudioWithGuestsWorkspace() {
     // Cleanup only on unmount; the active blob URL is revoked when replaced.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadMeetingUsers() {
+    try {
+      const [meRes, usersRes] = await Promise.all([
+        fetch("/api/auth/me", { credentials: "include", cache: "no-store" }),
+        fetch("/api/audio/guests/users", { credentials: "include", cache: "no-store" }),
+      ]);
+      const meData = await jsonOrThrow<{ user: RegisteredMeetingUser }>(meRes);
+      setCurrentUser(meData.user);
+      setSpeakers((current) => defaultHostSpeakerToUser(current, meData.user));
+      const usersData = await jsonOrThrow<{ users: RegisteredMeetingUser[] }>(usersRes);
+      setRegisteredUsers(usersData.users ?? []);
+    } catch {
+      // The page still works with manual names if user lookup is unavailable.
+    }
+  }
 
   async function startRecording() {
     try {
@@ -415,23 +470,47 @@ export function AudioWithGuestsWorkspace() {
             title,
             speakers: speakers.map((speaker) => ({
               id: speaker.id,
-              displayName: speaker.display_name,
+              displayName: speaker.default_label === "Host" && currentUser
+                ? speaker.display_name || currentUser.name || currentUser.email
+                : speaker.display_name,
               role: speaker.role,
               languageIn: speaker.language_in,
               languageOut: speaker.language_out,
+              assignedUserId: speaker.assigned_user_id,
             })),
           }),
         }),
       );
       setGuestSessionId(data.session.id);
+      setGuestSession(data.session);
       setInviteUrl(data.joinUrl);
       if (data.session.dailyRoomUrl) setDailyRoomUrl(data.session.dailyRoomUrl);
+      setSpeakers((current) => syncSpeakersFromSession(current, data.session));
       await navigator.clipboard?.writeText(data.joinUrl).catch(() => undefined);
       if (!options.silent) setApi({ loading: false, message: "Invite link created and copied.", error: "" });
       return { sessionId: data.session.id, joinUrl: data.joinUrl };
     } catch (error) {
       if (!options.silent) setApi({ loading: false, message: "", error: error instanceof Error ? error.message : "Could not create invite link." });
       throw error;
+    }
+  }
+
+  async function refreshGuestSession() {
+    if (!guestSessionId) {
+      setApi({ loading: false, message: "", error: "Create the invite before refreshing meeting users." });
+      return;
+    }
+    setApi({ loading: true, message: "Refreshing meeting users...", error: "" });
+    try {
+      const data = await jsonOrThrow<{ session: GuestSessionState }>(
+        await fetch(`/api/audio/guests/sessions/${guestSessionId}`, { credentials: "include", cache: "no-store" }),
+      );
+      setGuestSession(data.session);
+      if (data.session.dailyRoomUrl) setDailyRoomUrl(data.session.dailyRoomUrl);
+      setSpeakers((current) => syncSpeakersFromSession(current, data.session));
+      setApi({ loading: false, message: "Meeting users refreshed.", error: "" });
+    } catch (error) {
+      setApi({ loading: false, message: "", error: error instanceof Error ? error.message : "Could not refresh meeting users." });
     }
   }
 
@@ -471,6 +550,16 @@ export function AudioWithGuestsWorkspace() {
     })));
     setNamesSaved(true);
     setApi({ loading: false, message: "Guest names saved to the transcript editor.", error: "" });
+  }
+
+  function selectRegisteredUserForSpeaker(speakerId: string, userId: string) {
+    const user = registeredUsers.find((item) => item.id === userId);
+    if (!user) return;
+    updateSpeaker(speakerId, {
+      display_name: user.name || user.email,
+      assigned_user_id: user.id,
+      role: speakers.find((speaker) => speaker.id === speakerId)?.default_label === "Host" ? "Host" : "Guest",
+    });
   }
 
   function markSpeaker(speakerId: string) {
@@ -554,6 +643,11 @@ export function AudioWithGuestsWorkspace() {
       <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
         <div className="space-y-6">
           <Panel title="Guest Setup">
+            {currentUser ? (
+              <div className="mb-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs leading-5 text-[color:var(--text-secondary)]">
+                Host defaults to <span className="font-bold text-[color:var(--text-primary)]">{currentUser.name || currentUser.email}</span> from your Plexa login.
+              </div>
+            ) : null}
             <label className="block text-sm font-semibold">
               Number of guests
               <select value={guestCount} onChange={(event) => setGuestCount(Number(event.target.value))} className="mt-2 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2">
@@ -582,6 +676,21 @@ export function AudioWithGuestsWorkspace() {
                     onChange={(event) => updateSpeaker(speaker.id, { display_name: event.target.value })}
                     className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm font-semibold"
                   />
+                  {registeredUsers.length ? (
+                    <label className="mt-2 block text-[10px] font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+                      Select registered user
+                      <select
+                        value=""
+                        onChange={(event) => selectRegisteredUserForSpeaker(speaker.id, event.target.value)}
+                        className="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text-primary)]"
+                      >
+                        <option value="">Choose a Plexa user...</option>
+                        {registeredUsers.map((user) => (
+                          <option key={user.id} value={user.id}>{user.name || user.email} - {user.role}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
                   <input
                     value={speaker.role}
                     onChange={(event) => updateSpeaker(speaker.id, { role: event.target.value })}
@@ -736,6 +845,44 @@ export function AudioWithGuestsWorkspace() {
               <p className="mt-3 text-xs leading-5 text-[color:var(--text-secondary)]">
                 Start Meeting opens the same Daily video room for host and guests. If browser permissions block the embedded room, open it directly in a new tab.
               </p>
+            </Panel>
+          ) : null}
+
+          {recordingMode === "guest-room" ? (
+            <Panel title="Meeting Users">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-[color:var(--text-secondary)]">
+                    Plexa labels remote audio from the logged-in host and guests where possible.
+                  </p>
+                  <StudioButton onClick={() => void refreshGuestSession()} disabled={api.loading || !guestSessionId}>Refresh Users</StudioButton>
+                </div>
+                {guestSession?.participants?.length ? (
+                  <div className="space-y-2">
+                    {guestSession.participants.map((participant) => {
+                      const hasTrack = guestSession.tracks.some((track) => track.userId === participant.userId);
+                      return (
+                        <div key={participant.userId} className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-black text-[color:var(--text-primary)]">{participant.displayName || participant.name}</p>
+                              <p className="mt-1 text-xs text-[color:var(--text-muted)]">{participant.email} - {participant.role === "host" ? "Host" : "Guest"}</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <StatusPill ok={participant.role === "host" || Boolean(participant.recordingConsentAcceptedAt)} label={participant.role === "host" ? "Host" : participant.recordingConsentAcceptedAt ? "Consent accepted" : "Consent needed"} />
+                              <StatusPill ok={hasTrack} label={hasTrack ? "Audio uploaded" : "No audio yet"} />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text-muted)]">
+                    Create an invite, then guests will appear here after they log in.
+                  </div>
+                )}
+              </div>
             </Panel>
           ) : null}
 
@@ -1033,6 +1180,36 @@ function reconcileSpeakers(current: GuestSpeaker[], guestCount: number): GuestSp
   });
 }
 
+function syncSpeakersFromSession(current: GuestSpeaker[], session: GuestSessionState): GuestSpeaker[] {
+  if (!session.speakers?.length) return current;
+  return current.map((speaker) => {
+    const remote = session.speakers.find((item) => item.id === speaker.id);
+    if (!remote) return speaker;
+    return {
+      ...speaker,
+      display_name: remote.displayName || speaker.display_name,
+      role: remote.role || speaker.role,
+      language_in: remote.languageIn || speaker.language_in,
+      language_out: remote.languageOut || speaker.language_out,
+      assigned_user_id: remote.assignedUserId || speaker.assigned_user_id,
+    };
+  });
+}
+
+function defaultHostSpeakerToUser(current: GuestSpeaker[], user: RegisteredMeetingUser): GuestSpeaker[] {
+  const displayName = user.name || user.email;
+  return current.map((speaker) => {
+    if (speaker.default_label !== "Host") return speaker;
+    const shouldDefault = !speaker.display_name || speaker.display_name === "Host";
+    return {
+      ...speaker,
+      display_name: shouldDefault ? displayName : speaker.display_name,
+      assigned_user_id: user.id,
+      role: "Host",
+    };
+  });
+}
+
 function makeSpeaker(label: string, index: number, role: string): GuestSpeaker {
   return {
     id: localId("speaker"),
@@ -1041,6 +1218,7 @@ function makeSpeaker(label: string, index: number, role: string): GuestSpeaker {
     role,
     language_in: "en",
     language_out: "en",
+    assigned_user_id: undefined,
     colour: speakerColours[index % speakerColours.length],
     confidence_score: null,
   };

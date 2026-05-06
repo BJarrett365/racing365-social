@@ -16,7 +16,13 @@ type Body = {
 };
 
 function validRole(role: unknown): role is PlexaUserRole {
-  return role === "admin" || role === "editor" || role === "viewer";
+  return role === "admin"
+    || role === "editor"
+    || role === "viewer"
+    || role === "meeting_guest"
+    || role === "meeting_host"
+    || role === "audio_user"
+    || role === "audio_editor";
 }
 
 export async function GET(request: Request) {

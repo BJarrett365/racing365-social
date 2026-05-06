@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
 import { projectRoot } from "@/app/lib/paths";
+import type { PlexaUser } from "@/app/lib/auth/types";
 
 export type GuestSessionSpeaker = {
   id: string;
@@ -9,6 +10,7 @@ export type GuestSessionSpeaker = {
   role: string;
   languageIn: string;
   languageOut: string;
+  assignedUserId?: string;
 };
 
 export type GuestSessionTrack = {
@@ -23,20 +25,44 @@ export type GuestSessionTrack = {
   createdAt: string;
 };
 
+export type GuestSessionParticipant = {
+  userId: string;
+  name: string;
+  email: string;
+  role: "host" | "guest";
+  speakerId?: string;
+  displayName: string;
+  languageIn: string;
+  languageOut: string;
+  recordingConsentAcceptedAt?: string;
+  recordingConsentText?: string;
+  recordingConsentVersion?: string;
+  joinedAt: string;
+  updatedAt: string;
+  lastTrackAt?: string;
+};
+
 export type AudioGuestSession = {
   id: string;
   projectId: string;
   title: string;
   hostUserId: string;
+  hostName?: string;
+  hostEmail?: string;
   status: "open" | "closed";
   dailyRoomName?: string;
   dailyRoomUrl?: string;
   dailyRoomCreatedAt?: string;
   speakers: GuestSessionSpeaker[];
+  participants?: GuestSessionParticipant[];
   tracks: GuestSessionTrack[];
   createdAt: string;
   updatedAt: string;
 };
+
+export const RECORDING_CONSENT_VERSION = "recording-consent-v1";
+export const RECORDING_CONSENT_TEXT =
+  "This Plexa meeting may be recorded. Audio may be used to create transcripts, summaries, notes, quotes, and follow-up content. By continuing, you confirm you understand and consent to being recorded for this meeting.";
 
 type GuestSessionsStore = {
   sessions: AudioGuestSession[];
@@ -53,6 +79,46 @@ export function audioGuestSessionId(): string {
 
 export function audioGuestTrackId(): string {
   return `guest_track_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+export function participantFromUser(
+  user: Pick<PlexaUser, "id" | "name" | "email">,
+  role: "host" | "guest",
+  options: { speakerId?: string; languageIn?: string; languageOut?: string; now?: string } = {},
+): GuestSessionParticipant {
+  const now = options.now ?? new Date().toISOString();
+  const name = user.name?.trim() || user.email;
+  return {
+    userId: user.id,
+    name,
+    email: user.email,
+    role,
+    speakerId: options.speakerId,
+    displayName: name,
+    languageIn: options.languageIn || "en",
+    languageOut: options.languageOut || "en",
+    joinedAt: now,
+    updatedAt: now,
+  };
+}
+
+export function upsertSessionParticipant(
+  session: AudioGuestSession,
+  participant: GuestSessionParticipant,
+): AudioGuestSession {
+  const participants = Array.isArray(session.participants) ? session.participants : [];
+  const index = participants.findIndex((item) => item.userId === participant.userId);
+  const nextParticipant = index >= 0
+    ? { ...participants[index], ...participant, joinedAt: participants[index].joinedAt, updatedAt: participant.updatedAt }
+    : participant;
+  session.participants = index >= 0
+    ? participants.map((item, itemIndex) => itemIndex === index ? nextParticipant : item)
+    : [...participants, nextParticipant];
+  return session;
+}
+
+export function participantForUser(session: AudioGuestSession, userId: string): GuestSessionParticipant | undefined {
+  return session.participants?.find((participant) => participant.userId === userId);
 }
 
 export async function readAudioGuestSessions(): Promise<GuestSessionsStore> {

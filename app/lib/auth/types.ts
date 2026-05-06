@@ -1,4 +1,11 @@
-export type PlexaUserRole = "admin" | "editor" | "viewer";
+export type PlexaUserRole =
+  | "admin"
+  | "editor"
+  | "viewer"
+  | "meeting_guest"
+  | "meeting_host"
+  | "audio_user"
+  | "audio_editor";
 
 export type PlexaUser = {
   id: string;

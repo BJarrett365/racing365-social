@@ -6,6 +6,15 @@ import { R365Button } from "@/app/components/R365Button";
 import type { PlexaUserRole, PublicPlexaUser } from "@/app/lib/auth/types";
 
 const inputClass = "mt-1 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] px-3 py-2 text-sm text-white placeholder:text-slate-600";
+const roleOptions: Array<[PlexaUserRole, string]> = [
+  ["admin", "Admin"],
+  ["editor", "Editor"],
+  ["viewer", "Viewer"],
+  ["meeting_guest", "Meeting Guest"],
+  ["meeting_host", "Meeting Host"],
+  ["audio_user", "Audio User"],
+  ["audio_editor", "Audio Editor"],
+];
 
 export function UserManagementPanel() {
   const [users, setUsers] = useState<PublicPlexaUser[]>([]);
@@ -99,7 +108,7 @@ export function UserManagementPanel() {
       <div className="grid gap-3 md:grid-cols-4">
         <label className="text-xs font-semibold uppercase text-slate-500">Name<input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} /></label>
         <label className="text-xs font-semibold uppercase text-slate-500">Email<input className={inputClass} type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-        <label className="text-xs font-semibold uppercase text-slate-500">Role<select className={inputClass} value={role} onChange={(e) => setRole(e.target.value as PlexaUserRole)}><option value="admin">Admin</option><option value="editor">Editor</option><option value="viewer">Viewer</option></select></label>
+        <label className="text-xs font-semibold uppercase text-slate-500">Role<select className={inputClass} value={role} onChange={(e) => setRole(e.target.value as PlexaUserRole)}>{roleOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <div className="flex items-end"><R365Button type="button" onClick={createUser} disabled={busy}>Invite user</R365Button></div>
       </div>
       <div className="grid gap-3">
@@ -112,9 +121,7 @@ export function UserManagementPanel() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <select className="rounded-md border border-[#1f2d26] bg-[#0a0e0c] px-2 py-1 text-xs text-white" value={user.role} onChange={(e) => updateUser(user, { role: e.target.value as PlexaUserRole })}>
-                  <option value="admin">Admin</option>
-                  <option value="editor">Editor</option>
-                  <option value="viewer">Viewer</option>
+                  {roleOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
                 <R365Button type="button" variant="ghost" onClick={() => updateUser(user, { active: !user.active })} disabled={busy}>{user.active ? "Disable" : "Enable"}</R365Button>
                 <R365Button type="button" variant="ghost" onClick={() => resendVerification(user)} disabled={busy}>Verification link</R365Button>

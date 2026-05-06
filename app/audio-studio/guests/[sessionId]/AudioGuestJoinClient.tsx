@@ -16,8 +16,22 @@ type GuestSession = {
   id: string;
   title: string;
   dailyRoomUrl?: string;
+  participants?: GuestSessionParticipant[];
   speakers: GuestSessionSpeaker[];
   tracks: Array<{ id: string; displayName: string; createdAt: string }>;
+};
+
+type GuestSessionParticipant = {
+  userId: string;
+  name: string;
+  email: string;
+  role: "host" | "guest";
+  speakerId?: string;
+  displayName: string;
+  languageIn: string;
+  languageOut: string;
+  recordingConsentAcceptedAt?: string;
+  lastTrackAt?: string;
 };
 
 type ApiState = {
@@ -42,6 +56,7 @@ const dailyIframeAllow = "microphone; camera; autoplay; display-capture; fullscr
 
 export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
   const [session, setSession] = useState<GuestSession | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string; name?: string; email?: string } | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [speakerId, setSpeakerId] = useState("");
   const [languageIn, setLanguageIn] = useState("en");
@@ -55,6 +70,8 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const timerRef = useRef<number | null>(null);
+  const participant = currentUser ? session?.participants?.find((item) => item.userId === currentUser.id) : undefined;
+  const consentAccepted = Boolean(participant?.recordingConsentAcceptedAt || participant?.role === "host");
 
   useEffect(() => {
     void loadSession();
@@ -72,13 +89,17 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
     if (!options.quiet) setApi({ loading: true, message: "Loading guest session...", error: "" });
     try {
       const res = await fetch(`/api/audio/guests/sessions/${sessionId}`, { credentials: "include", cache: "no-store" });
-      const data = await jsonOrThrow<{ session: GuestSession; user: { name?: string; email?: string } }>(res);
+      const data = await jsonOrThrow<{ session: GuestSession; user: { id: string; name?: string; email?: string } }>(res);
       setSession(data.session);
-      const firstGuest = data.session.speakers.find((speaker) => speaker.role !== "Host") || data.session.speakers[0];
-      setSpeakerId(firstGuest?.id || "");
-      setDisplayName(firstGuest?.displayName || data.user.name || data.user.email || "Guest");
-      setLanguageIn(firstGuest?.languageIn || "en");
-      setLanguageOut(firstGuest?.languageOut || "en");
+      setCurrentUser(data.user);
+      const currentParticipant = data.session.participants?.find((item) => item.userId === data.user.id);
+      const firstGuest = data.session.speakers.find((speaker) => speaker.id === currentParticipant?.speakerId)
+        || data.session.speakers.find((speaker) => speaker.role !== "Host")
+        || data.session.speakers[0];
+      setSpeakerId(currentParticipant?.speakerId || firstGuest?.id || "");
+      setDisplayName(currentParticipant?.displayName || data.user.name || data.user.email || firstGuest?.displayName || "Guest");
+      setLanguageIn(currentParticipant?.languageIn || firstGuest?.languageIn || "en");
+      setLanguageOut(currentParticipant?.languageOut || firstGuest?.languageOut || "en");
       if (!options.quiet) setApi({ loading: false, message: "", error: "" });
     } catch (error) {
       if (!options.quiet) setApi({ loading: false, message: "", error: error instanceof Error ? error.message : "Could not load session." });
@@ -86,6 +107,10 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
   }
 
   async function connectMicForRecording() {
+    if (!consentAccepted) {
+      setApi({ loading: false, message: "", error: "Please accept the recording notice before connecting your mic." });
+      return;
+    }
     setApi({ loading: false, message: "", error: "" });
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -98,6 +123,10 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
   }
 
   function startRecording() {
+    if (!consentAccepted) {
+      setApi({ loading: false, message: "", error: "Please accept the recording notice before recording audio." });
+      return;
+    }
     const stream = streamRef.current;
     if (!stream) {
       setApi({ loading: false, message: "", error: "Connect camera and mic before recording." });
@@ -133,6 +162,10 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
   }
 
   async function submitTrack() {
+    if (!consentAccepted) {
+      setApi({ loading: false, message: "", error: "Please accept the recording notice before uploading audio." });
+      return;
+    }
     if (!recordedBlob) {
       setApi({ loading: false, message: "", error: "Record audio before uploading your track." });
       return;
@@ -158,6 +191,22 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
     }
   }
 
+  async function acceptRecordingConsent() {
+    setApi({ loading: true, message: "Saving recording consent...", error: "" });
+    try {
+      const data = await jsonOrThrow<{ session: GuestSession }>(await fetch(`/api/audio/guests/sessions/${sessionId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "accept-recording-consent", speakerId, languageIn, languageOut }),
+      }));
+      setSession(data.session);
+      setApi({ loading: false, message: "Recording consent saved. You can now join the room and record audio.", error: "" });
+    } catch (error) {
+      setApi({ loading: false, message: "", error: error instanceof Error ? error.message : "Could not save recording consent." });
+    }
+  }
+
   function cleanup() {
     if (timerRef.current !== null) window.clearInterval(timerRef.current);
     timerRef.current = null;
@@ -177,9 +226,27 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
         </p>
       </section>
 
+      {!consentAccepted ? (
+        <Panel title="Recording Notice">
+          <div className="rounded-2xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm leading-6 text-[color:var(--text-secondary)]">
+            <p className="font-bold text-[color:var(--text-primary)]">This Plexa meeting may be recorded.</p>
+            <p className="mt-2">
+              Audio may be used to create transcripts, summaries, notes, quotes, and follow-up content. By continuing, you confirm you understand and consent to being recorded for this meeting.
+            </p>
+            <p className="mt-2 text-xs">
+              You are joining as {currentUser?.name || currentUser?.email || "your Plexa account"}.
+            </p>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <R365Button onClick={acceptRecordingConsent} disabled={api.loading}>I consent to being recorded</R365Button>
+            <R365Button variant="ghost" onClick={() => void loadSession()} disabled={api.loading}>Refresh</R365Button>
+          </div>
+        </Panel>
+      ) : null}
+
       <Panel title="Shared Video Room">
         <div className="overflow-hidden rounded-3xl border border-[color:var(--border)] bg-slate-950">
-          {session?.dailyRoomUrl ? (
+          {session?.dailyRoomUrl && consentAccepted ? (
             <iframe
               title="Plexa Daily guest room"
               src={session.dailyRoomUrl}
@@ -189,13 +256,13 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
             />
           ) : (
             <div className="flex aspect-video w-full items-center justify-center p-6 text-center text-sm font-semibold text-white/70">
-              Waiting for the host to start the shared video room. This page checks again automatically.
+              {consentAccepted ? "Waiting for the host to start the shared video room. This page checks again automatically." : "Accept the recording notice before joining the shared video room."}
             </div>
           )}
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <StatusPill ok={Boolean(session?.dailyRoomUrl)} label={session?.dailyRoomUrl ? "Video room live" : "Waiting for host"} />
-          {session?.dailyRoomUrl ? (
+          {session?.dailyRoomUrl && consentAccepted ? (
             <a
               href={session.dailyRoomUrl}
               target="_blank"
@@ -219,11 +286,11 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
             <StatusPill ok={Boolean(recordedBlob)} label="Audio recorded" />
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <R365Button onClick={connectMicForRecording} disabled={api.loading}>Connect Mic</R365Button>
-            <R365Button onClick={recording ? stopRecording : startRecording} disabled={api.loading || !micConnected}>
+            <R365Button onClick={connectMicForRecording} disabled={api.loading || !consentAccepted}>Connect Mic</R365Button>
+            <R365Button onClick={recording ? stopRecording : startRecording} disabled={api.loading || !micConnected || !consentAccepted}>
               {recording ? "Stop" : "Record audio"}
             </R365Button>
-            <R365Button variant="ghost" onClick={submitTrack} disabled={api.loading || !recordedBlob}>Upload Track</R365Button>
+            <R365Button variant="ghost" onClick={submitTrack} disabled={api.loading || !recordedBlob || !consentAccepted}>Upload Track</R365Button>
           </div>
           <p className="mt-3 text-sm font-semibold text-[color:var(--text-secondary)]">Timer: {formatDuration(recordingSeconds)}</p>
           {api.message ? <p className="mt-3 text-sm font-semibold text-emerald-600">{api.message}</p> : null}
@@ -231,6 +298,9 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
         </Panel>
 
         <Panel title="Your Details">
+          <div className="mb-4 rounded-2xl bg-[color:var(--surface-muted)] p-3 text-xs text-[color:var(--text-secondary)]">
+            Logged in as <span className="font-bold text-[color:var(--text-primary)]">{currentUser?.name || currentUser?.email || "Plexa user"}</span>. Plexa uses this account to label your audio.
+          </div>
           <label className="block text-sm font-semibold">
             Name
             <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} className="mt-2 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2" />

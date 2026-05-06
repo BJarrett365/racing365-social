@@ -11,7 +11,7 @@ type Status = {
   restream: { configured: boolean };
   mux: { configured: boolean };
   muxWebhook: { configured: boolean };
-  daily: { configured: boolean };
+  daily?: { configured: boolean };
   livepeer: { configured: boolean };
   apify: { configured: boolean };
   elevenlabsApiKeyMasked?: string;
@@ -214,7 +214,7 @@ export function AdminSettingsForm() {
       if (!clearRunwaymlKey && nextRunway && !refreshed.runwayml.configured) {
         throw new Error("Runway API secret save could not be verified.");
       }
-      if (!clearDailyApiKey && nextDailyApiKey && !refreshed.daily.configured) {
+      if (!clearDailyApiKey && nextDailyApiKey && !refreshed.daily?.configured) {
         throw new Error("Daily API key save could not be verified.");
       }
       setMessage("Saved to admin settings. Keys are now stored and active for the next build.");
@@ -570,8 +570,8 @@ export function AdminSettingsForm() {
             </li>
             <li>
               Daily:{" "}
-              <span className={status.daily.configured ? "text-[#22c55e]" : "text-slate-600"}>
-                {status.daily.configured ? "key on file" : "not set"}
+              <span className={status.daily?.configured ? "text-[#22c55e]" : "text-slate-600"}>
+                {status.daily?.configured ? "key on file" : "not set"}
               </span>
             </li>
             <li>
@@ -1114,7 +1114,7 @@ export function AdminSettingsForm() {
                   setDailyKeyDirty(true);
                   setDailyApiKey(e.target.value);
                 }}
-                placeholder={status?.daily.configured ? "••••••••" : ""}
+                placeholder={status?.daily?.configured ? "••••••••" : ""}
                 autoComplete="off"
               />
             </label>

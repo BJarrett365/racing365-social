@@ -17,6 +17,7 @@ type Body = {
   muxTokenSecret?: string;
   /** Mux webhook signing secret (Live Control POST /api/webhooks/mux). */
   muxWebhookSigningSecret?: string;
+  dailyApiKey?: string;
   livepeerApiKey?: string;
   apifyApiToken?: string;
   apifyYoutubeTranscriptActorId?: string;
@@ -34,6 +35,7 @@ type Body = {
   clearRestreamKeys?: boolean;
   clearMuxKeys?: boolean;
   clearMuxWebhookSecret?: boolean;
+  clearDailyApiKey?: boolean;
   clearLivepeerKey?: boolean;
   clearApifyApiToken?: boolean;
 };
@@ -57,6 +59,7 @@ export async function GET() {
     restream: { configured: restreamOk },
     mux: { configured: muxOk },
     muxWebhook: { configured: muxWebhookOk },
+    daily: { configured: mask(s.dailyApiKey) },
     livepeer: { configured: mask(s.livepeerApiKey) },
     apify: { configured: mask(s.apifyApiToken) },
     elevenlabsApiKeyMasked: maskPreview(s.elevenlabsApiKey),
@@ -67,6 +70,7 @@ export async function GET() {
     muxTokenIdMasked: maskPreview(s.muxTokenId),
     muxTokenSecretMasked: maskPreview(s.muxTokenSecret),
     muxWebhookSigningSecretMasked: maskPreview(s.muxWebhookSigningSecret),
+    dailyApiKeyMasked: maskPreview(s.dailyApiKey),
     livepeerApiKeyMasked: maskPreview(s.livepeerApiKey),
     apifyApiTokenMasked: maskPreview(s.apifyApiToken),
     apifyYoutubeTranscriptActorId:
@@ -108,6 +112,7 @@ export async function POST(request: Request) {
   if (body.clearMuxWebhookSecret) {
     clearKeys.push("muxWebhookSigningSecret");
   }
+  if (body.clearDailyApiKey) clearKeys.push("dailyApiKey");
   if (body.clearLivepeerKey) clearKeys.push("livepeerApiKey");
   if (body.clearApifyApiToken) clearKeys.push("apifyApiToken");
 
@@ -120,6 +125,7 @@ export async function POST(request: Request) {
   if (body.muxTokenId?.trim()) partial.muxTokenId = body.muxTokenId.trim();
   if (body.muxTokenSecret?.trim()) partial.muxTokenSecret = body.muxTokenSecret.trim();
   if (body.muxWebhookSigningSecret?.trim()) partial.muxWebhookSigningSecret = body.muxWebhookSigningSecret.trim();
+  if (body.dailyApiKey?.trim()) partial.dailyApiKey = body.dailyApiKey.trim();
   if (body.livepeerApiKey?.trim()) partial.livepeerApiKey = body.livepeerApiKey.trim();
   if (body.apifyApiToken?.trim()) partial.apifyApiToken = body.apifyApiToken.trim();
   if (body.apifyYoutubeTranscriptActorId?.trim()) partial.apifyYoutubeTranscriptActorId = body.apifyYoutubeTranscriptActorId.trim();

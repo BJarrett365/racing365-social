@@ -16,6 +16,8 @@ export type AdminStoredSettings = {
   muxTokenSecret?: string;
   /** Mux webhook signing secret (dashboard → webhooks) — optional but recommended for production. */
   muxWebhookSigningSecret?: string;
+  /** Daily REST API key for Guest Room video calls. */
+  dailyApiKey?: string;
   /** Optional alternative live provider. */
   livepeerApiKey?: string;
   apifyApiToken?: string;
@@ -142,6 +144,7 @@ function secretFileKey(envName: string): keyof AdminStoredSettings | undefined {
     MUX_TOKEN_ID: "muxTokenId",
     MUX_TOKEN_SECRET: "muxTokenSecret",
     MUX_WEBHOOK_SIGNING_SECRET: "muxWebhookSigningSecret",
+    DAILY_API_KEY: "dailyApiKey",
     LIVEPEER_API_KEY: "livepeerApiKey",
     DEEPL_API_KEY: "deeplApiKey",
     APIFY_API_TOKEN: "apifyApiToken",

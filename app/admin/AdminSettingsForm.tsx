@@ -11,6 +11,7 @@ type Status = {
   restream: { configured: boolean };
   mux: { configured: boolean };
   muxWebhook: { configured: boolean };
+  daily: { configured: boolean };
   livepeer: { configured: boolean };
   apify: { configured: boolean };
   elevenlabsApiKeyMasked?: string;
@@ -21,6 +22,7 @@ type Status = {
   muxTokenIdMasked?: string;
   muxTokenSecretMasked?: string;
   muxWebhookSigningSecretMasked?: string;
+  dailyApiKeyMasked?: string;
   livepeerApiKeyMasked?: string;
   apifyApiTokenMasked?: string;
   apifyYoutubeTranscriptActorId: string;
@@ -49,6 +51,7 @@ export function AdminSettingsForm() {
   const [muxTokenId, setMuxTokenId] = useState("");
   const [muxTokenSecret, setMuxTokenSecret] = useState("");
   const [muxWebhookSigningSecret, setMuxWebhookSigningSecret] = useState("");
+  const [dailyApiKey, setDailyApiKey] = useState("");
   const [livepeerApiKey, setLivepeerApiKey] = useState("");
   const [apifyApiToken, setApifyApiToken] = useState("");
   const [apifyYoutubeTranscriptActorId, setApifyYoutubeTranscriptActorId] = useState("apilabs/youtube-caption-transcription-scraper");
@@ -62,6 +65,7 @@ export function AdminSettingsForm() {
   const [muxIdDirty, setMuxIdDirty] = useState(false);
   const [muxSecretDirty, setMuxSecretDirty] = useState(false);
   const [muxWebhookDirty, setMuxWebhookDirty] = useState(false);
+  const [dailyKeyDirty, setDailyKeyDirty] = useState(false);
   const [livepeerKeyDirty, setLivepeerKeyDirty] = useState(false);
   const [apifyTokenDirty, setApifyTokenDirty] = useState(false);
   const [ffmpegPath, setFfmpegPath] = useState("");
@@ -75,6 +79,7 @@ export function AdminSettingsForm() {
   const [clearRestreamKeys, setClearRestreamKeys] = useState(false);
   const [clearMuxKeys, setClearMuxKeys] = useState(false);
   const [clearMuxWebhookSecret, setClearMuxWebhookSecret] = useState(false);
+  const [clearDailyApiKey, setClearDailyApiKey] = useState(false);
   const [clearLivepeerKey, setClearLivepeerKey] = useState(false);
   const [clearApifyApiToken, setClearApifyApiToken] = useState(false);
   const [clearFfmpegPath, setClearFfmpegPath] = useState(false);
@@ -91,6 +96,8 @@ export function AdminSettingsForm() {
   const [restreamCheckMessage, setRestreamCheckMessage] = useState<string | null>(null);
   const [muxCheckBusy, setMuxCheckBusy] = useState(false);
   const [muxCheckMessage, setMuxCheckMessage] = useState<string | null>(null);
+  const [dailyCheckBusy, setDailyCheckBusy] = useState(false);
+  const [dailyCheckMessage, setDailyCheckMessage] = useState<string | null>(null);
   const [livepeerCheckBusy, setLivepeerCheckBusy] = useState(false);
   const [livepeerCheckMessage, setLivepeerCheckMessage] = useState<string | null>(null);
   const [apifyCheckBusy, setApifyCheckBusy] = useState(false);
@@ -128,6 +135,7 @@ export function AdminSettingsForm() {
     setMuxIdDirty(false);
     setMuxSecretDirty(false);
     setMuxWebhookDirty(false);
+    setDailyKeyDirty(false);
     setLivepeerKeyDirty(false);
     setApifyTokenDirty(false);
     return next;
@@ -150,6 +158,7 @@ export function AdminSettingsForm() {
       const nextMuxId = muxTokenId.trim();
       const nextMuxSecret = muxTokenSecret.trim();
       const nextMuxWebhook = muxWebhookSigningSecret.trim();
+      const nextDailyApiKey = dailyApiKey.trim();
       const nextLivepeer = livepeerApiKey.trim();
       const nextApifyToken = apifyApiToken.trim();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -169,6 +178,7 @@ export function AdminSettingsForm() {
           muxTokenId: muxIdDirty ? nextMuxId || undefined : undefined,
           muxTokenSecret: muxSecretDirty ? nextMuxSecret || undefined : undefined,
           muxWebhookSigningSecret: muxWebhookDirty ? nextMuxWebhook || undefined : undefined,
+          dailyApiKey: dailyKeyDirty ? nextDailyApiKey || undefined : undefined,
           livepeerApiKey: livepeerKeyDirty ? nextLivepeer || undefined : undefined,
           apifyApiToken: apifyTokenDirty ? nextApifyToken || undefined : undefined,
           apifyYoutubeTranscriptActorId: apifyYoutubeTranscriptActorId.trim() || undefined,
@@ -185,6 +195,7 @@ export function AdminSettingsForm() {
           clearRestreamKeys,
           clearMuxKeys,
           clearMuxWebhookSecret,
+          clearDailyApiKey,
           clearLivepeerKey,
           clearApifyApiToken,
           clearFfmpegPath,
@@ -203,6 +214,9 @@ export function AdminSettingsForm() {
       if (!clearRunwaymlKey && nextRunway && !refreshed.runwayml.configured) {
         throw new Error("Runway API secret save could not be verified.");
       }
+      if (!clearDailyApiKey && nextDailyApiKey && !refreshed.daily.configured) {
+        throw new Error("Daily API key save could not be verified.");
+      }
       setMessage("Saved to admin settings. Keys are now stored and active for the next build.");
       setElevenlabsApiKey("");
       setOpenaiApiKey("");
@@ -212,6 +226,7 @@ export function AdminSettingsForm() {
       setMuxTokenId("");
       setMuxTokenSecret("");
       setMuxWebhookSigningSecret("");
+      setDailyApiKey("");
       setLivepeerApiKey("");
       setApifyApiToken("");
       setElevenlabsKeyDirty(false);
@@ -222,6 +237,7 @@ export function AdminSettingsForm() {
       setMuxIdDirty(false);
       setMuxSecretDirty(false);
       setMuxWebhookDirty(false);
+      setDailyKeyDirty(false);
       setLivepeerKeyDirty(false);
       setApifyTokenDirty(false);
       setClearElevenlabsKey(false);
@@ -230,6 +246,7 @@ export function AdminSettingsForm() {
       setClearRestreamKeys(false);
       setClearMuxKeys(false);
       setClearMuxWebhookSecret(false);
+      setClearDailyApiKey(false);
       setClearLivepeerKey(false);
       setClearApifyApiToken(false);
       setClearFfmpegPath(false);
@@ -422,6 +439,32 @@ export function AdminSettingsForm() {
     }
   };
 
+  const testDailyKey = async () => {
+    setDailyCheckBusy(true);
+    setDailyCheckMessage(null);
+    setError(null);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const tok = adminToken.trim();
+      if (tok) headers["x-admin-token"] = tok;
+      const res = await fetch("/api/admin/daily-check", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          adminToken: tok || undefined,
+          dailyApiKey: dailyApiKey.trim() || undefined,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; message?: string; roomCount?: number | null; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error || "Daily check failed");
+      setDailyCheckMessage(`${data.message ?? "Daily API key is valid."} Rooms visible: ${data.roomCount ?? "unknown"}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Daily check failed");
+    } finally {
+      setDailyCheckBusy(false);
+    }
+  };
+
   const testApifyConnection = async () => {
     setApifyCheckBusy(true);
     setApifyCheckMessage(null);
@@ -523,6 +566,12 @@ export function AdminSettingsForm() {
               Mux webhook:{" "}
               <span className={status.muxWebhook.configured ? "text-[#22c55e]" : "text-slate-600"}>
                 {status.muxWebhook.configured ? "signing secret (Live Control)" : "not set"}
+              </span>
+            </li>
+            <li>
+              Daily:{" "}
+              <span className={status.daily.configured ? "text-[#22c55e]" : "text-slate-600"}>
+                {status.daily.configured ? "key on file" : "not set"}
               </span>
             </li>
             <li>
@@ -1035,6 +1084,55 @@ export function AdminSettingsForm() {
                 {muxCheckBusy ? "Testing Mux…" : "Test Mux tokens"}
               </R365Button>
               {muxCheckMessage ? <p className="mt-2 text-xs normal-case text-[#22c55e]">{muxCheckMessage}</p> : null}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[#1f2d26] bg-[#0a0e0c] p-3">
+            <p className="text-[11px] font-semibold uppercase text-slate-500">Daily video rooms</p>
+            <p className="mt-1 text-[11px] leading-snug text-slate-500">
+              Used for Audio with Guests shared camera rooms. Plexa will use Daily for live video while keeping audio recording separate.
+            </p>
+            <a
+              className="mt-2 inline-flex text-[11px] text-[#22c55e] hover:underline"
+              href="https://docs.daily.co/guides/create-and-manage-rooms-with-the-rest-api"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              Daily REST API docs →
+            </a>
+            <label className="mt-3 block text-xs font-semibold uppercase text-slate-500">
+              DAILY_API_KEY
+              <input
+                type="password"
+                className={inputClass}
+                value={
+                  clearDailyApiKey
+                    ? ""
+                    : dailyApiKey || (dailyKeyDirty ? "" : (status?.dailyApiKeyMasked ?? ""))
+                }
+                onChange={(e) => {
+                  setDailyKeyDirty(true);
+                  setDailyApiKey(e.target.value);
+                }}
+                placeholder={status?.daily.configured ? "••••••••" : ""}
+                autoComplete="off"
+              />
+            </label>
+            <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+              <input
+                type="checkbox"
+                checked={clearDailyApiKey}
+                onChange={(e) => setClearDailyApiKey(e.target.checked)}
+              />
+              Remove stored Daily API key
+            </label>
+            <div className="mt-3">
+              <R365Button variant="ghost" onClick={() => void testDailyKey()} disabled={dailyCheckBusy}>
+                {dailyCheckBusy ? "Testing Daily…" : "Test Daily key"}
+              </R365Button>
+              {dailyCheckMessage ? (
+                <p className="mt-2 text-xs normal-case text-[#22c55e]">{dailyCheckMessage}</p>
+              ) : null}
             </div>
           </div>
 

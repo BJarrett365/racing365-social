@@ -17,6 +17,7 @@ import type {
 type Body = {
   articleId?: string;
   articleIds?: string[];
+  clientIds?: string[];
   providerMode?: LanguageProviderMode;
   journalistProfileId?: string;
   rewriteStyle?: string;
@@ -58,6 +59,9 @@ export async function POST(req: Request) {
         : [];
     const articles = articleIds.map((id) => data.articles[id]).filter((article): article is NonNullable<typeof article> => Boolean(article));
     if (articles.length === 0) return NextResponse.json({ error: "Article not found." }, { status: 404 });
+    const clientIds = Array.isArray(body.clientIds)
+      ? [...new Set(body.clientIds.map((id) => String(id).trim()).filter((id) => Boolean(data.clients[id]?.active)))]
+      : [];
 
     const now = new Date().toISOString();
     const rewrites: LanguageTranslation[] = [];
@@ -95,6 +99,7 @@ export async function POST(req: Request) {
       const row: LanguageTranslation = {
         id: newLanguageId("lrewrite"),
         articleId: article.id,
+        clientIds,
         targetLanguage: article.sourceLanguage,
         providerMode: body.providerMode ?? "openai",
         translationMode: "rewrite-only",

@@ -50,6 +50,7 @@ type Article = {
 type Translation = {
   id: string;
   articleId: string;
+  clientIds?: string[];
   targetLanguage: LanguageCode;
   title: string;
   standfirst: string;
@@ -183,6 +184,7 @@ const miniButtonClass = "inline-flex items-center justify-center rounded-xl bord
 const dangerMiniButtonClass = "inline-flex items-center justify-center rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-700 shadow-sm transition hover:border-red-500 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-200";
 const amberButtonClass = "inline-flex items-center justify-center rounded-xl border border-amber-500/50 bg-amber-500/15 px-3 py-2 text-xs font-bold text-amber-800 shadow-sm transition hover:border-amber-500 hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-60 dark:text-amber-100";
 const targetOptions = Object.entries(LANGUAGE_LABELS).filter(([code]) => code !== "en") as Array<[LanguageCode, string]>;
+const clientLanguageOptions = Object.entries(LANGUAGE_LABELS) as Array<[LanguageCode, string]>;
 const contentStyleOptions: LanguageContentStyle[] = ["News", "Transfer", "Opinion", "Preview", "Review", "Analysis", "Feature", "Live"];
 const sportContextOptions: LanguageSportContext[] = ["Football", "Horse Racing", "Rugby Union", "Rugby League", "Formula 1", "Cricket", "Golf", "Tennis", "NFL", "Boxing", "MMA", "Basketball"];
 const socialPlatformLabels: Record<SocialPost["platform"], string> = {
@@ -375,6 +377,8 @@ export function LanguageStudioClient() {
   const [selectedArticleIds, setSelectedArticleIds] = useState<string[]>([]);
   const [articleSelectionMode, setArticleSelectionMode] = useState<"selected" | "all">("selected");
   const [selectedTranslationId, setSelectedTranslationId] = useState("");
+  const [selectedRewriteClientIds, setSelectedRewriteClientIds] = useState<string[]>([]);
+  const [newRewriteClientName, setNewRewriteClientName] = useState("");
   const [approvalBlocked, setApprovalBlocked] = useState(false);
   const [adminOverride, setAdminOverride] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
@@ -427,6 +431,7 @@ export function LanguageStudioClient() {
     () => translations.find((translation) => translation.id === selectedTranslationId) ?? translations[0],
     [translations, selectedTranslationId],
   );
+  const activeClients = useMemo(() => clients.filter((client) => client.active), [clients]);
   const originalForTranslation = selectedTranslation
     ? articles.find((article) => article.id === selectedTranslation.articleId)
     : selectedArticle;
@@ -510,6 +515,12 @@ export function LanguageStudioClient() {
     if (isLanguageStudioTab(tabParam)) setTab(tabParam);
   }, []);
 
+  useEffect(() => {
+    if (selectedRewriteClientIds.length || activeClients.length === 0) return;
+    const racing365 = activeClients.find((client) => client.name.trim().toLowerCase() === "racing365");
+    if (racing365) setSelectedRewriteClientIds([racing365.id]);
+  }, [activeClients, selectedRewriteClientIds.length]);
+
   const run = async (fn: () => Promise<void>, options: { reload?: boolean } = {}) => {
     setBusy(true);
     setError(null);
@@ -570,6 +581,7 @@ export function LanguageStudioClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           articleIds: translationArticleIds,
+          clientIds: selectedRewriteClientIds,
           targetLanguages,
           providerMode,
           translationMode,
@@ -605,6 +617,7 @@ export function LanguageStudioClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           articleIds: translationArticleIds,
+          clientIds: selectedRewriteClientIds,
           providerMode: "openai",
           journalistProfileId: selectedJournalistProfileId || undefined,
           rewriteStyle,
@@ -771,6 +784,34 @@ export function LanguageStudioClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Client delete failed");
       setMessage("Client deleted.");
+    });
+
+  const toggleRewriteClient = (clientId: string, checked: boolean) => {
+    setSelectedRewriteClientIds((ids) => checked
+      ? [...new Set([...ids, clientId])]
+      : ids.filter((id) => id !== clientId));
+  };
+
+  const createRewriteClient = () =>
+    run(async () => {
+      const name = newRewriteClientName.trim();
+      if (!name) throw new Error("Enter a client name first.");
+      const res = await fetch("/api/language/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          active: true,
+          allowedBrands: [],
+          allowedLanguages: [],
+          allowedFormats: ["xml", "json"],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Client save failed");
+      if (data.client?.id) setSelectedRewriteClientIds((ids) => [...new Set([...ids, String(data.client.id)])]);
+      setNewRewriteClientName("");
+      setMessage(`${name} added as a client.`);
     });
 
   const saveSourceBrand = (source: Partial<SourceBrandRow>) =>
@@ -1075,6 +1116,49 @@ export function LanguageStudioClient() {
               </label>
               <label className="text-xs font-semibold uppercase text-slate-500">Provider mode<select className={inputClass} value={providerMode} onChange={(e) => setProviderMode(e.target.value as LanguageProviderMode)}><option value="openai">OpenAI only</option><option value="deepl">DeepL only</option><option value="deepl-openai">DeepL + OpenAI localisation</option></select></label>
               <label className="text-xs font-semibold uppercase text-slate-500">Translation mode<select className={inputClass} value={translationMode} onChange={(e) => setTranslationMode(e.target.value as TranslationMode)}><option value="translate-only">Translate only</option><option value="translate-localise">Translate + localise</option><option value="translate-rewrite">Translate and rewrite</option><option value="headline-only">Regenerate headline only</option><option value="seo-only">Regenerate SEO only</option><option value="summary-only">Regenerate summary only</option></select></label>
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Client content</p>
+                    <p className="mt-1 text-sm text-[color:var(--text-secondary)]">
+                      Select one or more clients. Approved translations will appear in those clients&apos; XML/API feeds.
+                    </p>
+                  </div>
+                  {selectedRewriteClientIds.length ? (
+                    <span className="rounded-full bg-[color:var(--accent-soft)] px-3 py-1 text-xs font-black text-[color:var(--accent-foreground)]">
+                      {selectedRewriteClientIds.length} selected
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {activeClients.map((client) => (
+                    <label key={client.id} className="flex items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm font-semibold text-[color:var(--text-primary)]">
+                      <input
+                        type="checkbox"
+                        checked={selectedRewriteClientIds.includes(client.id)}
+                        onChange={(e) => toggleRewriteClient(client.id, e.target.checked)}
+                      />
+                      {client.name}
+                    </label>
+                  ))}
+                </div>
+                {activeClients.length === 0 ? (
+                  <p className="mt-3 rounded-xl bg-[color:var(--surface-muted)] p-3 text-sm text-[color:var(--text-secondary)]">
+                    No clients yet. Add Racing365 or another client below.
+                  </p>
+                ) : null}
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    className={inputClass}
+                    placeholder="Add a client, e.g. Racing365"
+                    value={newRewriteClientName}
+                    onChange={(e) => setNewRewriteClientName(e.target.value)}
+                  />
+                  <button type="button" className={miniButtonClass} onClick={() => void createRewriteClient()} disabled={busy || !newRewriteClientName.trim()}>
+                    Add client
+                  </button>
+                </div>
+              </div>
               <div className="rounded-lg border border-[#1f2d26] p-3">
                 <p className="text-xs font-semibold uppercase text-slate-500">Target languages</p>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300">
@@ -1171,6 +1255,49 @@ export function LanguageStudioClient() {
                 Article / Editorial Guidelines
                 <textarea className={textareaClass} value={editorialGuidelines} onChange={(e) => setEditorialGuidelines(e.target.value)} />
               </label>
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Client content</p>
+                    <p className="mt-1 text-sm text-[color:var(--text-secondary)]">
+                      Select one or more clients. Approved rewrites will appear in those clients&apos; XML/API feeds.
+                    </p>
+                  </div>
+                  {selectedRewriteClientIds.length ? (
+                    <span className="rounded-full bg-[color:var(--accent-soft)] px-3 py-1 text-xs font-black text-[color:var(--accent-foreground)]">
+                      {selectedRewriteClientIds.length} selected
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {activeClients.map((client) => (
+                    <label key={client.id} className="flex items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm font-semibold text-[color:var(--text-primary)]">
+                      <input
+                        type="checkbox"
+                        checked={selectedRewriteClientIds.includes(client.id)}
+                        onChange={(e) => toggleRewriteClient(client.id, e.target.checked)}
+                      />
+                      {client.name}
+                    </label>
+                  ))}
+                </div>
+                {activeClients.length === 0 ? (
+                  <p className="mt-3 rounded-xl bg-[color:var(--surface-muted)] p-3 text-sm text-[color:var(--text-secondary)]">
+                    No clients yet. Add Racing365 or another client below.
+                  </p>
+                ) : null}
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    className={inputClass}
+                    placeholder="Add a client, e.g. Racing365"
+                    value={newRewriteClientName}
+                    onChange={(e) => setNewRewriteClientName(e.target.value)}
+                  />
+                  <button type="button" className={miniButtonClass} onClick={() => void createRewriteClient()} disabled={busy || !newRewriteClientName.trim()}>
+                    Add client
+                  </button>
+                </div>
+              </div>
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-100">
                 Google rewrite rule: create a fresh structure and original phrasing, not thin synonym spinning. Preserve source facts and direct quotes.
               </div>
@@ -1273,6 +1400,28 @@ export function LanguageStudioClient() {
                     </div>
                     <label className="block text-xs font-semibold uppercase text-slate-500">Meta description<textarea className={textareaClass} value={selectedTranslation.metaDescription} onChange={(e) => updateSelectedTranslation({ metaDescription: e.target.value })} /></label>
                     <label className="block text-xs font-semibold uppercase text-slate-500">Tags<input className={inputClass} value={selectedTranslation.tags.join(", ")} onChange={(e) => updateSelectedTranslation({ tags: e.target.value.split(",").map((tag) => tag.trim()).filter(Boolean) })} /></label>
+                    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Client availability</p>
+                      <p className="mt-1 text-sm text-[color:var(--text-secondary)]">
+                        Approved content appears only in selected client feeds. Leave unselected for legacy brand/language feed behaviour.
+                      </p>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {activeClients.map((client) => (
+                          <label key={client.id} className="flex items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm font-semibold text-[color:var(--text-primary)]">
+                            <input
+                              type="checkbox"
+                              checked={(selectedTranslation.clientIds ?? []).includes(client.id)}
+                              onChange={(e) => updateSelectedTranslation({
+                                clientIds: e.target.checked
+                                  ? [...new Set([...(selectedTranslation.clientIds ?? []), client.id])]
+                                  : (selectedTranslation.clientIds ?? []).filter((id) => id !== client.id),
+                              })}
+                            />
+                            {client.name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       <R365Button type="button" variant="ghost" onClick={() => void saveTranslation()} disabled={busy}>Save</R365Button>
                       <R365Button type="button" onClick={() => void approveTranslation(true)} disabled={busy || (approvalBlocked && !(adminOverride && overrideReason.trim()))}>Approve</R365Button>
@@ -1669,14 +1818,14 @@ function ClientAccessPanel({
   const [client, setClient] = useState<Partial<ClientRow>>({
     name: "",
     active: true,
-    allowedBrands: ["PlanetF1"],
-    allowedLanguages: ["es"],
+    allowedBrands: [],
+    allowedLanguages: [],
     allowedFormats: ["xml", "json"],
   });
   const [keyDraft, setKeyDraft] = useState<Partial<ClientApiKeyRow>>({
     label: "Client feed key",
-    allowedBrands: ["PlanetF1"],
-    allowedLanguages: ["es"],
+    allowedBrands: [],
+    allowedLanguages: [],
     allowedFormats: ["xml", "json"],
   });
   const selectedClient = clients.find((row) => row.id === keyDraft.clientId) ?? clients[0];
@@ -1711,7 +1860,7 @@ function ClientAccessPanel({
             <label className="mt-3 flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={client.active ?? true} onChange={(e) => setClient({ ...client, active: e.target.checked })} />Active</label>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-4">
-            {targetOptions.map(([code, label]) => (
+            {clientLanguageOptions.map(([code, label]) => (
               <label key={code} className="flex items-center gap-2">
                 <input type="checkbox" checked={(client.allowedLanguages ?? []).includes(code)} onChange={(e) => setClient({ ...client, allowedLanguages: e.target.checked ? [...(client.allowedLanguages ?? []), code] : (client.allowedLanguages ?? []).filter((row) => row !== code) })} />
                 {label}
@@ -1738,7 +1887,7 @@ function ClientAccessPanel({
           <input className={inputClass} placeholder="Key label" value={keyDraft.label ?? ""} onChange={(e) => setKeyDraft({ ...keyDraft, label: e.target.value })} />
           <input className={inputClass} placeholder="Allowed brands, comma-separated" value={(keyDraft.allowedBrands ?? []).join(", ")} onChange={(e) => setKeyDraft({ ...keyDraft, allowedBrands: csv(e.target.value) })} />
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-4">
-            {targetOptions.map(([code, label]) => (
+            {clientLanguageOptions.map(([code, label]) => (
               <label key={code} className="flex items-center gap-2">
                 <input type="checkbox" checked={(keyDraft.allowedLanguages ?? []).includes(code)} onChange={(e) => setKeyDraft({ ...keyDraft, allowedLanguages: e.target.checked ? [...(keyDraft.allowedLanguages ?? []), code] : (keyDraft.allowedLanguages ?? []).filter((row) => row !== code) })} />
                 {label}

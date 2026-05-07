@@ -19,6 +19,7 @@ import type {
 type Body = {
   articleId?: string;
   articleIds?: string[];
+  clientIds?: string[];
   targetLanguages?: LanguageCode[];
   providerMode?: LanguageProviderMode;
   translationMode?: TranslationMode;
@@ -64,6 +65,9 @@ export async function POST(req: Request) {
     if (articles.length === 0) return NextResponse.json({ error: "Article not found." }, { status: 404 });
     const targetLanguages = Array.isArray(body.targetLanguages) ? body.targetLanguages : [];
     if (targetLanguages.length === 0) return NextResponse.json({ error: "Select at least one target language." }, { status: 400 });
+    const clientIds = Array.isArray(body.clientIds)
+      ? [...new Set(body.clientIds.map((id) => String(id).trim()).filter((id) => Boolean(data.clients[id]?.active)))]
+      : [];
 
     const now = new Date().toISOString();
     const translations: LanguageTranslation[] = [];
@@ -100,6 +104,7 @@ export async function POST(req: Request) {
         const row: LanguageTranslation = {
           id: newLanguageId("ltrans"),
           articleId: article.id,
+          clientIds,
           targetLanguage,
           providerMode: body.providerMode ?? "openai",
           translationMode: body.translationMode ?? "translate-localise",

@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const cleanup = await cleanupStaleUnusedLanguageImports(48);
+    const cleanup = await cleanupStaleUnusedLanguageImports(24);
     const result = await importLanguageFeed({
       sourceBrand: "PlanetF1",
       sourceLanguage: "en",

@@ -23,6 +23,7 @@
 
 # misc
 .DS_Store
+.git-local/
 *.pem
 .env*.local
 .cursor/

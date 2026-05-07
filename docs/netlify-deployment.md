@@ -43,15 +43,21 @@ After deploy:
 3. Create the first admin user.
 4. Use `/admin` to invite more users.
 
-## Cron Import
+## Cron Imports
 
-The existing cron endpoint is:
+Saved Language Studio crons are evaluated by:
 
 ```text
-/api/cron/language-feed
+/api/cron/language-imports
 ```
 
-Netlify does not use `vercel.json` crons. For now, schedule this with an external cron service or Netlify Scheduled Functions later. The request must include the cron secret expected by the endpoint.
+Call this every 5 minutes. It checks saved cron jobs and only runs jobs whose schedule is due.
+
+- Vercel uses `vercel.json` to call this path every 5 minutes.
+- Local `npm run start` also polls this path every minute.
+- Netlify does not use `vercel.json` crons. Schedule this path with an external cron service or Netlify Scheduled Functions.
+
+When `CRON_SECRET` is set, send `Authorization: Bearer <CRON_SECRET>`.
 
 ## Storage Notes
 

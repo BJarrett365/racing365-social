@@ -94,6 +94,7 @@ export type LanguageImport = {
   id: string;
   sourceBrand: string;
   sourceLanguage: LanguageCode;
+  clientIds?: string[];
   sourceUrl?: string;
   title: string;
   articleIds: string[];
@@ -105,6 +106,7 @@ export type LanguageArticle = {
   importId: string;
   sourceBrand: string;
   sourceLanguage: LanguageCode;
+  clientIds?: string[];
   sourceUrl?: string;
   canonicalUrl?: string;
   sourceArticleId?: string;
@@ -131,6 +133,7 @@ export type LanguageArticle = {
 export type LanguageTranslation = {
   id: string;
   articleId: string;
+  clientIds?: string[];
   targetLanguage: LanguageCode;
   providerMode: LanguageProviderMode;
   translationMode: TranslationMode;
@@ -387,6 +390,82 @@ export type LanguageClientAccessLog = {
   createdAt: string;
 };
 
+export type LanguageCronFrequency = "minutes" | "hourly" | "daily" | "weekly";
+
+export type LanguageCronJob = {
+  id: string;
+  name: string;
+  active: boolean;
+  clientIds: string[];
+  sourceBrand: string;
+  sourceLanguage: LanguageCode;
+  sourceUrl: string;
+  parserType: LanguageSourceParserType;
+  frequency: LanguageCronFrequency;
+  intervalMinutes?: number;
+  hour?: number;
+  minute?: number;
+  weekdays?: number[];
+  timezone: string;
+  processImages: boolean;
+  importFullArticles: boolean;
+  notifyOnFailure: boolean;
+  notificationEmail?: string;
+  lastRunAt?: string;
+  lastSuccessAt?: string;
+  lastFailureAt?: string;
+  lastRunStatus?: "success" | "failed" | "skipped" | "running";
+  lastRunMessage?: string;
+  consecutiveFailures: number;
+  nextRunAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LanguageCronRun = {
+  id: string;
+  jobId: string;
+  jobName: string;
+  trigger: "scheduled" | "manual";
+  status: "success" | "failed" | "skipped";
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  createdCount: number;
+  updatedCount: number;
+  articleCount: number;
+  imageCount: number;
+  message?: string;
+  error?: string;
+  createdAt: string;
+};
+
+export type LanguageArticleAutomationAction = "rewrite" | "translate" | "rewrite-translate";
+export type LanguageArticleAutomationOutputStatus = "review_needed" | "draft";
+
+export type LanguageArticleAutomation = {
+  id: string;
+  name: string;
+  active: boolean;
+  clientIds: string[];
+  sourceBrands: string[];
+  action: LanguageArticleAutomationAction;
+  contentStyle: LanguageContentStyle;
+  sportContext: LanguageSportContext;
+  journalistProfileId?: string;
+  rewriteStyle: string;
+  editorialGuidelines: string;
+  targetLanguages: LanguageCode[];
+  providerMode: LanguageProviderMode;
+  translationMode: TranslationMode;
+  outputStatus: LanguageArticleAutomationOutputStatus;
+  maxArticlesPerRun: number;
+  onlyNewArticles: boolean;
+  autoApprove: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type LanguageStudioData = {
   sourceBrands: Record<string, LanguageSourceBrand>;
   imports: Record<string, LanguageImport>;
@@ -409,6 +488,9 @@ export type LanguageStudioData = {
   clients: Record<string, LanguageClient>;
   clientApiKeys: Record<string, LanguageClientApiKey>;
   clientAccessLogs: Record<string, LanguageClientAccessLog>;
+  cronJobs: Record<string, LanguageCronJob>;
+  cronRuns: Record<string, LanguageCronRun>;
+  articleAutomations: Record<string, LanguageArticleAutomation>;
 };
 
 export type LanguageSettings = {

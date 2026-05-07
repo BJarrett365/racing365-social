@@ -10,6 +10,7 @@ type Body = {
   seoTitle?: string;
   metaDescription?: string;
   tags?: string[];
+  clientIds?: string[];
   socialEmbeds?: unknown[];
   socialPosts?: unknown[];
   slug?: string;
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
     seoTitle: body.seoTitle ?? current.seoTitle,
     metaDescription: body.metaDescription ?? current.metaDescription,
     tags: Array.isArray(body.tags) ? body.tags : current.tags,
+    clientIds: Array.isArray(body.clientIds) ? body.clientIds.map(String).filter(Boolean) : current.clientIds,
     socialEmbeds: Array.isArray(body.socialEmbeds) ? body.socialEmbeds as typeof current.socialEmbeds : current.socialEmbeds,
     socialPosts: Array.isArray(body.socialPosts) ? body.socialPosts as typeof current.socialPosts : current.socialPosts,
     slug: body.slug ?? current.slug,

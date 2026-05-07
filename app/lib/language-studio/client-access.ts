@@ -73,6 +73,7 @@ export function approvedTranslationsForClient(
     if (translation.status !== "approved") continue;
     const article = data.articles[translation.articleId];
     if (!article) continue;
+    if (translation.clientIds?.length && !translation.clientIds.includes(auth.client.id)) continue;
     if (!allowed(auth.client.allowedBrands, article.sourceBrand) || !allowed(auth.apiKey.allowedBrands, article.sourceBrand)) continue;
     if (!allowed(auth.client.allowedLanguages, translation.targetLanguage) || !allowed(auth.apiKey.allowedLanguages, translation.targetLanguage)) continue;
     rows.push({ article, translation });
@@ -91,6 +92,7 @@ export function publicTranslationRow(article: LanguageArticle, translation: Lang
     sourceArticleId: article.sourceArticleId ?? article.id,
     sourceBrand: article.sourceBrand,
     sourceUrl: article.sourceUrl,
+    clientIds: translation.clientIds ?? [],
     canonicalUrl: article.canonicalUrl,
     author: article.author,
     publishDate: article.publishDate,
@@ -128,6 +130,7 @@ export function buildClientFeedXml(rows: Array<{ article: LanguageArticle; trans
       item: rows.map(({ article, translation }) => ({
         id: translation.id,
         sourceArticleId: article.sourceArticleId ?? article.id,
+        clientIds: { clientId: translation.clientIds ?? [] },
         sourceBrand: article.sourceBrand,
         canonicalUrl: article.canonicalUrl ?? "",
         author: article.author ?? "",

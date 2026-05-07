@@ -22,17 +22,22 @@ export async function GET() {
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as Body | null;
   if (!body?.name?.trim()) return NextResponse.json({ error: "Client name is required." }, { status: 400 });
+  const data = await readLanguageStudioData();
   const now = new Date().toISOString();
+  const name = body.name.trim();
+  const existing = body.id
+    ? data.clients[body.id]
+    : Object.values(data.clients).find((client) => client.name.trim().toLowerCase() === name.toLowerCase());
   const row: LanguageClient = {
-    id: body.id || newLanguageId("lclient"),
-    name: body.name.trim(),
+    id: existing?.id || body.id || newLanguageId("lclient"),
+    name,
     contactEmail: body.contactEmail?.trim() || "",
     active: body.active ?? true,
     allowedBrands: arrayOfStrings(body.allowedBrands),
     allowedLanguages: arrayOfStrings(body.allowedLanguages) as LanguageCode[],
     allowedFormats: (arrayOfStrings(body.allowedFormats).filter((format) => format === "xml" || format === "json") as Array<"xml" | "json">),
     notes: body.notes?.trim() || "",
-    createdAt: body.createdAt || now,
+    createdAt: body.createdAt || existing?.createdAt || now,
     updatedAt: now,
   };
   if (row.allowedFormats.length === 0) row.allowedFormats = ["xml", "json"];

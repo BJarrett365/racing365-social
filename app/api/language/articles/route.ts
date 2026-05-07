@@ -12,7 +12,7 @@ function sortArticlesLatest(rows: LanguageArticle[]): LanguageArticle[] {
 }
 
 export async function GET() {
-  await cleanupStaleUnusedLanguageImports(48);
+  await cleanupStaleUnusedLanguageImports(24);
   const data = await readLanguageStudioData();
   return NextResponse.json({
     imports: sortDesc(Object.values(data.imports)),

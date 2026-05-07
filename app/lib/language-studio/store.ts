@@ -4,11 +4,14 @@ import { getStore } from "@netlify/blobs";
 import { projectRoot } from "@/app/lib/paths";
 import type {
   LanguageArticle,
+  LanguageArticleAutomation,
   LanguageAuditLog,
   LanguageClient,
   LanguageClientAccessLog,
   LanguageClientApiKey,
   LanguageComplianceNote,
+  LanguageCronJob,
+  LanguageCronRun,
   LanguageExport,
   LanguageGlossaryEntry,
   LanguageGuardrail,
@@ -99,6 +102,21 @@ const DEFAULT_KNOWLEDGE_FILES: LanguageKnowledgeFile[] = [
   },
 ];
 
+const DEFAULT_CLIENTS = [
+  {
+    id: "lclient-racing365",
+    name: "Racing365",
+    contactEmail: "",
+    active: true,
+    allowedBrands: [],
+    allowedLanguages: [],
+    allowedFormats: ["xml", "json"] as Array<"xml" | "json">,
+    notes: "Default client for Racing365-specific rewritten content.",
+    createdAt: "2026-05-07T00:00:00.000Z",
+    updatedAt: "2026-05-07T00:00:00.000Z",
+  },
+];
+
 function shouldUseNetlifyBlobStore(): boolean {
   return process.env.NETLIFY === "true" || Boolean(process.env.NETLIFY_BLOBS_CONTEXT);
 }
@@ -126,6 +144,9 @@ function emptyData(): LanguageStudioData {
     clients: {},
     clientApiKeys: {},
     clientAccessLogs: {},
+    cronJobs: {},
+    cronRuns: {},
+    articleAutomations: {},
   };
 }
 
@@ -176,6 +197,7 @@ function seedGovernance(data: LanguageStudioData): LanguageStudioData {
   for (const row of DEFAULT_SOURCE_BRANDS) data.sourceBrands[row.id] ??= row;
   for (const row of DEFAULT_LANGUAGE_RULES) data.rules[row.id] ??= row;
   for (const row of DEFAULT_KNOWLEDGE_FILES) data.knowledgeFiles[row.id] ??= row;
+  for (const row of DEFAULT_CLIENTS) data.clients[row.id] ??= row;
   for (const row of DEFAULT_GUARDRAILS) data.guardrails[row.id] ??= row;
   for (const row of DEFAULT_PROTECTED_TERMS) data.protectedTerms[row.id] ??= row;
   for (const row of DEFAULT_MARKET_RULES) data.marketRules[row.id] ??= row;
@@ -247,11 +269,6 @@ function articleHasApprovedOrExportedWork(data: LanguageStudioData, articleId: s
   ) || Object.values(data.exports).some((row) => row.articleId === articleId);
 }
 
-function articleHasAnyWork(data: LanguageStudioData, articleId: string): boolean {
-  return Object.values(data.translations).some((row) => row.articleId === articleId)
-    || Object.values(data.exports).some((row) => row.articleId === articleId);
-}
-
 function removeArticleCascade(data: LanguageStudioData, articleId: string): void {
   delete data.articles[articleId];
   for (const [translationId, translation] of Object.entries(data.translations)) {
@@ -286,7 +303,7 @@ export async function deleteLanguageArticles(articleIds: string[]): Promise<{ de
   return { deletedIds, blockedIds };
 }
 
-export async function cleanupStaleUnusedLanguageImports(maxAgeHours = 48): Promise<{ deletedArticleIds: string[]; deletedImportIds: string[] }> {
+export async function cleanupStaleUnusedLanguageImports(maxAgeHours = 24): Promise<{ deletedArticleIds: string[]; deletedImportIds: string[] }> {
   const data = await readLanguageStudioData();
   const cutoff = Date.now() - maxAgeHours * 60 * 60 * 1000;
   const deletedArticleIds: string[] = [];
@@ -297,7 +314,7 @@ export async function cleanupStaleUnusedLanguageImports(maxAgeHours = 48): Promi
     const remainingArticleIds: string[] = [];
     for (const articleId of row.articleIds) {
       if (!data.articles[articleId]) continue;
-      if (articleHasAnyWork(data, articleId) || data.articles[articleId].status === "archived") {
+      if (articleHasApprovedOrExportedWork(data, articleId) || data.articles[articleId].status === "archived") {
         remainingArticleIds.push(articleId);
         continue;
       }
@@ -456,6 +473,43 @@ export async function addClientAccessLog(entry: Omit<LanguageClientAccessLog, "i
     key.lastUsedAt = log.createdAt;
   }
   await writeLanguageStudioData(data);
+}
+
+export async function upsertCronJob(row: LanguageCronJob): Promise<void> {
+  const data = await readLanguageStudioData();
+  data.cronJobs[row.id] = row;
+  await writeLanguageStudioData(data);
+}
+
+export async function deleteCronJob(jobId: string): Promise<boolean> {
+  const data = await readLanguageStudioData();
+  if (!data.cronJobs[jobId]) return false;
+  delete data.cronJobs[jobId];
+  for (const [id, run] of Object.entries(data.cronRuns)) {
+    if (run.jobId === jobId) delete data.cronRuns[id];
+  }
+  await writeLanguageStudioData(data);
+  return true;
+}
+
+export async function addCronRun(row: LanguageCronRun): Promise<void> {
+  const data = await readLanguageStudioData();
+  data.cronRuns[row.id] = row;
+  await writeLanguageStudioData(data);
+}
+
+export async function upsertArticleAutomation(row: LanguageArticleAutomation): Promise<void> {
+  const data = await readLanguageStudioData();
+  data.articleAutomations[row.id] = row;
+  await writeLanguageStudioData(data);
+}
+
+export async function deleteArticleAutomation(id: string): Promise<boolean> {
+  const data = await readLanguageStudioData();
+  if (!data.articleAutomations[id]) return false;
+  delete data.articleAutomations[id];
+  await writeLanguageStudioData(data);
+  return true;
 }
 
 export function sortDesc<T extends { createdAt?: string; updatedAt?: string }>(rows: T[]): T[] {

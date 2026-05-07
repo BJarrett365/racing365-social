@@ -25,6 +25,18 @@ const adminLinks = [
     status: "Admin",
   },
   {
+    title: "Crons",
+    href: "/admin/crons",
+    description: "Schedule client content imports from XML, RSS, URL and API feeds with run history and failure alerts.",
+    status: "Admin",
+  },
+  {
+    title: "Article Automations",
+    href: "/admin/article-automations",
+    description: "Predefine rewrite and translation rules per feed and client while keeping manual review control.",
+    status: "Admin",
+  },
+  {
     title: "R&D Reports",
     href: "/admin/reports",
     description: "View AI Studio R&D assessment, technical report, barriers and evidence notes.",

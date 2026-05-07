@@ -28,6 +28,8 @@ export type ImportLanguageFeedResult = {
   journalistProfiles: LanguageJournalistProfile[];
   createdCount: number;
   updatedCount: number;
+  createdArticleIds: string[];
+  updatedArticleIds: string[];
   imageCount: number;
 };
 
@@ -286,6 +288,8 @@ export async function importLanguageFeed(input: ImportLanguageFeedInput): Promis
 
   let createdCount = 0;
   let updatedCount = 0;
+  const createdArticleIds: string[] = [];
+  const updatedArticleIds: string[] = [];
   const now = new Date().toISOString();
   const incomingByKey = new Map<string, LanguageArticle>();
   for (const article of articlesWithSocialEmbeds) {
@@ -295,12 +299,14 @@ export async function importLanguageFeed(input: ImportLanguageFeedInput): Promis
     const match = articleKeys(article).map((key) => existingByKey.get(key)).find(Boolean);
     if (!match) {
       createdCount += 1;
+      createdArticleIds.push(article.id);
       return {
         ...article,
         imageLibraryRel: article.imageUrl ? existingImageByUrl.get(article.imageUrl.trim()) ?? article.imageLibraryRel : article.imageLibraryRel,
       };
     }
     updatedCount += 1;
+    updatedArticleIds.push(match.id);
     return {
       ...match,
       ...article,
@@ -389,6 +395,8 @@ export async function importLanguageFeed(input: ImportLanguageFeedInput): Promis
     journalistProfiles: [...updatedJournalistProfiles.values()],
     createdCount,
     updatedCount,
+    createdArticleIds,
+    updatedArticleIds,
     imageCount: articles.filter((article) => article.imageLibraryRel).length,
   };
 }

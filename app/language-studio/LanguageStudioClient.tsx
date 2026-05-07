@@ -61,7 +61,7 @@ type Translation = {
   socialEmbeds?: SocialEmbed[];
   socialPosts?: SocialPost[];
   slug: string;
-  status: "draft" | "approved" | "rejected";
+  status: "draft" | "review_needed" | "approved" | "rejected" | "exported" | "failed";
   createdAt?: string;
   updatedAt?: string;
   approvedAt?: string;
@@ -1479,7 +1479,14 @@ export function LanguageStudioClient() {
       {tab === "Prompt Rules" ? <GovernancePanel section="Prompt Rules" /> : null}
       {tab === "Compliance Notes" ? <GovernancePanel section="Compliance Notes" /> : null}
       {tab === "Quality Checks" ? <GovernancePanel section="Quality Checks" /> : null}
-      {tab === "Export Feeds" ? <ExportsPanel exportsRows={exportsRows} /> : null}
+      {tab === "Export Feeds" ? (
+        <ExportsPanel
+          exportsRows={exportsRows}
+          clients={clients}
+          apiKeys={clientApiKeys}
+          translations={translations}
+        />
+      ) : null}
       {tab === "Client Access" ? (
         <ClientAccessPanel
           clients={clients}
@@ -1829,7 +1836,8 @@ function ClientAccessPanel({
     allowedFormats: ["xml", "json"],
   });
   const selectedClient = clients.find((row) => row.id === keyDraft.clientId) ?? clients[0];
-  const jsonUrl = `/api/client-api/translations?key=${rawApiKey || "CLIENT_KEY"}`;
+  const jsonApiUrl = `/api/client-api/translations?key=${rawApiKey || "CLIENT_KEY"}`;
+  const jsonFeedUrl = `/api/client-feeds/translations.json?key=${rawApiKey || "CLIENT_KEY"}`;
   const xmlUrl = `/api/client-feeds/translations.xml?key=${rawApiKey || "CLIENT_KEY"}`;
 
   return (
@@ -1837,7 +1845,7 @@ function ClientAccessPanel({
       <div>
         <h2 className="text-xl font-bold text-white">Client Login and Feed/API Access</h2>
         <p className="mt-1 text-sm text-slate-400">
-          Create a client, issue a key, then provide XML or JSON access to approved translations only.
+          Create a client, issue a key, then provide XML, JSON feed or JSON API access to approved translations only.
         </p>
       </div>
 
@@ -1845,7 +1853,8 @@ function ClientAccessPanel({
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
           <p className="font-bold">New API key - copy now</p>
           <code className="mt-2 block break-all rounded bg-black/40 p-2 text-xs">{rawApiKey}</code>
-          <p className="mt-2 text-xs">JSON: <code>{jsonUrl}</code></p>
+          <p className="mt-2 text-xs">JSON API: <code>{jsonApiUrl}</code></p>
+          <p className="mt-1 text-xs">JSON feed: <code>{jsonFeedUrl}</code></p>
           <p className="mt-1 text-xs">XML: <code>{xmlUrl}</code></p>
         </div>
       ) : null}
@@ -1992,6 +2001,78 @@ function ClientAccessPanel({
   );
 }
 
-function ExportsPanel({ exportsRows }: { exportsRows: ExportRow[] }) {
-  return <Panel title="Export Feeds" className="space-y-4 p-5"><h2 className="text-xl font-bold text-white">Export Feeds</h2>{exportsRows.length === 0 ? <p className="text-sm text-slate-500">No exports yet.</p> : exportsRows.map((row) => <details key={row.id} className="rounded-lg border border-[#1f2d26] p-3"><summary className="cursor-pointer text-sm font-semibold text-white">{row.format.toUpperCase()} · {LANGUAGE_LABELS[row.targetLanguage]} · {new Date(row.createdAt).toLocaleString()}</summary><pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded bg-black/40 p-3 text-xs text-slate-300">{row.payload}</pre></details>)}</Panel>;
+function ExportsPanel({
+  exportsRows,
+  clients,
+  apiKeys,
+  translations,
+}: {
+  exportsRows: ExportRow[];
+  clients: ClientRow[];
+  apiKeys: ClientApiKeyRow[];
+  translations: Translation[];
+}) {
+  const deliverable = translations.filter((row) => row.status === "approved" || row.status === "exported");
+  const clientRows = clients.filter((client) => client.active);
+  return (
+    <Panel title="Export Feeds" className="space-y-5 p-5">
+      <div>
+        <h2 className="text-xl font-bold text-white">Export Feeds</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Live client feeds serve approved/exported rewrite and translation outputs. Automation outputs appear here after Review Queue approval.
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-[#1f2d26] bg-black/10 p-4">
+        <h3 className="font-bold text-white">Client delivery feeds</h3>
+        <div className="mt-3 space-y-3">
+          {clientRows.length === 0 ? <p className="text-sm text-slate-500">No active clients yet.</p> : clientRows.map((client) => {
+            const clientKeys = apiKeys.filter((key) => key.clientId === client.id && key.active);
+            const itemCount = deliverable.filter((row) => !row.clientIds?.length || row.clientIds.includes(client.id)).length;
+            return (
+              <div key={client.id} className="rounded-lg border border-[#1f2d26] p-3 text-sm text-slate-300">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-white">{client.name}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {itemCount} approved/exported item(s) · Formats: {(client.allowedFormats ?? []).join(", ").toUpperCase() || "XML, JSON"}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-[#22c55e]/40 bg-[#22c55e]/10 px-2 py-1 text-xs font-bold text-[#22c55e]">
+                    Live feed
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 text-xs">
+                  <p>XML: <code className="break-all rounded bg-black/30 px-2 py-1">/api/client-feeds/translations.xml?key=CLIENT_KEY</code></p>
+                  <p>JSON feed: <code className="break-all rounded bg-black/30 px-2 py-1">/api/client-feeds/translations.json?key=CLIENT_KEY</code></p>
+                  <p>JSON API: <code className="break-all rounded bg-black/30 px-2 py-1">/api/client-api/translations?key=CLIENT_KEY</code></p>
+                </div>
+                <p className="mt-3 text-xs text-slate-500">
+                  {clientKeys.length
+                    ? `Active keys: ${clientKeys.map((key) => key.maskedKey).join(", ")}`
+                    : "Create an API key in Client Access before sending the feed to this client."}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-[#1f2d26] p-4">
+        <h3 className="font-bold text-white">Stored export payloads</h3>
+        <div className="mt-3 space-y-3">
+          {exportsRows.length === 0 ? (
+            <p className="text-sm text-slate-500">No stored exports yet.</p>
+          ) : exportsRows.map((row) => (
+            <details key={row.id} className="rounded-lg border border-[#1f2d26] p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-white">
+                {row.format.toUpperCase()} · {LANGUAGE_LABELS[row.targetLanguage]} · {new Date(row.createdAt).toLocaleString()}
+              </summary>
+              <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded bg-black/40 p-3 text-xs text-slate-300">{row.payload}</pre>
+            </details>
+          ))}
+        </div>
+      </div>
+    </Panel>
+  );
 }

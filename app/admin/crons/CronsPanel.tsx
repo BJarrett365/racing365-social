@@ -62,6 +62,9 @@ type CronRun = {
   updatedCount: number;
   articleCount: number;
   imageCount: number;
+  automationCount?: number;
+  automationCreatedCount?: number;
+  automationSkippedCount?: number;
   message?: string;
   error?: string;
   createdAt: string;
@@ -457,6 +460,11 @@ export function CronsPanel() {
                   <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${statusClass(runRow.status)}`}>{runRow.status}</span>
                 </div>
                 <p className="mt-2 text-xs text-slate-400">{runRow.error ?? runRow.message ?? `${runRow.articleCount} article(s) checked.`}</p>
+                {runRow.automationCount ? (
+                  <p className="mt-1 text-xs text-[#22c55e]">
+                    Automations: {runRow.automationCreatedCount ?? 0} created, {runRow.automationSkippedCount ?? 0} skipped.
+                  </p>
+                ) : null}
               </div>
             ))}
           </div>

@@ -435,6 +435,9 @@ export type LanguageCronRun = {
   updatedCount: number;
   articleCount: number;
   imageCount: number;
+  automationCount?: number;
+  automationCreatedCount?: number;
+  automationSkippedCount?: number;
   message?: string;
   error?: string;
   createdAt: string;

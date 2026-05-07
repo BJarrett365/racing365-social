@@ -1,4 +1,5 @@
 import { isCronDue, nextRunAt } from "@/app/lib/language-studio/cron-scheduler";
+import { runArticleAutomationsForImport } from "@/app/lib/language-studio/article-automation-runner";
 import { sendEmail } from "@/app/lib/email/send-email";
 import { importLanguageFeed } from "@/app/lib/language-studio/import-feed";
 import { newLanguageId, readLanguageStudioData, writeLanguageStudioData } from "@/app/lib/language-studio/store";
@@ -80,6 +81,21 @@ export async function runLanguageCronJob(jobId: string, trigger: CronRunTrigger)
       processImages: job.processImages,
       importFullArticles: job.importFullArticles,
     });
+    const data = await readLanguageStudioData();
+    const current = data.cronJobs[job.id] ?? job;
+    const imported = data.imports[result.import.id];
+    if (imported) imported.clientIds = job.clientIds;
+    for (const articleId of result.import.articleIds) {
+      if (data.articles[articleId]) data.articles[articleId].clientIds = job.clientIds;
+    }
+    await writeLanguageStudioData(data);
+    const automationResult = await runArticleAutomationsForImport({
+      importId: result.import.id,
+      articleIds: result.import.articleIds,
+      createdArticleIds: result.createdArticleIds,
+      clientIds: job.clientIds,
+      sourceBrand: job.sourceBrand,
+    });
     const finishedAt = new Date().toISOString();
     const run: LanguageCronRun = {
       id: newLanguageId("lcronrun"),
@@ -94,29 +110,27 @@ export async function runLanguageCronJob(jobId: string, trigger: CronRunTrigger)
       updatedCount: result.updatedCount,
       articleCount: result.articles.length,
       imageCount: result.imageCount,
-      message: `${result.createdCount} new; ${result.updatedCount} updated; ${result.articles.length} checked.`,
+      automationCount: automationResult.automationCount,
+      automationCreatedCount: automationResult.createdTranslationCount,
+      automationSkippedCount: automationResult.skippedDuplicateCount,
+      message: `${result.createdCount} new; ${result.updatedCount} updated; ${result.articles.length} checked; ${automationResult.createdTranslationCount} automation output(s).`,
       createdAt: finishedAt,
     };
 
-    const data = await readLanguageStudioData();
-    const current = data.cronJobs[job.id] ?? job;
-    const imported = data.imports[result.import.id];
-    if (imported) imported.clientIds = job.clientIds;
-    for (const articleId of result.import.articleIds) {
-      if (data.articles[articleId]) data.articles[articleId].clientIds = job.clientIds;
-    }
-    data.cronRuns[run.id] = run;
-    data.cronJobs[job.id] = {
-      ...current,
+    const finalData = await readLanguageStudioData();
+    const finalCurrent = finalData.cronJobs[job.id] ?? current;
+    finalData.cronRuns[run.id] = run;
+    finalData.cronJobs[job.id] = {
+      ...finalCurrent,
       lastRunAt: finishedAt,
       lastSuccessAt: finishedAt,
       lastRunStatus: "success",
       lastRunMessage: run.message,
       consecutiveFailures: 0,
-      nextRunAt: nextRunAt(current, new Date(finishedAt)),
+      nextRunAt: nextRunAt(finalCurrent, new Date(finishedAt)),
       updatedAt: finishedAt,
     };
-    await writeLanguageStudioData(data);
+    await writeLanguageStudioData(finalData);
     return run;
   } catch (error) {
     const finishedAt = new Date().toISOString();

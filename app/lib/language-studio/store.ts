@@ -193,11 +193,41 @@ function dedupeJournalistProfiles(data: LanguageStudioData): void {
   }
 }
 
+function seedDefaultArticleAutomations(data: LanguageStudioData): void {
+  if (data.articleAutomations["lauto-racing365-rewrite-previews"]) return;
+  const racing365 = Object.values(data.clients).find((client) => client.name.trim().toLowerCase() === "racing365" && client.active);
+  if (!racing365) return;
+  const editorF365 = Object.values(data.journalistProfiles).find((profile) => profile.active && profile.name.trim().toLowerCase() === "editor f365");
+  data.articleAutomations["lauto-racing365-rewrite-previews"] = {
+    id: "lauto-racing365-rewrite-previews",
+    name: "Racing365 rewrite previews",
+    active: true,
+    clientIds: [racing365.id],
+    sourceBrands: ["Sportinglife", "AT the Races"],
+    action: "rewrite",
+    contentStyle: "Preview",
+    sportContext: "Horse Racing",
+    journalistProfileId: editorF365?.id ?? "",
+    rewriteStyle: "Original editorial rewrite for Google: fresh structure, sharp intro, natural expert racing tone, no synonym spinning.",
+    editorialGuidelines: "Preserve quotes exactly in meaning and quote boundaries. Do not add facts, tips, odds claims, results or opinion beyond the source.",
+    targetLanguages: [],
+    providerMode: "openai",
+    translationMode: "translate-localise",
+    outputStatus: "review_needed",
+    maxArticlesPerRun: 10,
+    onlyNewArticles: true,
+    autoApprove: false,
+    createdAt: "2026-05-07T00:00:00.000Z",
+    updatedAt: "2026-05-07T00:00:00.000Z",
+  };
+}
+
 function seedGovernance(data: LanguageStudioData): LanguageStudioData {
   for (const row of DEFAULT_SOURCE_BRANDS) data.sourceBrands[row.id] ??= row;
   for (const row of DEFAULT_LANGUAGE_RULES) data.rules[row.id] ??= row;
   for (const row of DEFAULT_KNOWLEDGE_FILES) data.knowledgeFiles[row.id] ??= row;
   for (const row of DEFAULT_CLIENTS) data.clients[row.id] ??= row;
+  seedDefaultArticleAutomations(data);
   for (const row of DEFAULT_GUARDRAILS) data.guardrails[row.id] ??= row;
   for (const row of DEFAULT_PROTECTED_TERMS) data.protectedTerms[row.id] ??= row;
   for (const row of DEFAULT_MARKET_RULES) data.marketRules[row.id] ??= row;

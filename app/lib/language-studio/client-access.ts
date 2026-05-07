@@ -70,7 +70,7 @@ export function approvedTranslationsForClient(
 ): Array<{ article: LanguageArticle; translation: LanguageTranslation }> {
   const rows: Array<{ article: LanguageArticle; translation: LanguageTranslation }> = [];
   for (const translation of Object.values(data.translations)) {
-    if (translation.status !== "approved") continue;
+    if (translation.status !== "approved" && translation.status !== "exported") continue;
     const article = data.articles[translation.articleId];
     if (!article) continue;
     if (translation.clientIds?.length && !translation.clientIds.includes(auth.client.id)) continue;

@@ -10,7 +10,7 @@ const evolution = [
   ["LoopFeed", "Official/compliant source ingestion for YouTube, X/Twitter and third-party platform feeds."],
   ["CrowdyNews", "Real-time sports and social aggregation, surfacing emerging stories, fan conversation and live narratives."],
   ["CrowdyAI", "AI sports intelligence: classification, entity resolution, trend detection, moderation and match/content association."],
-  ["Plexa Studio", "Production and governance layer for articles, translations, social images, shorts, audio/video scripts and exports."],
+  ["Planet Sport Studio", "Production and governance layer for articles, translations, social images, shorts, audio/video scripts and exports."],
   ["Planet Sport AI Studio", "Strategic platform direction for rights-aware AI production across Planet Sport brands and creators."],
 ];
 
@@ -82,7 +82,7 @@ const uncertaintyBlocks = [
     challenge:
       "Tools such as Cursor, Lovable, OpenAI, DeepL, Runway, Apify and LoopFeed accelerate experimentation, but production systems still require validation, retry handling, cost control, source governance and export reliability.",
     approach:
-      "The team is testing tools and APIs as modular capabilities while keeping Plexa responsible for orchestration, review, source memory and production state.",
+      "The team is testing tools and APIs as modular capabilities while keeping Planet Sport Studio responsible for orchestration, review, source memory and production state.",
     advancement:
       "A platform architecture where external AI/API providers are replaceable capability layers rather than the product's core defensibility.",
   },
@@ -93,7 +93,7 @@ const outcomes = [
   ["Language Studio governance", "Source brands, content creators, guardrails, knowledge files, glossary, protected terms, market rules, quality checks and export feeds."],
   ["YouTube/script pipeline", "Metadata, transcript import, AI output generation and article creation from video source material."],
   ["R&D evidence loop", "Failures, parser errors, AI limitations, prompt tests, API barriers and manual bottlenecks are now treated as learning evidence."],
-  ["Product positioning", "Plexa / Planet Sport AI Studio is framed as an AI-native editorial operating system, not an AI wrapper."],
+  ["Product positioning", "Planet Sport Studio is framed as an AI-native editorial operating system, not an AI wrapper."],
 ];
 
 const knowledge = [
@@ -118,7 +118,7 @@ export default function RdReportPage() {
     <div className="space-y-8">
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#eab308]">Technical R&D Report</p>
-        <h1 className="mt-1 text-3xl font-black text-white">Plexa / Planet Sport AI Studio R&D Report</h1>
+        <h1 className="mt-1 text-3xl font-black text-white">Planet Sport Studio R&D Report</h1>
         <p className="mt-2 max-w-3xl text-sm text-slate-400">
           Draft technical report prepared for Planet Sport, Launch Accounting and R&D tax experts. The structure
           follows the CrowdyAI technical report format: project overview, technological uncertainties addressed,
@@ -137,8 +137,8 @@ export default function RdReportPage() {
       <Panel title="Executive summary">
         <div className="space-y-3 text-sm text-slate-300">
           <p>
-            This report documents the Research and Development activities being undertaken in creating the Plexa /
-            Planet Sport AI Studio: a rights-aware AI editorial production platform for sports and media teams.
+            This report documents the Research and Development activities being undertaken in creating Planet Sport
+            Studio: a rights-aware AI editorial production platform for sports and media teams.
           </p>
           <p>
             The project involves configuring and combining existing AI capabilities, official platform feeds,

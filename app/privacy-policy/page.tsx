@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Privacy Policy · Plexa",
-  description: "How Plexa and Planet Sport Limited handle personal data, audio recordings and voice data.",
+  title: "Privacy Policy · Planet Sport Studio",
+  description: "How Planet Sport Studio and Planet Sport Limited handle personal data, audio recordings and voice data.",
 };
 
 export default function PrivacyPolicyPage() {
@@ -9,14 +9,14 @@ export default function PrivacyPolicyPage() {
       <p className="text-xs font-bold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">Updated 4 May 2026</p>
       <h1>Privacy Policy</h1>
       <p>
-        This Privacy Policy explains how Plexa, operated by Planet Sport Limited, processes personal data when users
+        This Privacy Policy explains how Planet Sport Studio, operated by Planet Sport Limited, processes personal data when users
         create, upload, transcribe, translate, clone or generate audio and related production assets.
       </p>
 
       <h2>Who We Are</h2>
       <p>
-        Plexa is an internal and client-facing production platform for editorial, audio, video and multilingual workflows.
-        References to &quot;Plexa&quot;, &quot;we&quot;, &quot;us&quot; and &quot;our&quot; mean Planet Sport Limited and the teams operating Plexa.
+        Planet Sport Studio is an internal and client-facing production platform for editorial, audio, video and multilingual workflows.
+        References to &quot;Planet Sport Studio&quot;, &quot;we&quot;, &quot;us&quot; and &quot;our&quot; mean Planet Sport Limited and the teams operating Planet Sport Studio.
       </p>
 
       <h2>Data We Process</h2>
@@ -31,20 +31,20 @@ export default function PrivacyPolicyPage() {
       <p>
         Voice cloning and speech generation can involve personal data and, in some jurisdictions, biometric data. Users must
         only upload or clone a voice where Planet Sport Limited has the speaker&apos;s permission or another lawful basis to do
-        so. Voice samples are used to provide the requested Plexa workflow, store project evidence, support security and
+        so. Voice samples are used to provide the requested Planet Sport Studio workflow, store project evidence, support security and
         comply with legal obligations.
       </p>
 
       <h2>Providers</h2>
       <p>
-        Plexa may send audio, text and metadata to approved AI providers such as ElevenLabs and OpenAI to provide
+        Planet Sport Studio may send audio, text and metadata to approved AI providers such as ElevenLabs and OpenAI to provide
         transcription, text to speech, translation, voice isolation, voice cloning and related workflows. Provider use is
         governed by our contracts, settings and the provider terms applicable to the service.
       </p>
 
       <h2>How We Use Data</h2>
       <ul>
-        <li>To provide and improve Plexa production tools.</li>
+        <li>To provide and improve Planet Sport Studio production tools.</li>
         <li>To create, store and retrieve project media, transcripts, notes, voices and generated audio.</li>
         <li>To verify consent, prevent misuse, investigate abuse and maintain platform security.</li>
         <li>To comply with legal, regulatory, accounting and contractual obligations.</li>

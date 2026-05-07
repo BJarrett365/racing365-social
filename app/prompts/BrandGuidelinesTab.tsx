@@ -72,8 +72,8 @@ export function BrandGuidelinesTab() {
           Text you save here is appended to relevant AI calls:{" "}
           <strong className="text-slate-300">improve racing voiceover</strong> (by template format → brand) and{" "}
           <strong className="text-slate-300">Runway background prompt</strong> (by Racing365 / TEAMtalk / PlanetF1).
-          The <strong className="text-slate-300">PLEXA</strong> field loads from{" "}
-          <code className="text-slate-500">data/plexa-brand-guidelines-ui-kit.txt</code> (PLEXA App UI Kit) unless you
+          The <strong className="text-slate-300">Planet Sport Studio</strong> field loads from{" "}
+          <code className="text-slate-500">data/plexa-brand-guidelines-ui-kit.txt</code> (Planet Sport Studio App UI Kit) unless you
           override it here. <strong className="text-slate-300">F365</strong> is pre-filled from{" "}
           <code className="text-slate-500">data/f365-brand-guidelines-full.txt</code> (F365 Brand Guidelines V1.0). You
           can edit any field; saves override the bundled files for that environment.

@@ -47,7 +47,7 @@ export async function saveLanguageArticleImageToLibrary(article: LanguageArticle
 
   const res = await fetch(imageUrl, {
     cache: "no-store",
-    headers: { "user-agent": "PLEXA Language Studio/1.0", accept: "image/*,*/*" },
+    headers: { "user-agent": "PlanetSportStudio Language Studio/1.0", accept: "image/*,*/*" },
   });
   if (!res.ok) return article.imageLibraryRel;
 

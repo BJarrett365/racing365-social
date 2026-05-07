@@ -216,13 +216,7 @@ export default async function TemplatesHubPage() {
       <div>
         <h1 className="text-3xl font-black tracking-tight text-[color:var(--text-primary)]">Shorts Studio</h1>
         <p className="mt-2 max-w-2xl text-[color:var(--text-secondary)]">
-          Social video templates by vertical. Open a pipeline list, then create or edit{" "}
-          <code className="ds-code">tpl-…</code> bundles. Optional preview: add a muted Shorts MP4 at{" "}
-          <code className="ds-code">public/templates/examples/</code> with the pipeline slug (e.g.{" "}
-          <code className="ds-code">f1-grid.mp4</code>, <code className="ds-code">next-off.mp4</code>) to show a
-          looping thumbnail. Local dev:{" "}
-          <strong className="font-semibold text-[color:var(--text-primary)]">http://localhost:8081</strong> or{" "}
-          <strong className="font-semibold text-[color:var(--text-primary)]">http://127.0.0.1:8081</strong>.
+          Social video templates by vertical. Open a pipeline list to create or edit Shorts templates.
         </p>
       </div>
 

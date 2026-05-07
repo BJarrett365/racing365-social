@@ -84,7 +84,7 @@ export function extractPlanetF1ResultsSlug(input: string): string | null {
 
 export async function fetchMotorRaces(): Promise<SdmsMotorRace[]> {
   const res = await fetch(SDMS_RACES, {
-    headers: { Accept: "application/json", "User-Agent": "PlexaPlanetF1Import/1.0" },
+    headers: { Accept: "application/json", "User-Agent": "PlanetSportStudioPlanetF1Import/1.0" },
     next: { revalidate: 0 },
   });
   if (!res.ok) throw new Error(`SDMS races HTTP ${res.status}`);
@@ -114,7 +114,7 @@ export async function fetchMotorSession(
 ): Promise<SdmsMotorResultRow[]> {
   const url = `https://sdms.planetsport.com/api/motor/results/${raceId}/${session}`;
   const res = await fetch(url, {
-    headers: { Accept: "application/json", "User-Agent": "PlexaPlanetF1Import/1.0" },
+    headers: { Accept: "application/json", "User-Agent": "PlanetSportStudioPlanetF1Import/1.0" },
     next: { revalidate: 0 },
   });
   if (!res.ok) throw new Error(`SDMS results (${session}) HTTP ${res.status}`);

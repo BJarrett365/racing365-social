@@ -34,7 +34,7 @@ export default async function AudioStudioPage({ searchParams }: AudioStudioPageP
             Record, transcribe, translate and create voice assets.
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300 md:text-base">
-            Audio Studio is a separate Plexa module for notes, speech to text, text to speech, ElevenLabs voice tools,
+            Audio Studio is a separate Planet Sport Studio module for notes, speech to text, text to speech, ElevenLabs voice tools,
             guest audio, language audio and reusable voice profiles without changing existing video, image, template or
             publishing flows.
           </p>
@@ -65,7 +65,7 @@ export default async function AudioStudioPage({ searchParams }: AudioStudioPageP
         ))}
       </div>
 
-      <Panel title="Send Outputs Into Plexa">
+      <Panel title="Send Outputs Into Planet Sport Studio">
         <div className="grid gap-3 md:grid-cols-5">
           {destinations.map((destination) => (
             <div key={destination} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">

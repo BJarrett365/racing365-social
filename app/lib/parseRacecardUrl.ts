@@ -1,5 +1,5 @@
 /**
- * URL validation + PlanetSport / GetRace mapping for Racecard URL import (Plexa).
+ * URL validation + PlanetSport / GetRace mapping for Racecard URL import (Planet Sport Studio).
  * Keeps parsing in small testable pieces; no DOM APIs (safe on server).
  */
 
@@ -69,7 +69,7 @@ export function validateRacecardUrl(raw: string): URL {
   return u;
 }
 
-/** Extract numeric race id from common Racing365 / Plexa-style URLs and HTML snippets */
+/** Extract numeric race id from common Racing365 / Planet Sport Studio style URLs and HTML snippets */
 export function extractPlanetSportRaceIdFromUrl(url: URL): number | null {
   const q = url.searchParams.get("raceId") ?? url.searchParams.get("RaceID");
   if (q) {
@@ -319,7 +319,7 @@ export async function fetchPlanetSportRaceJson(raceId: number): Promise<PlanetSp
 export async function fetchRacecardSource(url: string): Promise<{ html: string; finalUrl: string }> {
   const u = validateRacecardUrl(url);
   const res = await fetch(u.toString(), {
-    headers: { Accept: "text/html,application/xhtml+xml", "User-Agent": "PlexaRacecardImport/1.0" },
+    headers: { Accept: "text/html,application/xhtml+xml", "User-Agent": "PlanetSportStudioRacecardImport/1.0" },
     redirect: "follow",
     next: { revalidate: 0 },
   });

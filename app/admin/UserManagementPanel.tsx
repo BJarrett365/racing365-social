@@ -95,7 +95,7 @@ export function UserManagementPanel() {
     <Panel title="Secure Users" className="space-y-5 p-5">
       <div>
         <h2 className="text-xl font-bold text-white">User access</h2>
-        <p className="mt-1 text-sm text-slate-400">Invite verified users before they can access Plexa Studio.</p>
+        <p className="mt-1 text-sm text-slate-400">Invite verified users before they can access Planet Sport Studio.</p>
       </div>
       {message ? <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">{message}</p> : null}
       {error ? <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</p> : null}

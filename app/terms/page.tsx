@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Terms of Service · Plexa",
-  description: "Terms for using Plexa by Planet Sport Limited.",
+  title: "Terms of Service · Planet Sport Studio",
+  description: "Terms for using Planet Sport Studio by Planet Sport Limited.",
 };
 
 export default function TermsPage() {
@@ -9,13 +9,13 @@ export default function TermsPage() {
       <p className="text-xs font-bold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">Updated 4 May 2026</p>
       <h1>Terms of Service</h1>
       <p>
-        These Terms govern access to and use of Plexa, the AI-powered production platform operated by Planet Sport Limited.
-        By using Plexa, you agree to follow these Terms, the Privacy Policy and the Use Policy.
+        These Terms govern access to and use of Planet Sport Studio, the AI-powered production platform operated by Planet Sport Limited.
+        By using Planet Sport Studio, you agree to follow these Terms, the Privacy Policy and the Use Policy.
       </p>
 
       <h2>Permitted Use</h2>
       <p>
-        Plexa may be used for authorised editorial, commercial, production, translation, audio, video and publishing
+        Planet Sport Studio may be used for authorised editorial, commercial, production, translation, audio, video and publishing
         workflows. Users are responsible for ensuring they have the rights, permissions and approvals needed for all
         content, prompts, audio recordings, voice samples and outputs they submit or create.
       </p>
@@ -29,7 +29,7 @@ export default function TermsPage() {
 
       <h2>Third-Party Providers</h2>
       <p>
-        Plexa may use third-party AI and infrastructure providers, including ElevenLabs and OpenAI. Users must comply with
+        Planet Sport Studio may use third-party AI and infrastructure providers, including ElevenLabs and OpenAI. Users must comply with
         the provider restrictions that apply to the relevant workflow. If provider terms are stricter than these Terms for a
         specific feature, the stricter rule applies to that feature.
       </p>
@@ -54,7 +54,7 @@ export default function TermsPage() {
 
       <h2>No Legal Advice</h2>
       <p>
-        Plexa is a production tool. It does not provide legal, financial, medical or other regulated professional advice.
+        Planet Sport Studio is a production tool. It does not provide legal, financial, medical or other regulated professional advice.
         Professional advice must be reviewed by an appropriately qualified person before use.
       </p>
     </article>

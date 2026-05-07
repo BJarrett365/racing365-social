@@ -1,6 +1,6 @@
 import type { NewsShortHeadlineFontId } from "@/app/lib/news-short-fonts";
 
-/** Plexa Creative Studio canvas format (distinct per product spec). */
+/** Planet Sport Studio canvas format (distinct per product spec). */
 export type CreativeVideoFormatId = "shorts_vertical" | "portrait_video" | "landscape_video";
 
 export type NewsShortSlideType = "intro" | "content" | "outro";
@@ -70,7 +70,7 @@ export type NewsShortStyleControls = {
 
 export type NewsShortTemplateData = {
   /**
-   * Plexa Creative Studio output format. Omitted or legacy payloads default to `shorts_vertical`
+   * Planet Sport Studio output format. Omitted or legacy payloads default to `shorts_vertical`
    * (existing Shorts behaviour — do not merge with portrait).
    */
   creativeVideoFormat?: CreativeVideoFormatId;

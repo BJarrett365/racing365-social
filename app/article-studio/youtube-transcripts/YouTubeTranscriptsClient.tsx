@@ -90,7 +90,7 @@ export function YouTubeTranscriptsClient({ initialImports, importedArticleCount 
       <Panel title={`Saved scripts (${imports.length})`}>
         {imports.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-700 p-6 text-sm text-slate-400">
-            No YouTube scripts saved yet. Import a transcript, generate or edit the output, then save it to Plexa Studio.
+            No YouTube scripts saved yet. Import a transcript, generate or edit the output, then save it to Planet Sport Studio.
           </div>
         ) : (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">

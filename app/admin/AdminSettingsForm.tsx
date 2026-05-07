@@ -1090,7 +1090,7 @@ export function AdminSettingsForm() {
           <div className="rounded-lg border border-[#1f2d26] bg-[#0a0e0c] p-3">
             <p className="text-[11px] font-semibold uppercase text-slate-500">Daily video rooms</p>
             <p className="mt-1 text-[11px] leading-snug text-slate-500">
-              Used for Audio with Guests shared camera rooms. Plexa will use Daily for live video while keeping audio recording separate.
+              Used for Audio with Guests shared camera rooms. Planet Sport Studio will use Daily for live video while keeping audio recording separate.
             </p>
             <a
               className="mt-2 inline-flex text-[11px] text-[#22c55e] hover:underline"

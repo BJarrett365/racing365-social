@@ -1092,7 +1092,7 @@ export function AudioStudioWorkspace({ activeTool }: { activeTool: AudioStudioTo
                 <input
                   value={audioTitle}
                   onChange={(event) => setAudioTitle(event.target.value)}
-                  placeholder="Add a title, or let Plexa create one from the audio when saving..."
+                  placeholder="Add a title, or let Planet Sport Studio create one from the audio when saving..."
                   className="mt-2 w-full rounded-xl border border-[color:var(--border)] bg-black/20 px-3 py-2 text-sm"
                 />
                 <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-[color:var(--text-muted)]">
@@ -1102,7 +1102,7 @@ export function AudioStudioWorkspace({ activeTool }: { activeTool: AudioStudioTo
                     onChange={(event) => setAutoTitleFromAudio(event.target.checked)}
                     className="mt-1"
                   />
-                  <span>Create the title from the audio when saving. If OpenAI is unavailable, Plexa will use this title or the filename.</span>
+                  <span>Create the title from the audio when saving. If OpenAI is unavailable, Planet Sport Studio will use this title or the filename.</span>
                 </label>
               </div>
 
@@ -1561,7 +1561,7 @@ function RecorderConsole({
         </div>
 
         <p className="mt-4 text-center text-xs leading-5 text-white/45">
-          Draft chunks are captured locally every few seconds while recording. Save Recording stores the final audio in the Plexa project using local storage in development and Netlify Blobs on live.
+          Draft chunks are captured locally every few seconds while recording. Save Recording stores the final audio in the Planet Sport Studio project using local storage in development and Netlify Blobs on live.
         </p>
       </div>
     </div>

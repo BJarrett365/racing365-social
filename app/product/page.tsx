@@ -6,7 +6,7 @@ import { BRAND_SUITE, BRAND_TAGLINE } from "@/app/lib/brand";
 export const metadata: Metadata = {
   title: `Product · ${BRAND_SUITE}`,
   description:
-    "Plexa Studio product overview: AI-native sports media production across articles, translations, shorts, social images, scripts, library assets and export.",
+    "Planet Sport Studio product overview: AI-native sports media production across articles, translations, shorts, social images, scripts, library assets and export.",
 };
 
 const features = [
@@ -41,7 +41,7 @@ export default function ProductPage() {
 
       <Panel title="What it is">
         <p className="text-sm text-slate-300">
-          Plexa Studio is a production layer for AI-native sports and media teams. It turns licensed data,
+          Planet Sport Studio is a production layer for AI-native sports and media teams. It turns licensed data,
           owned content, approved feeds, video transcripts and creator knowledge into governed, reusable,
           multi-format output with clear provenance. Start from{" "}
           <Link href="/article-studio" className="font-semibold text-[#22c55e] hover:underline">

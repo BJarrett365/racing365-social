@@ -262,7 +262,7 @@ async function parsePremierLeagueOfficialFallback(url: string, tableView: Planet
       accept: "application/json",
       origin: "https://www.premierleague.com",
       referer: "https://www.premierleague.com/",
-      "user-agent": "Mozilla/5.0 (compatible; PlexaTableImporter/1.0)",
+      "user-agent": "Mozilla/5.0 (compatible; PlanetSportStudioTableImporter/1.0)",
     },
   });
   if (!res.ok) return null;
@@ -298,7 +298,7 @@ export async function POST(req: Request) {
     const res = await fetch(url, {
       cache: "no-store",
       headers: {
-        "user-agent": "Mozilla/5.0 (compatible; PlexaTableImporter/1.0)",
+        "user-agent": "Mozilla/5.0 (compatible; PlanetSportStudioTableImporter/1.0)",
         accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
     });

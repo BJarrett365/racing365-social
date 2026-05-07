@@ -6,7 +6,7 @@ import { BrandGuidelinesTab } from "@/app/prompts/BrandGuidelinesTab";
 export const metadata: Metadata = {
   title: `Brand guidelines · ${BRAND_SUITE}`,
   description:
-    "Per-brand guideline text for AI-assisted scripts and Runway prompts. Edit PLEXA, Racing365, TEAMtalk, PlanetF1, and F365.",
+    "Per-brand guideline text for AI-assisted scripts and Runway prompts. Edit Planet Sport Studio, Racing365, TEAMtalk, PlanetF1, and F365.",
 };
 
 export default function BrandGuidelinesPage() {

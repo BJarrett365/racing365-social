@@ -200,7 +200,7 @@ const clientDocs = [
   { slug: "client-access", title: "Client Access Guide", description: "How to create clients, issue keys, revoke access and review logs." },
   { slug: "client-api", title: "Client API Reference", description: "XML and JSON endpoint examples, authentication and payload fields." },
   { slug: "language-studio", title: "Language Studio Admin Guide", description: "Import, translate, review, approve and export workflow." },
-  { slug: "install", title: "Plexa Studio Install Guide", description: "Local install, admin setup and generated files." },
+  { slug: "install", title: "Planet Sport Studio Install Guide", description: "Local install, admin setup and generated files." },
   { slug: "environment", title: "Environment Variables", description: "OpenAI, DeepL, cron, admin and runtime settings." },
   { slug: "deployment", title: "Deployment Guide", description: "Production build, Vercel cron and storage notes." },
   { slug: "troubleshooting", title: "Troubleshooting", description: "Common import, image, translation, cron and API issues." },

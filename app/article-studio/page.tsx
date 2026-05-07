@@ -131,7 +131,7 @@ export default function ArticleStudioPage() {
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300 md:text-base">
             Article Studio brings Language Studio rewrite, translation and YouTube transcript workflows into one
-            editorial hub. Use it to turn source articles and imported scripts into publishable Plexa Studio articles.
+            editorial hub. Use it to turn source articles and imported scripts into publishable Planet Sport Studio articles.
           </p>
         </div>
       </section>

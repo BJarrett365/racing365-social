@@ -22,8 +22,8 @@ export async function POST(req: Request) {
     if (!uniqueFiles.length) return NextResponse.json({ error: "At least one unique voice sample is required" }, { status: 400 });
     if (uniqueFiles.length > 10) return NextResponse.json({ error: "Use 10 unique voice samples or fewer" }, { status: 400 });
 
-    const voiceName = String(form.get("name") || `Plexa Voice ${new Date().toLocaleDateString("en-GB")}`).trim();
-    const description = String(form.get("description") || form.get("targetVoiceStyle") || "Created in Plexa Audio Studio").trim();
+    const voiceName = String(form.get("name") || `Planet Sport Studio Voice ${new Date().toLocaleDateString("en-GB")}`).trim();
+    const description = String(form.get("description") || form.get("targetVoiceStyle") || "Created in Planet Sport Studio Audio Studio").trim();
     const removeBackgroundNoise = String(form.get("removeBackgroundNoise") ?? "") === "true";
     const labels = String(form.get("labels") ?? "").trim();
     const body = new FormData();

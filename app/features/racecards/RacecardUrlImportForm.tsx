@@ -29,7 +29,7 @@ export function RacecardUrlImportForm({ busy, error, onFetchParse, onBack, descr
         {description ?? (
           <>
             Paste a racecard link (for example Racing365 display URLs with a <span className="font-mono">raceId</span>{" "}
-            query). Plexa fetches meeting data from the public race API and maps runners, silks, and top picks when
+            query). Planet Sport Studio fetches meeting data from the public race API and maps runners, silks, and top picks when
             available.
           </>
         )}

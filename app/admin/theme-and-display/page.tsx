@@ -14,7 +14,7 @@ export default function ThemeAndDisplayPage() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#22c55e]">Appearance</p>
         <h1 className="mt-1 text-3xl font-black text-white">Theme and display</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-          Manage Plexa display settings, visual defaults and theme controls.
+          Manage Planet Sport Studio display settings, visual defaults and theme controls.
         </p>
       </section>
       <ThemeSettingsPanel />

@@ -10,7 +10,7 @@ export function SetupForm() {
   const router = useRouter();
   const [hasUsers, setHasUsers] = useState<boolean | null>(null);
   const [setupTokenRequired, setSetupTokenRequired] = useState(false);
-  const [name, setName] = useState("Plexa Studio Admin");
+  const [name, setName] = useState("Planet Sport Studio Admin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [setupToken, setSetupToken] = useState("");

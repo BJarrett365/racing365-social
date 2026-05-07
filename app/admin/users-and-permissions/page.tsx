@@ -14,7 +14,7 @@ export default function UsersAndPermissionsPage() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#22c55e]">Access</p>
         <h1 className="mt-1 text-3xl font-black text-white">Users and permissions</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-          Invite Plexa users and assign access roles for meetings, audio tools, editing tools and admin.
+          Invite Planet Sport Studio users and assign access roles for meetings, audio tools, editing tools and admin.
         </p>
       </section>
       <UserManagementPanel />

@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Use Policy · Plexa",
-  description: "Rules for safe and permitted use of Plexa AI production tools.",
+  title: "Use Policy · Planet Sport Studio",
+  description: "Rules for safe and permitted use of Planet Sport Studio AI production tools.",
 };
 
 export default function UsePolicyPage() {
@@ -9,7 +9,7 @@ export default function UsePolicyPage() {
       <p className="text-xs font-bold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">Updated 4 May 2026</p>
       <h1>Use Policy</h1>
       <p>
-        This Use Policy applies to Plexa inputs, outputs, audio recordings, voice models, generated speech and published
+        This Use Policy applies to Planet Sport Studio inputs, outputs, audio recordings, voice models, generated speech and published
         material created through Planet Sport Limited workflows.
       </p>
 
@@ -38,7 +38,7 @@ export default function UsePolicyPage() {
 
       <h2>Human Review</h2>
       <p>
-        Plexa outputs must be reviewed before publication. This is especially important for news, sport reporting,
+        Planet Sport Studio outputs must be reviewed before publication. This is especially important for news, sport reporting,
         commercial claims, rights-sensitive material, translation and any content involving a person&apos;s voice or likeness.
       </p>
 

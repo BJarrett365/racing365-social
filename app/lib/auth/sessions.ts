@@ -7,7 +7,7 @@ const SESSION_TTL_SECONDS = 60 * 60 * 12;
 function sessionSecret(): string {
   const secret = process.env.PLEXA_SESSION_SECRET?.trim() || process.env.ADMIN_TOKEN?.trim();
   if (!secret && process.env.NODE_ENV === "production") {
-    throw new Error("Set PLEXA_SESSION_SECRET before hosting Plexa publicly.");
+    throw new Error("Set PLEXA_SESSION_SECRET before hosting Planet Sport Studio publicly.");
   }
   return secret || "plexa-local-dev-session-secret-change-before-hosting";
 }

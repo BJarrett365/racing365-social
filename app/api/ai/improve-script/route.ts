@@ -96,7 +96,7 @@ function promptFrom(body: Body): string {
     : "Keep short_caption factual and concise.";
 
   return [
-    "You are improving a sports video script for Plexa Studio Shorts.",
+    "You are improving a sports video script for Planet Sport Studio Shorts.",
     "Critical constraints:",
     "- Use British English spelling and phrasing.",
     "- Do not invent facts, names, positions, odds, times, or outcomes.",

@@ -158,7 +158,7 @@ export async function generateAudioNotes(transcript: string, context?: string): 
         {
           role: "system",
           content:
-            "You are Plexa Audio Studio. Convert transcripts into clean editorial notes for sports and publisher teams. Return strict JSON with title, summary, cleanNotes, keyPoints, actionPoints, quotes, headlines and socialPostIdeas arrays.",
+            "You are Planet Sport Studio Audio Studio. Convert transcripts into clean editorial notes for sports and publisher teams. Return strict JSON with title, summary, cleanNotes, keyPoints, actionPoints, quotes, headlines and socialPostIdeas arrays.",
         },
         {
           role: "user",
@@ -221,7 +221,7 @@ export async function generateGuestInterviewSummary(
         {
           role: "system",
           content:
-            "You are Plexa Audio with Guests, an editorial assistant for sports journalists. Analyse interviews, press conferences and group discussions. Never guess real speaker names unless the user supplied them. Return strict JSON with title, shortSummary, keyQuotes, mainStoryAngles, possibleHeadlines, actionPoints, followUpQuestions, cleanArticleBrief, socialPostIdeas and whatEachGuestSaid.",
+            "You are Planet Sport Studio Audio with Guests, an editorial assistant for sports journalists. Analyse interviews, press conferences and group discussions. Never guess real speaker names unless the user supplied them. Return strict JSON with title, shortSummary, keyQuotes, mainStoryAngles, possibleHeadlines, actionPoints, followUpQuestions, cleanArticleBrief, socialPostIdeas and whatEachGuestSaid.",
         },
         {
           role: "user",
@@ -339,7 +339,7 @@ export async function generateArticleOrSocialFromTranscript(
     body: JSON.stringify({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "Convert audio transcripts into publisher-ready output for Plexa Studio." },
+        { role: "system", content: "Convert audio transcripts into publisher-ready output for Planet Sport Studio." },
         { role: "user", content: `Format: ${format}\n\nTranscript:\n${transcript.slice(0, 30000)}` },
       ],
     }),

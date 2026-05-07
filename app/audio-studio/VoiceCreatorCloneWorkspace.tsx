@@ -40,7 +40,7 @@ export function VoiceCreatorCloneWorkspace() {
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
   const [removeNoise, setRemoveNoise] = useState(true);
   const [voiceName, setVoiceName] = useState("");
-  const [description, setDescription] = useState("Clear, natural voice for Planet Sport and Plexa audio production.");
+  const [description, setDescription] = useState("Clear, natural voice for Planet Sport Studio audio production.");
   const [language, setLanguage] = useState("English");
   const [accent, setAccent] = useState("British");
   const [gender, setGender] = useState("");
@@ -442,7 +442,7 @@ export function VoiceCreatorCloneWorkspace() {
               <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text-secondary)]">
                 <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1" />
                 <span>
-                  I confirm that Planet Sport Limited/Plexa has all necessary rights and consents to upload, clone, store and use these voice samples, and that the voice will not be used for unlawful, deceptive or harmful purposes. I agree to the{" "}
+                  I confirm that Planet Sport Limited/Planet Sport Studio has all necessary rights and consents to upload, clone, store and use these voice samples, and that the voice will not be used for unlawful, deceptive or harmful purposes. I agree to the{" "}
                   <Link href="/terms" className="underline">Terms</Link>,{" "}
                   <Link href="/privacy-policy" className="underline">Privacy Policy</Link> and{" "}
                   <Link href="/use-policy" className="underline">Use Policy</Link>.

@@ -129,7 +129,7 @@ function buildJournalistGuidelines(name: string): string {
 async function fetchXml(sourceUrl: string): Promise<string> {
   const res = await fetch(sourceUrl, {
     cache: "no-store",
-    headers: { "user-agent": "PLEXA Language Studio/1.0", accept: "application/rss+xml,application/xml,text/xml,*/*" },
+    headers: { "user-agent": "PlanetSportStudio Language Studio/1.0", accept: "application/rss+xml,application/xml,text/xml,*/*" },
   });
   if (!res.ok) throw new Error(`Could not fetch XML feed (${res.status}).`);
   return extractXmlPayload(await res.text());
@@ -138,7 +138,7 @@ async function fetchXml(sourceUrl: string): Promise<string> {
 async function fetchHtml(sourceUrl: string): Promise<string> {
   const res = await fetch(sourceUrl, {
     cache: "no-store",
-    headers: { "user-agent": "PLEXA Language Studio/1.0", accept: "text/html,application/xhtml+xml,*/*" },
+    headers: { "user-agent": "PlanetSportStudio Language Studio/1.0", accept: "text/html,application/xhtml+xml,*/*" },
   });
   if (!res.ok) throw new Error(`Could not fetch HTML page (${res.status}).`);
   return res.text();

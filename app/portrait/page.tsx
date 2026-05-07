@@ -265,10 +265,7 @@ export default async function LandscapePage() {
       <div>
         <h1 className="text-3xl font-black tracking-tight text-[color:var(--text-primary)]">Landscape Studio</h1>
         <p className="mt-2 max-w-2xl text-[color:var(--text-secondary)]">
-          Landscape video templates by vertical. Open a pipeline list, then create or edit{" "}
-          <code className="ds-code">tpl-…</code> bundles. Optional preview: add a muted landscape MP4 at{" "}
-          <code className="ds-code">public/templates/examples/</code> with the pipeline slug (for example{" "}
-          <code className="ds-code">f1-grid.mp4</code> or <code className="ds-code">next-off.mp4</code>).
+          Landscape video templates by vertical. Open a pipeline list to create or edit video templates.
         </p>
       </div>
 

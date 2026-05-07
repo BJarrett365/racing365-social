@@ -15,7 +15,7 @@ const adminLinks = [
   {
     title: "Theme and display",
     href: "/admin/theme-and-display",
-    description: "Manage Plexa display settings, visual defaults and theme controls.",
+    description: "Manage Planet Sport Studio display settings, visual defaults and theme controls.",
     status: "Admin",
   },
   {
@@ -39,7 +39,7 @@ const adminLinks = [
   {
     title: "Theme Preview",
     href: "/admin/theme-preview",
-    description: "Check Plexa Studio surfaces, typography, panels and theme tokens.",
+    description: "Check Planet Sport Studio surfaces, typography, panels and theme tokens.",
     status: "Live",
   },
   {
@@ -60,7 +60,7 @@ const adminAreas = [
   {
     label: "User Access",
     value: "Secure",
-    description: "Invite and manage verified Plexa Studio users.",
+    description: "Invite and manage verified Planet Sport Studio users.",
   },
   {
     label: "Platform APIs",
@@ -86,10 +86,10 @@ export default function AdminPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#eab308]">Platform Admin</p>
-            <h1 className="mt-2 text-4xl font-black tracking-tight text-white">Plexa Studio Control Panel</h1>
+            <h1 className="mt-2 text-4xl font-black tracking-tight text-white">Planet Sport Studio Control Panel</h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
               Manage users, provider keys, language settings, R&D reports and operational references for this
-              Plexa Studio environment. In production, set{" "}
+              Planet Sport Studio environment. In production, set{" "}
               <code className="rounded bg-black/30 px-1.5 py-0.5 text-slate-300">ADMIN_TOKEN</code> in the server
               environment before saving protected settings.
             </p>

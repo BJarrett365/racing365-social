@@ -8,13 +8,13 @@ export const metadata = {
 
 const reports = [
   {
-    title: "Plexa Studio R&D Assessment",
+    title: "Planet Sport Studio R&D Assessment",
     href: "/admin/reports/rd-assessment",
     description:
-      "Strategic assessment covering positioning, rights/source advantage, UKRI fit, R&D priorities and the product roadmap for Plexa / Planet Sport AI Studio.",
+      "Strategic assessment covering positioning, rights/source advantage, UKRI fit, R&D priorities and the product roadmap for Planet Sport Studio.",
   },
   {
-    title: "Plexa / Planet Sport AI Studio R&D Report",
+    title: "Planet Sport Studio R&D Report",
     href: "/admin/reports/rd-report",
     description:
       "Technical R&D narrative covering LoopFeed, CrowdyNews, CrowdyAI, tools/API collaboration, technological uncertainties, evidence to collect and R&D tax framing.",
@@ -28,7 +28,7 @@ export default function AdminReportsPage() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#eab308]">Platform</p>
         <h1 className="mt-1 text-3xl font-black text-white">R&D reports</h1>
         <p className="mt-2 max-w-3xl text-sm text-slate-400">
-          Internal product and technical R&D material for Plexa Studio. These reports should be kept in sync as
+          Internal product and technical R&D material for Planet Sport Studio. These reports should be kept in sync as
           Article Studio, Language Studio, LoopFeed, CrowdyNews, CrowdyAI and AI production workflows evolve.
         </p>
       </div>

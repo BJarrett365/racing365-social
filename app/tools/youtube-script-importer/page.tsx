@@ -105,7 +105,7 @@ export default function YouTubeScriptImporterPage() {
   const [manualTranscript, setManualTranscript] = useState("");
   const [transcript, setTranscript] = useState<TranscriptResult | null>(null);
   const [selectedOutput, setSelectedOutput] = useState<ScriptOutputType>("summary");
-  const [brandTone, setBrandTone] = useState("Plexa Studio editorial, clear, concise and useful");
+  const [brandTone, setBrandTone] = useState("Planet Sport Studio editorial, clear, concise and useful");
   const [outputLanguage, setOutputLanguage] = useState("British English");
   const [contentStyle, setContentStyle] = useState<LanguageContentStyle>("Feature");
   const [sportContext, setSportContext] = useState<LanguageSportContext>("Football");
@@ -276,7 +276,7 @@ export default function YouTubeScriptImporterPage() {
       setMessage(`${data.output.title} generated.`);
     });
 
-  const saveToPlexa = () =>
+  const saveToPlanetSportStudio = () =>
     run(async () => {
       if (!meta) throw new Error("Load a YouTube video first.");
       const currentTranscript = transcript ?? makeManualTranscript(manualTranscript);
@@ -287,10 +287,10 @@ export default function YouTubeScriptImporterPage() {
         outputs,
         createArticle: true,
       });
-      setMessage("Saved to Plexa Studio and added to Language Studio for Rewrite and Translations.");
+      setMessage("Saved to Planet Sport Studio and added to Language Studio for Rewrite and Translations.");
     });
 
-  const saveOutputToPlexa = () =>
+  const saveOutputToPlanetSportStudio = () =>
     run(async () => {
       if (!meta) throw new Error("Load a YouTube video first.");
       const currentTranscript = transcript ?? makeManualTranscript(manualTranscript);
@@ -313,8 +313,8 @@ export default function YouTubeScriptImporterPage() {
       setManualTranscript(currentTranscript.fullText);
       setMessage(
         currentOutput.type === "article"
-          ? `Article saved to Plexa Studio${data.languageArticle?.title ? `: ${data.languageArticle.title}` : "."}`
-          : "Generated output saved to Plexa Studio and added to Language Studio for Rewrite and Translations.",
+          ? `Article saved to Planet Sport Studio${data.languageArticle?.title ? `: ${data.languageArticle.title}` : "."}`
+          : "Generated output saved to Planet Sport Studio and added to Language Studio for Rewrite and Translations.",
       );
     });
 
@@ -335,7 +335,7 @@ export default function YouTubeScriptImporterPage() {
         <div className="mx-auto max-w-5xl text-center">
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#eab308]">Tools / Import</p>
           <h1 className="mt-4 text-4xl font-black tracking-tight text-white md:text-6xl">
-            Plexa Studio YouTube Transcript Generator
+            Planet Sport Studio YouTube Transcript Generator
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-slate-300 md:text-base">
             Paste a YouTube URL, import a permitted transcript, then turn it into scripts, summaries, captions,
@@ -362,7 +362,7 @@ export default function YouTubeScriptImporterPage() {
       </section>
 
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
-        Only import videos you own, have permission to use, or where your use is legally allowed. Plexa Studio uses official
+        Only import videos you own, have permission to use, or where your use is legally allowed. Planet Sport Studio uses official
         YouTube metadata where possible and does not scrape restricted captions.
       </div>
 
@@ -385,7 +385,7 @@ export default function YouTubeScriptImporterPage() {
               const body = outputs.find((output) => output.type === "subtitles")?.content ?? transcriptText;
               downloadText(`${meta?.videoId ?? "youtube-transcript"}.srt`, body);
             }}
-            onSave={saveToPlexa}
+            onSave={saveToPlanetSportStudio}
           />
           <TranscriptFallbackOptions
             youtubeUrl={url}
@@ -423,7 +423,7 @@ export default function YouTubeScriptImporterPage() {
             selectedOutputId={selectedOutputId}
             selectedOutput={selectedGeneratedOutput}
             onSelect={setSelectedOutputId}
-            onSave={saveOutputToPlexa}
+            onSave={saveOutputToPlanetSportStudio}
             onUpdate={(content) => {
               if (!selectedGeneratedOutput) return;
               setOutputs((rows) => rows.map((row) => row.id === selectedGeneratedOutput.id ? { ...row, content } : row));
@@ -502,7 +502,7 @@ function TranscriptResultPanel({
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <R365Button variant="ghost" onClick={onImport} disabled={disabled}>Import edited transcript</R365Button>
-              <R365Button onClick={onSave} disabled={disabled}>Save to Plexa Studio</R365Button>
+              <R365Button onClick={onSave} disabled={disabled}>Save to Planet Sport Studio</R365Button>
             </div>
           </div>
         </div>
@@ -552,7 +552,7 @@ function TranscriptFallbackOptions({
         <div className="rounded-lg border border-[#1f2d26] bg-black/20 p-3">
           <p className="font-semibold text-white">Try YouTube / Apify import</p>
           <p className="mt-1 text-xs text-slate-500">
-            Calls the Plexa Studio transcript route again. It tries owned-channel YouTube Captions first, then the Apify
+            Calls the Planet Sport Studio transcript route again. It tries owned-channel YouTube Captions first, then the Apify
             YouTube transcript actor when the Apify token is configured.
           </p>
           <button
@@ -768,7 +768,7 @@ function GeneratedOutputPanel({
             disabled={!selectedOutput?.content}
             onClick={onSave}
           >
-            {selectedOutput?.type === "article" ? "Save article to Plexa Studio" : "Save output to Plexa Studio"}
+            {selectedOutput?.type === "article" ? "Save article to Planet Sport Studio" : "Save output to Planet Sport Studio"}
           </R365Button>
           <Link href="/language-studio">
             <R365Button variant="ghost">Open Language Studio</R365Button>

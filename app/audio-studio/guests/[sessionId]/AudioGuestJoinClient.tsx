@@ -219,22 +219,22 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
   return (
     <main className="mx-auto max-w-4xl space-y-6">
       <section className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-sm">
-        <p className="text-xs font-bold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">Plexa guest interview</p>
+        <p className="text-xs font-bold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">Planet Sport Studio guest interview</p>
         <h1 className="mt-2 text-3xl font-black">Join Audio with Guests</h1>
         <p className="mt-2 text-sm text-[color:var(--text-secondary)]">
-          {session?.title || "Loading session..."} - use the shared video room for the call, then record/upload audio only for Plexa.
+          {session?.title || "Loading session..."} - use the shared video room for the call, then record/upload audio only for Planet Sport Studio.
         </p>
       </section>
 
       {!consentAccepted ? (
         <Panel title="Recording Notice">
           <div className="rounded-2xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm leading-6 text-[color:var(--text-secondary)]">
-            <p className="font-bold text-[color:var(--text-primary)]">This Plexa meeting may be recorded.</p>
+            <p className="font-bold text-[color:var(--text-primary)]">This Planet Sport Studio meeting may be recorded.</p>
             <p className="mt-2">
               Audio may be used to create transcripts, summaries, notes, quotes, and follow-up content. By continuing, you confirm you understand and consent to being recorded for this meeting.
             </p>
             <p className="mt-2 text-xs">
-              You are joining as {currentUser?.name || currentUser?.email || "your Plexa account"}.
+              You are joining as {currentUser?.name || currentUser?.email || "your Planet Sport Studio account"}.
             </p>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -248,7 +248,7 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
         <div className="overflow-hidden rounded-3xl border border-[color:var(--border)] bg-slate-950">
           {session?.dailyRoomUrl && consentAccepted ? (
             <iframe
-              title="Plexa Daily guest room"
+              title="Planet Sport Studio Daily guest room"
               src={session.dailyRoomUrl}
               allow={dailyIframeAllow}
               allowFullScreen
@@ -279,7 +279,7 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
       <div className="grid gap-6 md:grid-cols-[1fr_320px]">
         <Panel title="Audio Track Recording">
           <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm leading-6 text-[color:var(--text-secondary)]">
-            Use the shared video room above to see and hear each other. This section records your microphone only so Plexa can upload a clean audio track for transcript and summary.
+            Use the shared video room above to see and hear each other. This section records your microphone only so Planet Sport Studio can upload a clean audio track for transcript and summary.
           </div>
           <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
             <StatusPill ok={micConnected} label="Mic ready for recording" />
@@ -299,7 +299,7 @@ export function AudioGuestJoinClient({ sessionId }: { sessionId: string }) {
 
         <Panel title="Your Details">
           <div className="mb-4 rounded-2xl bg-[color:var(--surface-muted)] p-3 text-xs text-[color:var(--text-secondary)]">
-            Logged in as <span className="font-bold text-[color:var(--text-primary)]">{currentUser?.name || currentUser?.email || "Plexa user"}</span>. Plexa uses this account to label your audio.
+            Logged in as <span className="font-bold text-[color:var(--text-primary)]">{currentUser?.name || currentUser?.email || "Planet Sport Studio user"}</span>. Planet Sport Studio uses this account to label your audio.
           </div>
           <label className="block text-sm font-semibold">
             Name

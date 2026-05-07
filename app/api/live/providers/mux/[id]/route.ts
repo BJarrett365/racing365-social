@@ -4,7 +4,7 @@ import { getMuxLiveStream } from "@/features/live-control/services/mux-provider-
 import { getMuxStreamRecordAsync, upsertMuxStreamFromLiveDataAsync } from "@/features/live-control/services/mux-stream-store";
 
 /**
- * Latest Mux live stream + persisted Plexa provider record (`id` = Mux live stream id).
+ * Latest Mux live stream + persisted Planet Sport Studio provider record (`id` = Mux live stream id).
  */
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const denied = assertAdminWrite(request);

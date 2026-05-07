@@ -91,7 +91,7 @@ const supportCards = [
   { title: "Product", href: "/product", description: "Overview, features and use cases." },
   { title: "How It Works", href: "/how-it-works", description: "Step-by-step workflow guide." },
   { title: "Guard Rails", href: "/guard-rails", description: "Editorial and safety boundaries." },
-  { title: "Brand Guidelines", href: "/brand-guidelines", description: "Plexa Studio visual and tone guidance." },
+  { title: "Brand Guidelines", href: "/brand-guidelines", description: "Planet Sport Studio visual and tone guidance." },
   { title: "Prompts", href: "/prompts", description: "Prompt library and AI instructions." },
   { title: "Admin", href: "/admin", description: "Settings, integrations and keys." },
 ];
@@ -117,7 +117,7 @@ export default function HomePage() {
           </p>
         ) : null}
         <h1 className="mt-2 text-4xl font-black tracking-tight text-[color:var(--text-primary)]">
-          Plexa Studio Control Room
+          Planet Sport Studio Control Room
         </h1>
         <p className="mt-4 text-lg text-slate-400">
           Create short videos, social images, captions, articles and multilingual outputs from one AI-powered

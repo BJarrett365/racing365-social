@@ -3,7 +3,7 @@ import path from "path";
 import { NextResponse } from "next/server";
 
 const DOCS: Record<string, { file: string; title: string }> = {
-  install: { file: "install.md", title: "Plexa Studio Install Guide" },
+  install: { file: "install.md", title: "Planet Sport Studio Install Guide" },
   environment: { file: "environment.md", title: "Environment Variables" },
   "language-studio": { file: "language-studio.md", title: "Language Studio Admin Guide" },
   "client-access": { file: "client-access.md", title: "Client Access Guide" },

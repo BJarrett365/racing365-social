@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Planet Sport Studio icon">
+  <rect width="512" height="512" fill="#d8ae3d"/>
+  <circle cx="256" cy="256" r="212" fill="none" stroke="#fff" stroke-width="32"/>
+  <g transform="skewX(-12) translate(48 0)">
+    <path
+      fill="#fff"
+      fill-rule="evenodd"
+      d="M168 168h144c29 0 51 7 66 22 15 14 19 34 13 58l-7 27c-7 28-22 50-45 65-23 16-51 24-84 24h-35l-22 84h-82l74-280Zm83 65-17 66h55c17 0 30-3 38-10 9-6 15-17 19-32 2-10 0-16-6-19-6-4-18-5-35-5h-54Z"
+    />
+  </g>
+</svg>

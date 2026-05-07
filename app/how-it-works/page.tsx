@@ -6,7 +6,7 @@ import { BRAND_SUITE, BRAND_TAGLINE } from "@/app/lib/brand";
 export const metadata: Metadata = {
   title: `How It Works · ${BRAND_SUITE}`,
   description:
-    "How Plexa Studio works: source intelligence, Article Studio, Language Studio, Shorts Studio, social image, review and export.",
+    "How Planet Sport Studio works: source intelligence, Article Studio, Language Studio, Shorts Studio, social image, review and export.",
 };
 
 const steps = [
@@ -33,7 +33,7 @@ export default function HowItWorksPage() {
         <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#eab308]">{BRAND_SUITE}</p>
         <h1 className="mt-2 text-4xl font-black tracking-tight text-white">How it works</h1>
         <p className="mt-3 text-slate-400">
-          {BRAND_TAGLINE}. Plexa Studio turns approved source intelligence into governed, reusable output across
+          {BRAND_TAGLINE}. Planet Sport Studio turns approved source intelligence into governed, reusable output across
           articles, translations, social images, shorts, audio/video scripts and exports. Start from{" "}
           <Link href="/article-studio" className="font-semibold text-[#22c55e] hover:underline">
             Article Studio
@@ -95,7 +95,7 @@ export default function HowItWorksPage() {
 
       <Panel title="R&D learning loop">
         <p className="text-sm text-slate-300">
-          R&D is not always about successful outputs. Plexa Studio should keep learning from the failures and
+          R&D is not always about successful outputs. Planet Sport Studio should keep learning from the failures and
           barriers: malformed feeds, transcript gaps, model hallucinations, prompt failures, missing rights metadata,
           export errors, slow workflows and manual production steps that block content creators from being creative.
         </p>

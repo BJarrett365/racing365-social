@@ -15,7 +15,7 @@ export function ThemeSettingsPanel() {
   return (
     <Panel title="Theme">
       <p className="text-sm text-slate-400">
-        Choose how Plexa Studio appears across dashboard, admin, reports, studios and editor screens.
+        Choose how Planet Sport Studio appears across dashboard, admin, reports, studios and editor screens.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         {themeOptions.map((opt) => {

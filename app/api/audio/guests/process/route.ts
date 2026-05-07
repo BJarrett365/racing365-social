@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     const language = normaliseOpenAiTranscriptionLanguage(String(form.get("language") ?? "")) || undefined;
     const title = String(form.get("title") || savedFile.title || "Audio with Guests").trim();
     const sport = String(form.get("sport") || "Sport").trim();
-    const brand = String(form.get("brand") || "Plexa").trim();
+    const brand = String(form.get("brand") || "Planet Sport Studio").trim();
     const recordingMode = String(form.get("recordingMode") || "same-room").trim();
     const removeBackgroundNoise = String(form.get("removeBackgroundNoise") ?? "") === "true";
     const transcriptId = audioStudioId("aud_guest_tx");

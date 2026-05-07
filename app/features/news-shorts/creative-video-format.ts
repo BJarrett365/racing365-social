@@ -1,5 +1,5 @@
 /**
- * Plexa Creative Studio — video canvas formats (distinct from camera `VideoRecordOrientation`).
+ * Planet Sport Studio - video canvas formats (distinct from camera `VideoRecordOrientation`).
  * `shorts_vertical` keeps legacy News Shorts behaviour; `portrait_video` shares 1080×1920 with different layout rules.
  */
 

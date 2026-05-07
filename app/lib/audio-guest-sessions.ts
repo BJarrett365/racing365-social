@@ -62,7 +62,7 @@ export type AudioGuestSession = {
 
 export const RECORDING_CONSENT_VERSION = "recording-consent-v1";
 export const RECORDING_CONSENT_TEXT =
-  "This Plexa meeting may be recorded. Audio may be used to create transcripts, summaries, notes, quotes, and follow-up content. By continuing, you confirm you understand and consent to being recorded for this meeting.";
+  "This Planet Sport Studio meeting may be recorded. Audio may be used to create transcripts, summaries, notes, quotes, and follow-up content. By continuing, you confirm you understand and consent to being recorded for this meeting.";
 
 type GuestSessionsStore = {
   sessions: AudioGuestSession[];

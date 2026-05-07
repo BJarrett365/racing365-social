@@ -23,10 +23,10 @@ export type BrandGuidelinesFile = {
 
 const META: Record<BrandGuidelineSlug, { label: string; defaultBody: string }> = {
   plexa: {
-    label: "Plexa Studio",
-    defaultBody: `[Plexa Studio — UI Kit missing]
+    label: "Planet Sport Studio",
+    defaultBody: `[Planet Sport Studio - UI Kit missing]
 
-Add data/plexa-brand-guidelines-ui-kit.txt (Plexa Studio App UI Kit) to the repo, or paste guidelines on the Brand Guidelines page.`,
+Add data/plexa-brand-guidelines-ui-kit.txt (Planet Sport Studio App UI Kit) to the repo, or paste guidelines on the Brand Guidelines page.`,
   },
   racing365: {
     label: "Racing365",
@@ -62,7 +62,7 @@ Bundled file data/f365-brand-guidelines-full.txt was missing — add the Footbal
 
 const SLUGS = Object.keys(META) as BrandGuidelineSlug[];
 
-/** PLEXA App UI Kit. Source: data/plexa-brand-guidelines-ui-kit.txt */
+/** Planet Sport Studio App UI Kit. Source: data/plexa-brand-guidelines-ui-kit.txt */
 function loadPlexaGuidelinesText(): string {
   const full = path.join(process.cwd(), "data", "plexa-brand-guidelines-ui-kit.txt");
   try {

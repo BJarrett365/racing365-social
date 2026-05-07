@@ -244,7 +244,7 @@ export async function enrichLanguageArticlesFromPages(articles: LanguageArticle[
       const res = await fetch(url, {
         cache: "no-store",
         headers: {
-          "user-agent": "PLEXA Language Studio/1.0",
+          "user-agent": "PlanetSportStudio Language Studio/1.0",
           accept: "text/html,application/xhtml+xml,*/*",
         },
       });

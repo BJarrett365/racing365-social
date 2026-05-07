@@ -8,7 +8,7 @@ export const metadata = {
 
 const rightsLayers = [
   ["Licensed sport data", "Football data via Opta, official horse racing data, official logos and racing silks where covered by licence."],
-  ["Licensed imagery", "Alamy image licensing and approved visual assets covering brands using the Plexa platform."],
+  ["Licensed imagery", "Alamy image licensing and approved visual assets covering brands using the Planet Sport Studio platform."],
   ["Owned content", "Planet Sport articles, creator output, archive material, editorial knowledge and brand guidance."],
   ["Official platform feeds", "LoopFeed access using official YouTube API and X/Twitter sources."],
   ["Publisher-permitted feeds", "XML/RSS feeds from publishers granting access to source content."],
@@ -33,7 +33,7 @@ const evolution = [
   ["LoopFeed", "Official/compliant source ingestion for YouTube, X/Twitter and third-party platform feeds."],
   ["CrowdyNews", "Real-time sports and social aggregation, surfacing emerging stories, fan conversation and live narratives."],
   ["CrowdyAI", "AI sports intelligence: classification, entity resolution, trend detection, moderation and match/content association."],
-  ["Plexa Studio", "Production and governance layer for articles, translations, social images, shorts, audio/video scripts and exports."],
+  ["Planet Sport Studio", "Production and governance layer for articles, translations, social images, shorts, audio/video scripts and exports."],
   ["Planet Sport AI Studio", "Strategic platform direction for rights-aware AI production across Planet Sport brands and creators."],
 ];
 
@@ -48,7 +48,7 @@ const priorities = [
   ["Rights-aware provenance", "Track whether material came from licensed data, owned content, official APIs, permitted feeds or external sources.", "High"],
   ["Multimodal creator studio", "Treat text, images, thumbnails, audio, voice, face and video as one content graph for creator-scale output.", "High"],
   ["AI change review", "Show AI fixes as reviewable changes, learn from approved fixes and store lessons in knowledge files.", "High"],
-  ["Publisher connectors", "Add CMS, feed, social, DAM and newsroom integrations so Plexa becomes operating infrastructure.", "Medium"],
+  ["Publisher connectors", "Add CMS, feed, social, DAM and newsroom integrations so Planet Sport Studio becomes operating infrastructure.", "Medium"],
 ];
 
 const risks = [
@@ -69,9 +69,9 @@ export default function RdAssessmentPage() {
     <div className="space-y-8">
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#eab308]">R&D Assessment</p>
-        <h1 className="mt-1 text-3xl font-black text-white">Plexa / Planet Sport AI Studio R&D Assessment</h1>
+        <h1 className="mt-1 text-3xl font-black text-white">Planet Sport Studio R&D Assessment</h1>
         <p className="mt-2 max-w-3xl text-sm text-slate-400">
-          Plexa Studio is evolving into the Planet Sport AI Studio: a production layer for AI-native sports and
+          Planet Sport Studio is evolving into a production layer for AI-native sports and
           media teams that turns approved source intelligence into governed, reusable, multi-format output with
           clear provenance.
         </p>
@@ -136,7 +136,7 @@ export default function RdAssessmentPage() {
 
       <Panel title="Rights and source advantage">
         <p className="mb-4 text-sm text-slate-300">
-          The rights layer is one of Plexa Studio&apos;s strongest differentiators because the platform starts from
+          The rights layer is one of Planet Sport Studio&apos;s strongest differentiators because the platform starts from
           trusted, licensed or permissioned source material rather than open-ended prompt generation.
         </p>
         <div className="grid gap-3 md:grid-cols-2">
@@ -220,7 +220,7 @@ export default function RdAssessmentPage() {
 
       <Panel title="Positioning recommendation">
         <p className="text-sm text-slate-300">
-          Plexa / Planet Sport AI Studio should position itself as an AI-native editorial operating system for
+          Planet Sport Studio should position itself as an AI-native editorial operating system for
           sports and publisher teams. The competitive edge will come from LoopFeed ingestion, CrowdyNews/CrowdyAI
           intelligence, governed workflows, content memory, rights-cleared source provenance, multimodal production,
           creator-scale tooling and export reliability, not simply exposing AI models in a nicer interface.

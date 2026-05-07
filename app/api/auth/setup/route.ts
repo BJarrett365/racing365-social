@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Setup token is required. Set PLEXA_SETUP_TOKEN and enter it here." }, { status: 401 });
   }
 
-  const name = body.name?.trim() || "Plexa Studio Admin";
+  const name = body.name?.trim() || "Planet Sport Studio Admin";
   const email = normaliseEmail(body.email ?? "");
   const password = body.password ?? "";
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
 import { GovernancePanel } from "@/app/language-studio/GovernancePanels";
@@ -1493,6 +1493,7 @@ export function LanguageStudioClient() {
           apiKeys={clientApiKeys}
           accessLogs={clientAccessLogs}
           rawApiKey={latestRawApiKey}
+          onClearRawApiKey={() => setLatestRawApiKey(null)}
           onSaveClient={saveClient}
           onDeleteClient={deleteClient}
           onCreateKey={createClientApiKey}
@@ -1806,6 +1807,7 @@ function ClientAccessPanel({
   apiKeys,
   accessLogs,
   rawApiKey,
+  onClearRawApiKey,
   onSaveClient,
   onDeleteClient,
   onCreateKey,
@@ -1816,12 +1818,15 @@ function ClientAccessPanel({
   apiKeys: ClientApiKeyRow[];
   accessLogs: ClientAccessLogRow[];
   rawApiKey: string | null;
+  onClearRawApiKey: () => void;
   onSaveClient: (client: Partial<ClientRow>) => void;
   onDeleteClient: (id: string) => void;
   onCreateKey: (apiKey: Partial<ClientApiKeyRow>) => void;
   onRevokeKey: (id: string) => void;
   busy: boolean;
 }) {
+  const clientFormRef = useRef<HTMLDivElement>(null);
+  const [copyHint, setCopyHint] = useState<string | null>(null);
   const [client, setClient] = useState<Partial<ClientRow>>({
     name: "",
     active: true,
@@ -1836,9 +1841,34 @@ function ClientAccessPanel({
     allowedFormats: ["xml", "json"],
   });
   const selectedClient = clients.find((row) => row.id === keyDraft.clientId) ?? clients[0];
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
   const jsonApiUrl = `/api/client-api/translations?key=${rawApiKey || "CLIENT_KEY"}`;
   const jsonFeedUrl = `/api/client-feeds/translations.json?key=${rawApiKey || "CLIENT_KEY"}`;
   const xmlUrl = `/api/client-feeds/translations.xml?key=${rawApiKey || "CLIENT_KEY"}`;
+  const fullJsonApi = rawApiKey ? `${origin}${jsonApiUrl}` : "";
+  const fullJsonFeed = rawApiKey ? `${origin}${jsonFeedUrl}` : "";
+  const fullXml = rawApiKey ? `${origin}${xmlUrl}` : "";
+
+  const showCopyHint = (msg: string) => {
+    setCopyHint(msg);
+    window.setTimeout(() => setCopyHint(null), 3200);
+  };
+
+  const copyToClipboard = async (label: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showCopyHint(`${label} copied`);
+    } catch {
+      showCopyHint("Browser blocked clipboard — select the text and copy manually");
+    }
+  };
+
+  const loadClientIntoForm = (row: ClientRow) => {
+    setClient(row);
+    queueMicrotask(() => {
+      clientFormRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  };
 
   return (
     <Panel title="Client Access" className="space-y-5 p-5">
@@ -1847,21 +1877,57 @@ function ClientAccessPanel({
         <p className="mt-1 text-sm text-slate-400">
           Create a client, issue a key, then provide XML, JSON feed or JSON API access to approved translations only.
         </p>
+        <div className="mt-3 rounded-lg border border-slate-600/35 bg-black/25 p-3 text-xs leading-relaxed text-slate-400">
+          <p>
+            <strong className="text-slate-200">Why you only see part of a key:</strong> the full secret is never stored (only a hash), so existing keys cannot be shown or emailed from this screen. That is normal.
+          </p>
+          <p className="mt-2">
+            <strong className="text-slate-200">To send a key to a client:</strong> use <strong className="text-slate-200">Create API key</strong>, then copy the full value from the yellow box immediately (or use the copy buttons). To rotate access, create a new key, send it to the client, then <strong className="text-slate-200">Revoke</strong> the old key when they have switched.
+          </p>
+          <p className="mt-2">
+            <strong className="text-slate-200">Editing a client:</strong> click <strong className="text-slate-200">Edit</strong> on a client row — the form at the top loads that client (this page scrolls to it). Change fields and press <strong className="text-slate-200">Save client</strong>.
+          </p>
+        </div>
+        {copyHint ? <p className="mt-2 text-xs font-medium text-[#22c55e]">{copyHint}</p> : null}
       </div>
 
       {rawApiKey ? (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
-          <p className="font-bold">New API key - copy now</p>
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <p className="font-bold">New API key — copy now (shown once)</p>
+            <button type="button" className="text-xs text-amber-200 underline hover:text-white" onClick={() => onClearRawApiKey()}>
+              I have saved it — hide key
+            </button>
+          </div>
           <code className="mt-2 block break-all rounded bg-black/40 p-2 text-xs">{rawApiKey}</code>
-          <p className="mt-2 text-xs">JSON API: <code>{jsonApiUrl}</code></p>
-          <p className="mt-1 text-xs">JSON feed: <code>{jsonFeedUrl}</code></p>
-          <p className="mt-1 text-xs">XML: <code>{xmlUrl}</code></p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" className="rounded border border-amber-500/50 bg-black/30 px-2 py-1 text-xs text-amber-50 hover:bg-black/50" onClick={() => void copyToClipboard("API key", rawApiKey)}>
+              Copy key
+            </button>
+            <button type="button" className="rounded border border-amber-500/50 bg-black/30 px-2 py-1 text-xs text-amber-50 hover:bg-black/50" onClick={() => void copyToClipboard("XML feed URL", fullXml)}>
+              Copy XML URL
+            </button>
+            <button type="button" className="rounded border border-amber-500/50 bg-black/30 px-2 py-1 text-xs text-amber-50 hover:bg-black/50" onClick={() => void copyToClipboard("JSON feed URL", fullJsonFeed)}>
+              Copy JSON feed URL
+            </button>
+            <button type="button" className="rounded border border-amber-500/50 bg-black/30 px-2 py-1 text-xs text-amber-50 hover:bg-black/50" onClick={() => void copyToClipboard("JSON API URL", fullJsonApi)}>
+              Copy JSON API URL
+            </button>
+          </div>
+          <p className="mt-3 text-xs text-amber-100/90">Relative paths (same host as this page):</p>
+          <p className="mt-1 break-all text-xs opacity-90">JSON API: <code>{jsonApiUrl}</code></p>
+          <p className="mt-1 break-all text-xs opacity-90">JSON feed: <code>{jsonFeedUrl}</code></p>
+          <p className="mt-1 break-all text-xs opacity-90">XML: <code>{xmlUrl}</code></p>
+          {origin ? (
+            <p className="mt-2 text-xs text-amber-200/80">Full URLs for clients use this host: <code className="break-all">{origin}</code></p>
+          ) : null}
         </div>
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <div className="rounded-lg border border-[#1f2d26] p-4">
+        <div ref={clientFormRef} className="rounded-lg border border-[#1f2d26] p-4 ring-offset-2 ring-offset-[#0b1210] transition-shadow scroll-mt-4">
           <h3 className="font-bold text-white">Create / update client</h3>
+          {client.id ? <p className="mt-1 text-xs font-medium text-[#22c55e]">Editing: {client.name}</p> : <p className="mt-1 text-xs text-slate-500">New client — fill in details, then save.</p>}
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <input className={inputClass} placeholder="Client name" value={client.name ?? ""} onChange={(e) => setClient({ ...client, name: e.target.value })} />
             <input className={inputClass} placeholder="Contact email" value={client.contactEmail ?? ""} onChange={(e) => setClient({ ...client, contactEmail: e.target.value })} />
@@ -1885,7 +1951,16 @@ function ClientAccessPanel({
             ))}
           </div>
           <textarea className={textareaClass} placeholder="Client notes" value={client.notes ?? ""} onChange={(e) => setClient({ ...client, notes: e.target.value })} />
-          <R365Button type="button" onClick={() => onSaveClient(client)} disabled={busy}>Save client</R365Button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <R365Button type="button" onClick={() => onSaveClient(client)} disabled={busy}>
+              {client.id ? "Update client" : "Save client"}
+            </R365Button>
+            {client.id ? (
+              <R365Button type="button" variant="ghost" onClick={() => setClient({ name: "", active: true, allowedBrands: [], allowedLanguages: [], allowedFormats: ["xml", "json"] })} disabled={busy}>
+                Clear form (new client)
+              </R365Button>
+            ) : null}
+          </div>
         </div>
 
         <div className="rounded-lg border border-[#1f2d26] p-4">
@@ -1951,7 +2026,7 @@ function ClientAccessPanel({
                     {row.contactEmail ? <p className="mt-1 text-xs text-slate-500">{row.contactEmail}</p> : null}
                   </div>
                   <div className="flex gap-2">
-                    <button type="button" className="text-xs text-[#22c55e]" onClick={() => setClient(row)}>
+                    <button type="button" className="text-xs text-[#22c55e]" onClick={() => loadClientIntoForm(row)}>
                       Edit
                     </button>
                     <button

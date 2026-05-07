@@ -74,38 +74,45 @@ export default function ToolsPage() {
         <h1 className="mt-2 text-4xl font-black tracking-tight text-[color:var(--text-primary)]">
           Planet Sport Studio utility hub
         </h1>
-        <p className="mt-4 text-lg text-slate-400">
+        <p className="mt-4 text-lg leading-7 text-[color:var(--text-secondary)]">
           Import, convert and prepare content for Planet Sport Studio projects without changing the existing template flows.
         </p>
       </div>
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {tools.map((tool) => (
-          <Panel key={tool.name} title={tool.status}>
-            <div className="flex h-full flex-col gap-4">
-              <div className="flex-1">
-                <h2 className="text-xl font-bold text-[color:var(--text-primary)]">{tool.name}</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-400">{tool.description}</p>
+        {tools.map((tool) => {
+          const isLive = tool.status === "Live";
+          return (
+            <Panel key={tool.name} title={tool.status}>
+              <div className="flex h-full min-h-[190px] flex-col gap-5">
+                <div className="flex-1">
+                  <h2 className="text-xl font-black tracking-tight text-[color:var(--text-primary)]">{tool.name}</h2>
+                  <p className="mt-3 text-sm leading-6 text-[color:var(--text-secondary)]">{tool.description}</p>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-[color:var(--border)] pt-4">
+                  <span
+                    className={
+                      isLive
+                        ? "rounded-full border border-emerald-500/40 bg-emerald-500/12 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-700 dark:text-emerald-100"
+                        : "rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-muted)] px-3 py-1 text-xs font-black uppercase tracking-wide text-[color:var(--text-secondary)]"
+                    }
+                  >
+                    {tool.status}
+                  </span>
+                  {isLive ? (
+                    <Link href={tool.href}>
+                      <R365Button>Open</R365Button>
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-2.5 text-sm font-semibold text-[color:var(--text-muted)]">
+                      Planned
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <span
-                  className={
-                    tool.status === "Live"
-                      ? "rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-300"
-                      : "rounded-full border border-slate-700 bg-slate-900/60 px-3 py-1 text-xs font-bold uppercase tracking-wide text-slate-400"
-                  }
-                >
-                  {tool.status}
-                </span>
-                <Link href={tool.href}>
-                  <R365Button variant={tool.status === "Live" ? "primary" : "ghost"}>
-                    {tool.status === "Live" ? "Open" : "View"}
-                  </R365Button>
-                </Link>
-              </div>
-            </div>
-          </Panel>
-        ))}
+            </Panel>
+          );
+        })}
       </div>
 
     </div>

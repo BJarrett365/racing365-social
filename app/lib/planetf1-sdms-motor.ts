@@ -138,7 +138,6 @@ export function buildF1GridBundleFromSdms(
   rows: SdmsMotorResultRow[],
   contentIdSuffix: string,
 ): F1GridBundle {
-  const slug = slugifySegment(race.race_name);
   const drivers: F1GridDriver[] = rows.map((row, i) => {
     const posNum = Number.parseInt(String(row.pos), 10);
     const position = Number.isFinite(posNum) ? posNum : i + 1;

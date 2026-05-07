@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
 import { GovernancePanel } from "@/app/language-studio/GovernancePanels";
@@ -177,11 +177,11 @@ const allLanguageStudioTabs = [...primaryTabs, ...secondaryTabs] as readonly str
 function tabLabel(tab: LanguageStudioTab): string {
   return tab === "Journalists" ? "Content Creators" : tab;
 }
-const inputClass = "mt-1 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] px-3 py-2 text-sm text-white placeholder:text-slate-600";
+const inputClass = "mt-1 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--text-primary)] shadow-sm placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent-soft)] disabled:cursor-not-allowed disabled:bg-[color:var(--surface-muted)] disabled:text-[color:var(--text-muted)]";
 const textareaClass = `${inputClass} min-h-28 font-mono text-xs`;
-const miniButtonClass = "rounded-md border border-[#1f2d26] px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:border-[#22c55e]/60 hover:text-white";
-const dangerMiniButtonClass = "rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 text-xs font-semibold text-red-200 hover:border-red-400 hover:text-red-100";
-const amberButtonClass = "rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs font-semibold text-amber-100 hover:border-amber-300";
+const miniButtonClass = "inline-flex items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-bold text-[color:var(--text-secondary)] shadow-sm transition hover:border-[color:var(--accent)] hover:bg-[color:var(--surface-hover)] hover:text-[color:var(--text-primary)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-muted)] disabled:text-[color:var(--text-muted)] disabled:opacity-70";
+const dangerMiniButtonClass = "inline-flex items-center justify-center rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-700 shadow-sm transition hover:border-red-500 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-200";
+const amberButtonClass = "inline-flex items-center justify-center rounded-xl border border-amber-500/50 bg-amber-500/15 px-3 py-2 text-xs font-bold text-amber-800 shadow-sm transition hover:border-amber-500 hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-60 dark:text-amber-100";
 const targetOptions = Object.entries(LANGUAGE_LABELS).filter(([code]) => code !== "en") as Array<[LanguageCode, string]>;
 const contentStyleOptions: LanguageContentStyle[] = ["News", "Transfer", "Opinion", "Preview", "Review", "Analysis", "Feature", "Live"];
 const sportContextOptions: LanguageSportContext[] = ["Football", "Horse Racing", "Rugby Union", "Rugby League", "Formula 1", "Cricket", "Golf", "Tennis", "NFL", "Boxing", "MMA", "Basketball"];
@@ -461,7 +461,7 @@ export function LanguageStudioClient() {
     };
   }, [articles, dashboardDay, dashboardMonth, exportsRows, translations]);
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     const [articleRes, transRes, glossaryRes, rulesRes, exportsRes, clientsRes, sourceBrandsRes, governanceRes] = await Promise.all([
       fetch("/api/language/articles"),
       fetch("/api/language/translations"),
@@ -499,11 +499,11 @@ export function LanguageStudioClient() {
       setSourceUrl(selectedSource.feedUrl);
       setSourceLanguage(selectedSource.sourceLanguage);
     }
-  };
+  }, [sourceBrand]);
 
   useEffect(() => {
     void loadAll().catch((e) => setError(e instanceof Error ? e.message : "Failed to load Language Studio"));
-  }, []);
+  }, [loadAll]);
 
   useEffect(() => {
     const tabParam = new URLSearchParams(window.location.search).get("tab");
@@ -1284,7 +1284,7 @@ export function LanguageStudioClient() {
                   </div>
                 ) : <p className="text-sm text-slate-500">No translation selected.</p>}
               </div>
-              <div className="min-w-0 2xl:sticky 2xl:top-4 2xl:self-start">
+              <div className="min-w-0 space-y-4 2xl:sticky 2xl:top-4 2xl:self-start">
                 <SourceImagePanel
                   article={originalForTranslation}
                   imageChangeUrl={imageChangeUrl}
@@ -1378,21 +1378,21 @@ function SourceImagePanel({
 }) {
   const src = articleImageSrc(article);
   return (
-    <div className="mb-4 space-y-3 rounded-lg border border-[#1f2d26] bg-black/20 p-4">
+    <div className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-sm">
       <div>
-        <p className="text-sm font-bold text-white">Source Image</p>
-        <p className="mt-1 text-xs text-slate-500">Thumbnail and image tools for social/video output.</p>
+        <p className="text-sm font-bold text-[color:var(--text-primary)]">Source Image</p>
+        <p className="mt-1 text-xs text-[color:var(--text-muted)]">Thumbnail and image tools for social/video output.</p>
       </div>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={article?.title ?? "Source image"} className="aspect-video w-full rounded-lg border border-[#1f2d26] bg-black object-cover" />
+        <img src={src} alt={article?.title ?? "Source image"} className="aspect-video w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] object-cover" />
       ) : (
-        <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-[#1f2d26] bg-black/30 text-xs text-slate-500">
+        <div className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--surface-muted)] text-xs text-[color:var(--text-muted)]">
           No source image
         </div>
       )}
-      {article?.imageLibraryRel ? <p className="truncate text-xs text-[#22c55e]">Library: {article.imageLibraryRel}</p> : null}
-      {article?.imageUrl ? <p className="truncate text-xs text-slate-500">Remote: {article.imageUrl}</p> : null}
+      {article?.imageLibraryRel ? <p className="truncate text-xs font-semibold text-[color:var(--success)]">Library: {article.imageLibraryRel}</p> : null}
+      {article?.imageUrl ? <p className="truncate text-xs text-[color:var(--text-muted)]">Remote: {article.imageUrl}</p> : null}
       <div className="space-y-2">
         <input
           className={inputClass}
@@ -1405,7 +1405,7 @@ function SourceImagePanel({
           <button type="button" className={dangerMiniButtonClass} onClick={onDelete} disabled={busy || !src}>Delete</button>
         </div>
       </div>
-      <label className="block text-xs font-semibold uppercase text-slate-500">
+      <label className="block text-xs font-semibold uppercase text-[color:var(--text-muted)]">
         Image generation prompt
         <textarea
           className={textareaClass}
@@ -1421,7 +1421,9 @@ function SourceImagePanel({
           Image to Image + Runway / OpenAI
         </button>
       </div>
-      <p className="text-xs text-slate-500">Image to Image is parked until the Runway/OpenAI image edit provider is connected.</p>
+      <p className="rounded-xl bg-[color:var(--surface-muted)] p-3 text-xs leading-5 text-[color:var(--text-secondary)]">
+        Image to Image is parked until the Runway/OpenAI image edit provider is connected.
+      </p>
     </div>
   );
 }

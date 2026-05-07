@@ -62,7 +62,7 @@ export class PodcastTemplateService {
       outputAudioRel: finalRel,
       message: `Generated with ${generated.mode === "dialogue" ? "dialogue API" : "per-line fallback"}`,
     };
-    const withTiming = await this.attachChapterTimestamps(project, finalRel);
+    const withTiming = await this.attachChapterTimestamps(project);
     const saved = await this.storage.addHistory(
       project.id,
       historyEntry,
@@ -86,7 +86,7 @@ export class PodcastTemplateService {
     return { downloadRel: rel, filename };
   }
 
-  private async attachChapterTimestamps(project: PodcastProject, _outputRel: string): Promise<PodcastProject> {
+  private async attachChapterTimestamps(project: PodcastProject): Promise<PodcastProject> {
     // TODO: Could be upgraded with ffprobe + segment-level duration mapping.
     if (!project.chapters.length || !project.segments.length) return project;
     const segMap = new Map(project.segments.map((s) => [s.id, s.order]));

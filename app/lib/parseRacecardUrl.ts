@@ -101,7 +101,6 @@ export function extractPlanetSportRaceIdFromHtml(html: string): number | null {
 /** First-stage HTML inspection: embedded ids / JSON hints (no full DOM parse). */
 export function parseRacecardFromHtml(
   html: string,
-  _pageUrl: string,
 ): { raceId: number | null; hints: string[] } {
   const hints: string[] = [];
   const raceId = extractPlanetSportRaceIdFromHtml(html);

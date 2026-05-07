@@ -428,6 +428,7 @@ function PreviewSlide({
         />
       ) : null}
       {imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={imageUrl}
           alt=""
@@ -1150,7 +1151,7 @@ export function NewsShortsBuilder() {
     setRunwayScene((value) => (value.trim() ? value : deriveRunwaySceneHintFromTemplate(template)));
   }, [template]);
 
-  const loadI2vImageFromLibraryRel = async (rel: string) => {
+  const loadI2vImageFromLibraryRel = useCallback(async (rel: string) => {
     const trimmed = rel.trim();
     if (!trimmed) return;
     try {
@@ -1164,12 +1165,12 @@ export function NewsShortsBuilder() {
     } catch {
       setI2vParseImageRel(null);
     }
-  };
+  }, []);
 
   /** Keeps latest `applyBrandTemplate` for URL `?brand=` handling without re-subscribing the effect every render. */
   const applyBrandTemplateRef = useRef<(brandId: string) => void>(() => {});
 
-  const applyParsedHeroToImageToVideo = async (
+  const applyParsedHeroToImageToVideo = useCallback(async (
     t: NewsShortTemplateData,
     importedLibraryImageRel?: string,
   ) => {
@@ -1205,7 +1206,7 @@ export function NewsShortsBuilder() {
         setI2vParseImageRel(null);
       }
     }
-  };
+  }, [loadI2vImageFromLibraryRel]);
 
   const applyBrandTemplate = useCallback(
     (brandId: string) => {
@@ -3438,6 +3439,7 @@ export function NewsShortsBuilder() {
                     <div className="mt-2">
                       <p className={uiLabel}>Image preview</p>
                       <div className="mt-1 overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={slide.imageUrl || template.heroImage}
                           alt={`Preview for slide ${i + 1}`}
@@ -5854,6 +5856,7 @@ export function NewsShortsBuilder() {
                           className="absolute inset-0 z-[2]"
                           style={newsShortMotionDimOverlayStyle(motionDimStrength)}
                         />
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={`/api/file?rel=${encodeURIComponent(rel)}`}
                           alt=""
@@ -5866,6 +5869,7 @@ export function NewsShortsBuilder() {
                   return (
                     <div className="absolute inset-0 h-full w-full">
                       <CreativeStudioSafeZoneOverlay format={creativeFmtResolved} />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={`/api/file?rel=${encodeURIComponent(rel)}`}
                         alt=""

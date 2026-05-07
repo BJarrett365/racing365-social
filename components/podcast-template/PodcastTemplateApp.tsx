@@ -10,7 +10,6 @@ import {
 } from "@/lib/podcast-template/constants";
 import type {
   ElevenLabsVoiceOption,
-  PodcastChapter,
   PodcastProject,
   PodcastScriptSegment,
   PodcastSpeaker,

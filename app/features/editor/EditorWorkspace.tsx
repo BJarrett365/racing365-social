@@ -2509,8 +2509,6 @@ export function EditorWorkspace({
     contentId,
     effectiveVideoBuildMode,
     images,
-    motionBackdropDimStrength,
-    motionBackdropOpaqueOpacity,
     planetRugbyLivePreviewScene,
     previewImageFormat,
     previewNonce,
@@ -3044,6 +3042,7 @@ export function EditorWorkspace({
                       {t2iTaskJson?.status === "SUCCEEDED" ? (
                         <div className="space-y-2">
                           {t2iPreviewUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={t2iPreviewUrl}
                               alt="Runway text-to-image result"

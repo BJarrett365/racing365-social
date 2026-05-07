@@ -38,8 +38,7 @@ export function RaceSilkPreview({
 
   useEffect(() => {
     setMountedHtml(raceSilkBadgeHtml(silks, heightPx) ?? "");
-    // sk encodes silk fields; omit `silks` reference so parents can pass a fresh object each render without re-running
-  }, [sk, heightPx]);
+  }, [silks, sk, heightPx]);
 
   if (mountedHtml === undefined) {
     const h = silkImageBoxHeight(heightPx);

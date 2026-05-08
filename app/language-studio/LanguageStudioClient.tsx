@@ -1907,7 +1907,7 @@ function ClientAccessPanel({
             <strong className="text-slate-200">Why you only see part of a key:</strong> the full secret is never stored (only a hash), so existing keys cannot be shown or emailed from this screen. That is normal.
           </p>
           <p className="mt-2">
-            <strong className="text-slate-200">To send a key to a client:</strong> use <strong className="text-slate-200">Create API key</strong>, then copy the full value from the yellow box immediately (or use the copy buttons). To rotate access, create a new key, send it to the client, then <strong className="text-slate-200">Revoke</strong> the old key when they have switched.
+            <strong className="text-slate-200">To send a key to a client:</strong> use <strong className="text-slate-200">Create API key</strong>, then copy the full value from the <strong className="text-slate-200">highlighted key panel</strong> immediately (or use the copy buttons). To rotate access, create a new key, send it to the client, then <strong className="text-slate-200">Revoke</strong> the old key when they have switched.
           </p>
           <p className="mt-2">
             <strong className="text-slate-200">Editing a client:</strong> click <strong className="text-slate-200">Edit</strong> on a row in the <strong className="text-slate-200">Clients</strong> list (left column). The form <strong className="text-slate-200">directly above</strong> that list loads that client; change fields and press <strong className="text-slate-200">Update client</strong>.
@@ -1917,34 +1917,78 @@ function ClientAccessPanel({
       </div>
 
       {rawApiKey ? (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+        <div
+          className="rounded-xl border-2 border-amber-500 p-4 text-sm shadow-lg"
+          style={{
+            backgroundColor: "#0c1222",
+            color: "#e2e8f0",
+            borderColor: "#d97706",
+          }}
+        >
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <p className="font-bold">New API key — copy now (shown once)</p>
-            <button type="button" className="text-xs text-amber-200 underline hover:text-white" onClick={() => onClearRawApiKey()}>
+            <p className="font-bold text-white">New API key — copy now (shown once)</p>
+            <button
+              type="button"
+              className="text-xs font-semibold text-amber-300 underline decoration-amber-500/80 underline-offset-2 hover:text-amber-100"
+              onClick={() => onClearRawApiKey()}
+            >
               I have saved it — hide key
             </button>
           </div>
-          <code className="mt-2 block break-all rounded bg-black/40 p-2 text-xs">{rawApiKey}</code>
+          <code
+            className="mt-3 block break-all rounded-lg border border-slate-600 bg-black px-3 py-3 font-mono text-[13px] leading-relaxed text-emerald-300"
+            style={{ wordBreak: "break-all" }}
+          >
+            {rawApiKey}
+          </code>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" className="rounded border border-amber-500/50 bg-black/30 px-2 py-1 text-xs text-amber-50 hover:bg-black/50" onClick={() => void copyToClipboard("API key", rawApiKey)}>
+            <button
+              type="button"
+              className="rounded-lg border border-amber-600/80 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700"
+              onClick={() => void copyToClipboard("API key", rawApiKey)}
+            >
               Copy key
             </button>
-            <button type="button" className="rounded border border-amber-500/50 bg-black/30 px-2 py-1 text-xs text-amber-50 hover:bg-black/50" onClick={() => void copyToClipboard("XML feed URL", fullXml)}>
+            <button
+              type="button"
+              className="rounded-lg border border-amber-600/80 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700"
+              onClick={() => void copyToClipboard("XML feed URL", fullXml)}
+            >
               Copy XML URL
             </button>
-            <button type="button" className="rounded border border-amber-500/50 bg-black/30 px-2 py-1 text-xs text-amber-50 hover:bg-black/50" onClick={() => void copyToClipboard("JSON feed URL", fullJsonFeed)}>
+            <button
+              type="button"
+              className="rounded-lg border border-amber-600/80 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700"
+              onClick={() => void copyToClipboard("JSON feed URL", fullJsonFeed)}
+            >
               Copy JSON feed URL
             </button>
-            <button type="button" className="rounded border border-amber-500/50 bg-black/30 px-2 py-1 text-xs text-amber-50 hover:bg-black/50" onClick={() => void copyToClipboard("JSON API URL", fullJsonApi)}>
+            <button
+              type="button"
+              className="rounded-lg border border-amber-600/80 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700"
+              onClick={() => void copyToClipboard("JSON API URL", fullJsonApi)}
+            >
               Copy JSON API URL
             </button>
           </div>
-          <p className="mt-3 text-xs text-amber-100/90">Relative paths (same host as this page):</p>
-          <p className="mt-1 break-all text-xs opacity-90">JSON API: <code>{jsonApiUrl}</code></p>
-          <p className="mt-1 break-all text-xs opacity-90">JSON feed: <code>{jsonFeedUrl}</code></p>
-          <p className="mt-1 break-all text-xs opacity-90">XML: <code>{xmlUrl}</code></p>
+          <p className="mt-4 text-xs font-medium text-slate-300">Relative paths (same host as this page):</p>
+          <p className="mt-1 break-all text-xs text-slate-200">
+            JSON API:{" "}
+            <code className="rounded bg-black/50 px-1.5 py-0.5 font-mono text-emerald-200">{jsonApiUrl}</code>
+          </p>
+          <p className="mt-1 break-all text-xs text-slate-200">
+            JSON feed:{" "}
+            <code className="rounded bg-black/50 px-1.5 py-0.5 font-mono text-emerald-200">{jsonFeedUrl}</code>
+          </p>
+          <p className="mt-1 break-all text-xs text-slate-200">
+            XML:{" "}
+            <code className="rounded bg-black/50 px-1.5 py-0.5 font-mono text-emerald-200">{xmlUrl}</code>
+          </p>
           {origin ? (
-            <p className="mt-2 text-xs text-amber-200/80">Full URLs for clients use this host: <code className="break-all">{origin}</code></p>
+            <p className="mt-3 break-all text-xs text-slate-300">
+              Full URLs for clients use this host:{" "}
+              <code className="rounded bg-black/50 px-1.5 py-0.5 font-mono text-emerald-200">{origin}</code>
+            </p>
           ) : null}
         </div>
       ) : null}

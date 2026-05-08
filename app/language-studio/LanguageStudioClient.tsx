@@ -5,6 +5,7 @@ import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
 import { GovernancePanel } from "@/app/language-studio/GovernancePanels";
 import { QualityGuardrailsPanel } from "@/app/language-studio/QualityGuardrailsPanel";
+import { withAppPathPrefix } from "@/app/lib/app-base-path";
 import { stripArticleMetadataLines } from "@/app/lib/language-studio/article-pages";
 import { LANGUAGE_LABELS, type LanguageCode, type LanguageContentStyle, type LanguageProviderMode, type LanguageSourceParserType, type LanguageSportContext, type LanguageTranslation as StoredLanguageTranslation, type TranslationMode } from "@/app/lib/language-studio/types";
 
@@ -1853,9 +1854,9 @@ function ClientAccessPanel({
   });
   const selectedClient = clients.find((row) => row.id === keyDraft.clientId) ?? clients[0];
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const jsonApiUrl = `/api/client-api/translations?key=${rawApiKey || "CLIENT_KEY"}`;
-  const jsonFeedUrl = `/api/client-feeds/translations.json?key=${rawApiKey || "CLIENT_KEY"}`;
-  const xmlUrl = `/api/client-feeds/translations.xml?key=${rawApiKey || "CLIENT_KEY"}`;
+  const jsonApiUrl = `${withAppPathPrefix("/api/client-api/translations")}?key=${rawApiKey || "CLIENT_KEY"}`;
+  const jsonFeedUrl = `${withAppPathPrefix("/api/client-feeds/translations.json")}?key=${rawApiKey || "CLIENT_KEY"}`;
+  const xmlUrl = `${withAppPathPrefix("/api/client-feeds/translations.xml")}?key=${rawApiKey || "CLIENT_KEY"}`;
   const fullJsonApi = rawApiKey ? `${origin}${jsonApiUrl}` : "";
   const fullJsonFeed = rawApiKey ? `${origin}${jsonFeedUrl}` : "";
   const fullXml = rawApiKey ? `${origin}${xmlUrl}` : "";
@@ -2189,9 +2190,9 @@ function ExportsPanel({
                   </span>
                 </div>
                 <div className="mt-3 grid gap-2 text-xs">
-                  <p>XML: <code className="break-all rounded bg-black/30 px-2 py-1">/api/client-feeds/translations.xml?key=CLIENT_KEY</code></p>
-                  <p>JSON feed: <code className="break-all rounded bg-black/30 px-2 py-1">/api/client-feeds/translations.json?key=CLIENT_KEY</code></p>
-                  <p>JSON API: <code className="break-all rounded bg-black/30 px-2 py-1">/api/client-api/translations?key=CLIENT_KEY</code></p>
+                  <p>XML: <code className="break-all rounded bg-black/30 px-2 py-1">{`${withAppPathPrefix("/api/client-feeds/translations.xml")}?key=CLIENT_KEY`}</code></p>
+                  <p>JSON feed: <code className="break-all rounded bg-black/30 px-2 py-1">{`${withAppPathPrefix("/api/client-feeds/translations.json")}?key=CLIENT_KEY`}</code></p>
+                  <p>JSON API: <code className="break-all rounded bg-black/30 px-2 py-1">{`${withAppPathPrefix("/api/client-api/translations")}?key=CLIENT_KEY`}</code></p>
                 </div>
                 <p className="mt-3 text-xs text-slate-500">
                   {clientKeys.length

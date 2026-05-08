@@ -34,6 +34,26 @@ openssl rand -base64 32
 
 Use separate values for `PLEXA_SESSION_SECRET`, `PLEXA_SETUP_TOKEN`, `ADMIN_TOKEN`, and `CRON_SECRET`.
 
+## Subpath hosting (`/l` and client feeds)
+
+If the Studio is opened at **`https://planetsport.studio/l/...`**, feeds must use the **same path prefix** as the Next.js app, or you will get **404** on `/l/api/...` when the build has no `basePath`.
+
+**Option A — App at site root (no `basePath`):** use feeds at the **origin root** (no `/l`):
+
+```text
+https://planetsport.studio/api/client-feeds/translations.xml?key=YOUR_KEY
+```
+
+**Option B — App built with a base path:** set at **Netlify → Environment variables** (and ensure the same value is present **at build time**):
+
+```bash
+NEXT_PUBLIC_BASE_PATH=/l
+```
+
+Then redeploy. Next.js will serve API routes as **`/l/api/client-feeds/...`**, and Language Studio “Copy URL” actions will include `/l` automatically.
+
+`PLEXA_PUBLIC_URL` should match how users open the app (e.g. `https://planetsport.studio/l` if that is the canonical entry URL).
+
 ## First Admin
 
 After deploy:

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { stripAppPathPrefix, withAppPathPrefix } from "@/app/lib/app-base-path";
 
 const SESSION_COOKIE = "plexa_session";
 const PUBLIC_PATHS = [
@@ -65,8 +66,7 @@ async function validSession(request: NextRequest): Promise<SessionPayload | null
   }
 }
 
-function roleCanAccess(request: NextRequest, role: string | undefined): boolean {
-  const { pathname, searchParams } = request.nextUrl;
+function roleCanAccess(pathname: string, searchParams: URLSearchParams, role: string | undefined): boolean {
   if (!role || role === "admin" || role === "editor" || role === "viewer") return true;
   if (pathname === "/api/auth/me" || pathname === "/api/auth/logout") return true;
   if (role === "meeting_guest") {
@@ -97,14 +97,17 @@ function roleCanAccess(request: NextRequest, role: string | undefined): boolean 
 }
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const rawPath = request.nextUrl.pathname;
+  const pathname = stripAppPathPrefix(rawPath);
+
+  if (pathname.startsWith("/_next")) return NextResponse.next();
   if (isPublicPath(pathname) || /\.[a-z0-9]+$/i.test(pathname)) return NextResponse.next();
   const session = await validSession(request);
   if (session) {
-    if (roleCanAccess(request, session.role)) return NextResponse.next();
+    if (roleCanAccess(pathname, request.nextUrl.searchParams, session.role)) return NextResponse.next();
     if (pathname.startsWith("/api/")) return NextResponse.json({ error: "This Plexa account does not have access to that area." }, { status: 403 });
     const url = request.nextUrl.clone();
-    url.pathname = session.role === "meeting_guest" ? "/login" : "/audio-studio";
+    url.pathname = withAppPathPrefix(session.role === "meeting_guest" ? "/login" : "/audio-studio");
     if (session.role === "meeting_guest") url.searchParams.set("access", "meeting-only");
     return NextResponse.redirect(url);
   }
@@ -114,8 +117,8 @@ export async function middleware(request: NextRequest) {
   }
 
   const url = request.nextUrl.clone();
-  url.pathname = "/login";
-  url.searchParams.set("next", pathname);
+  url.pathname = withAppPathPrefix("/login");
+  url.searchParams.set("next", rawPath);
   return NextResponse.redirect(url);
 }
 

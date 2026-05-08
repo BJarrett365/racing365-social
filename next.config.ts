@@ -1,6 +1,15 @@
 import type { NextConfig } from "next";
 
+const rawBase = (process.env.NEXT_PUBLIC_BASE_PATH ?? "").trim();
+const basePath =
+  !rawBase || rawBase === "/"
+    ? undefined
+    : rawBase.startsWith("/")
+      ? rawBase.replace(/\/$/, "")
+      : `/${rawBase.replace(/\/$/, "")}`;
+
 const nextConfig: NextConfig = {
+  ...(basePath ? { basePath } : {}),
   distDir: process.env.NEXT_DIST_DIR || ".next",
   /** Dev: allow 127.0.0.1 vs localhost / ::1 host mix so `/_next/*` is not treated as cross-site. */
   allowedDevOrigins: ["127.0.0.1"],

@@ -1,3 +1,4 @@
+import { mapWithConcurrency } from "@/app/lib/map-with-concurrency";
 import { stripArticleMetadataLines, stripGeneratedArticleMetadataLines } from "@/app/lib/language-studio/article-pages";
 import { generateSocialPosts, translateContent } from "@/app/lib/language-studio/language-engine";
 import { newLanguageId, readLanguageStudioData, writeLanguageStudioData } from "@/app/lib/language-studio/store";
@@ -158,6 +159,48 @@ function articleIdsForAutomation(automation: LanguageArticleAutomation, input: A
   return [...new Set(ids)];
 }
 
+function automationArticleConcurrency(): number {
+  const raw = Number(process.env.LANGUAGE_AUTOMATION_CONCURRENCY);
+  if (Number.isFinite(raw) && raw >= 1) return Math.min(6, Math.floor(raw));
+  return 2;
+}
+
+async function runAutomationForArticle(
+  data: LanguageStudioData,
+  automation: LanguageArticleAutomation,
+  articleId: string,
+): Promise<{ created: number; skipped: number }> {
+  let created = 0;
+  let skipped = 0;
+  const article = data.articles[articleId];
+  if (!article) return { created, skipped };
+
+  if (automation.action === "rewrite" || automation.action === "rewrite-translate") {
+    const targetLanguage = article.sourceLanguage;
+    if (existingTranslation(data, article.id, automation.clientIds, targetLanguage, "rewrite-only")) {
+      skipped += 1;
+    } else {
+      await createTranslation(data, automation, article, targetLanguage, "rewrite-only");
+      created += 1;
+      article.status = "review_needed";
+      article.updatedAt = new Date().toISOString();
+    }
+  }
+  if (automation.action === "translate" || automation.action === "rewrite-translate") {
+    for (const targetLanguage of automation.targetLanguages.filter((language) => language !== article.sourceLanguage)) {
+      if (existingTranslation(data, article.id, automation.clientIds, targetLanguage, automation.translationMode)) {
+        skipped += 1;
+        continue;
+      }
+      await createTranslation(data, automation, article, targetLanguage, automation.translationMode);
+      created += 1;
+      article.status = "translated";
+      article.updatedAt = new Date().toISOString();
+    }
+  }
+  return { created, skipped };
+}
+
 export async function runArticleAutomationsForImport(input: ArticleAutomationRunInput): Promise<ArticleAutomationRunResult> {
   if (input.articleIds.length === 0) {
     return { automationCount: 0, checkedArticleCount: 0, createdTranslationCount: 0, skippedDuplicateCount: 0, details: [] };
@@ -173,34 +216,15 @@ export async function runArticleAutomationsForImport(input: ArticleAutomationRun
 
   for (const automation of automations) {
     const articleIds = articleIdsForAutomation(automation, input);
+    const slice = articleIds.slice(0, automation.maxArticlesPerRun);
+    const perArticle = await mapWithConcurrency(slice, automationArticleConcurrency(), (articleId) =>
+      runAutomationForArticle(data, automation, articleId),
+    );
     let createdCount = 0;
     let skippedForAutomation = 0;
-    for (const articleId of articleIds.slice(0, automation.maxArticlesPerRun)) {
-      const article = data.articles[articleId];
-      if (!article) continue;
-      if (automation.action === "rewrite" || automation.action === "rewrite-translate") {
-        const targetLanguage = article.sourceLanguage;
-        if (existingTranslation(data, article.id, automation.clientIds, targetLanguage, "rewrite-only")) {
-          skippedForAutomation += 1;
-        } else {
-          await createTranslation(data, automation, article, targetLanguage, "rewrite-only");
-          createdCount += 1;
-          article.status = "review_needed";
-          article.updatedAt = new Date().toISOString();
-        }
-      }
-      if (automation.action === "translate" || automation.action === "rewrite-translate") {
-        for (const targetLanguage of automation.targetLanguages.filter((language) => language !== article.sourceLanguage)) {
-          if (existingTranslation(data, article.id, automation.clientIds, targetLanguage, automation.translationMode)) {
-            skippedForAutomation += 1;
-            continue;
-          }
-          await createTranslation(data, automation, article, targetLanguage, automation.translationMode);
-          createdCount += 1;
-          article.status = "translated";
-          article.updatedAt = new Date().toISOString();
-        }
-      }
+    for (const row of perArticle) {
+      createdCount += row.created;
+      skippedForAutomation += row.skipped;
     }
     createdTranslationCount += createdCount;
     skippedDuplicateCount += skippedForAutomation;

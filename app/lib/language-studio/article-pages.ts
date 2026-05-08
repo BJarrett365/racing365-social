@@ -1,3 +1,4 @@
+import { mapWithConcurrency } from "@/app/lib/map-with-concurrency";
 import type { LanguageArticle, LanguageSocialEmbed } from "@/app/lib/language-studio/types";
 import { sanitizeImportedContent } from "@/app/lib/language-studio/sanitize";
 
@@ -231,14 +232,16 @@ export function extractSocialEmbedsFromBody(body: string): { body: string; socia
   return { body: out.join("\n\n").trim(), socialEmbeds };
 }
 
+function enrichConcurrency(): number {
+  const raw = Number(process.env.LANGUAGE_IMPORT_FETCH_CONCURRENCY);
+  if (Number.isFinite(raw) && raw >= 1) return Math.min(12, Math.floor(raw));
+  return 6;
+}
+
 export async function enrichLanguageArticlesFromPages(articles: LanguageArticle[]): Promise<LanguageArticle[]> {
-  const out: LanguageArticle[] = [];
-  for (const article of articles) {
+  return mapWithConcurrency(articles, enrichConcurrency(), async (article) => {
     const url = article.canonicalUrl?.trim();
-    if (!url || !/^https?:\/\//i.test(url)) {
-      out.push(article);
-      continue;
-    }
+    if (!url || !/^https?:\/\//i.test(url)) return article;
 
     try {
       const res = await fetch(url, {
@@ -248,10 +251,7 @@ export async function enrichLanguageArticlesFromPages(articles: LanguageArticle[
           accept: "text/html,application/xhtml+xml,*/*",
         },
       });
-      if (!res.ok) {
-        out.push(article);
-        continue;
-      }
+      if (!res.ok) return article;
 
       const html = await res.text();
       const jsonLd = extractJsonLdArticleData(html);
@@ -266,7 +266,7 @@ export async function enrichLanguageArticlesFromPages(articles: LanguageArticle[
       const standfirst = jsonLd.description || firstMetaContent(html, ["description", "og:description"]) || article.standfirst;
       const imageUrl = article.imageUrl || jsonLd.imageUrl || firstMetaContent(html, ["og:image", "twitter:image"]);
 
-      out.push({
+      return {
         ...article,
         author,
         publishDate,
@@ -277,10 +277,9 @@ export async function enrichLanguageArticlesFromPages(articles: LanguageArticle[
         metaDescription: standfirst.slice(0, 180) || article.metaDescription,
         imageUrl,
         updatedAt: new Date().toISOString(),
-      });
+      };
     } catch {
-      out.push(article);
+      return article;
     }
-  }
-  return out;
+  });
 }

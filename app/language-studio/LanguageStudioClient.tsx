@@ -102,6 +102,9 @@ type ClientRow = {
   allowedLanguages: LanguageCode[];
   allowedFormats: Array<"xml" | "json">;
   notes?: string;
+  /** Preserved when editing so POST can keep the same client record. */
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 type ClientApiKeyRow = {
@@ -492,7 +495,14 @@ export function LanguageStudioClient() {
     setGlossary(glossaryData.glossary ?? []);
     setRules(rulesData.rules ?? []);
     setExportsRows(exportsData.exports ?? []);
-    setClients(clientsData.clients ?? []);
+    setClients(
+      (clientsData.clients ?? []).map((c: ClientRow) => ({
+        ...c,
+        allowedBrands: Array.isArray(c.allowedBrands) ? c.allowedBrands : [],
+        allowedLanguages: Array.isArray(c.allowedLanguages) ? c.allowedLanguages : [],
+        allowedFormats: (Array.isArray(c.allowedFormats) && c.allowedFormats.length ? c.allowedFormats : ["xml", "json"]) as Array<"xml" | "json">,
+      })),
+    );
     setClientApiKeys(clientsData.apiKeys ?? []);
     setClientAccessLogs(clientsData.accessLogs ?? []);
     setJournalistProfiles(uniqueJournalistProfiles(governanceData.journalistProfiles ?? []));
@@ -1826,6 +1836,7 @@ function ClientAccessPanel({
   busy: boolean;
 }) {
   const clientFormRef = useRef<HTMLDivElement>(null);
+  const clientNameInputRef = useRef<HTMLInputElement>(null);
   const [copyHint, setCopyHint] = useState<string | null>(null);
   const [client, setClient] = useState<Partial<ClientRow>>({
     name: "",
@@ -1864,9 +1875,23 @@ function ClientAccessPanel({
   };
 
   const loadClientIntoForm = (row: ClientRow) => {
-    setClient(row);
+    setClient({
+      id: row.id,
+      name: row.name,
+      contactEmail: row.contactEmail ?? "",
+      active: row.active ?? true,
+      allowedBrands: Array.isArray(row.allowedBrands) ? [...row.allowedBrands] : [],
+      allowedLanguages: Array.isArray(row.allowedLanguages) ? [...row.allowedLanguages] : [],
+      allowedFormats: (Array.isArray(row.allowedFormats) && row.allowedFormats.length
+        ? [...row.allowedFormats]
+        : ["xml", "json"]) as Array<"xml" | "json">,
+      notes: row.notes ?? "",
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    });
     queueMicrotask(() => {
       clientFormRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      clientNameInputRef.current?.focus({ preventScroll: true });
     });
   };
 
@@ -1885,7 +1910,7 @@ function ClientAccessPanel({
             <strong className="text-slate-200">To send a key to a client:</strong> use <strong className="text-slate-200">Create API key</strong>, then copy the full value from the yellow box immediately (or use the copy buttons). To rotate access, create a new key, send it to the client, then <strong className="text-slate-200">Revoke</strong> the old key when they have switched.
           </p>
           <p className="mt-2">
-            <strong className="text-slate-200">Editing a client:</strong> click <strong className="text-slate-200">Edit</strong> on a client row — the form at the top loads that client (this page scrolls to it). Change fields and press <strong className="text-slate-200">Save client</strong>.
+            <strong className="text-slate-200">Editing a client:</strong> click <strong className="text-slate-200">Edit</strong> on a row in the <strong className="text-slate-200">Clients</strong> list (left column). The form <strong className="text-slate-200">directly above</strong> that list loads that client; change fields and press <strong className="text-slate-200">Update client</strong>.
           </p>
         </div>
         {copyHint ? <p className="mt-2 text-xs font-medium text-[#22c55e]">{copyHint}</p> : null}
@@ -1925,68 +1950,119 @@ function ClientAccessPanel({
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <div ref={clientFormRef} className="rounded-lg border border-[#1f2d26] p-4 ring-offset-2 ring-offset-[#0b1210] transition-shadow scroll-mt-4">
-          <h3 className="font-bold text-white">Create / update client</h3>
-          {client.id ? <p className="mt-1 text-xs font-medium text-[#22c55e]">Editing: {client.name}</p> : <p className="mt-1 text-xs text-slate-500">New client — fill in details, then save.</p>}
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <input className={inputClass} placeholder="Client name" value={client.name ?? ""} onChange={(e) => setClient({ ...client, name: e.target.value })} />
-            <input className={inputClass} placeholder="Contact email" value={client.contactEmail ?? ""} onChange={(e) => setClient({ ...client, contactEmail: e.target.value })} />
-            <input className={inputClass} placeholder="Allowed brands, comma-separated" value={(client.allowedBrands ?? []).join(", ")} onChange={(e) => setClient({ ...client, allowedBrands: csv(e.target.value) })} />
-            <label className="mt-3 flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={client.active ?? true} onChange={(e) => setClient({ ...client, active: e.target.checked })} />Active</label>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-4">
-            {clientLanguageOptions.map(([code, label]) => (
-              <label key={code} className="flex items-center gap-2">
-                <input type="checkbox" checked={(client.allowedLanguages ?? []).includes(code)} onChange={(e) => setClient({ ...client, allowedLanguages: e.target.checked ? [...(client.allowedLanguages ?? []), code] : (client.allowedLanguages ?? []).filter((row) => row !== code) })} />
-                {label}
-              </label>
-            ))}
-          </div>
-          <div className="mt-3 flex gap-4 text-sm text-slate-300">
-            {(["xml", "json"] as const).map((format) => (
-              <label key={format} className="flex items-center gap-2">
-                <input type="checkbox" checked={(client.allowedFormats ?? []).includes(format)} onChange={(e) => setClient({ ...client, allowedFormats: e.target.checked ? [...(client.allowedFormats ?? []), format] : (client.allowedFormats ?? []).filter((row) => row !== format) })} />
-                {format.toUpperCase()}
-              </label>
-            ))}
-          </div>
-          <textarea className={textareaClass} placeholder="Client notes" value={client.notes ?? ""} onChange={(e) => setClient({ ...client, notes: e.target.value })} />
-          <div className="mt-3 flex flex-wrap gap-2">
-            <R365Button type="button" onClick={() => onSaveClient(client)} disabled={busy}>
-              {client.id ? "Update client" : "Save client"}
-            </R365Button>
-            {client.id ? (
-              <R365Button type="button" variant="ghost" onClick={() => setClient({ name: "", active: true, allowedBrands: [], allowedLanguages: [], allowedFormats: ["xml", "json"] })} disabled={busy}>
-                Clear form (new client)
+        <div className="flex flex-col gap-4">
+          <div ref={clientFormRef} className="rounded-lg border border-[#1f2d26] p-4 ring-offset-2 ring-offset-[#0b1210] transition-shadow scroll-mt-4">
+            <h3 className="font-bold text-white">Create / update client</h3>
+            {client.id ? <p className="mt-1 text-xs font-medium text-[#22c55e]">Editing: {client.name}</p> : <p className="mt-1 text-xs text-slate-500">New client — fill in details, then save.</p>}
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <input ref={clientNameInputRef} className={inputClass} placeholder="Client name" value={client.name ?? ""} onChange={(e) => setClient({ ...client, name: e.target.value })} />
+              <input className={inputClass} placeholder="Contact email" value={client.contactEmail ?? ""} onChange={(e) => setClient({ ...client, contactEmail: e.target.value })} />
+              <input className={inputClass} placeholder="Allowed brands, comma-separated" value={(client.allowedBrands ?? []).join(", ")} onChange={(e) => setClient({ ...client, allowedBrands: csv(e.target.value) })} />
+              <label className="mt-3 flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={client.active ?? true} onChange={(e) => setClient({ ...client, active: e.target.checked })} />Active</label>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-4">
+              {clientLanguageOptions.map(([code, label]) => (
+                <label key={code} className="flex items-center gap-2">
+                  <input type="checkbox" checked={(client.allowedLanguages ?? []).includes(code)} onChange={(e) => setClient({ ...client, allowedLanguages: e.target.checked ? [...(client.allowedLanguages ?? []), code] : (client.allowedLanguages ?? []).filter((row) => row !== code) })} />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <div className="mt-3 flex gap-4 text-sm text-slate-300">
+              {(["xml", "json"] as const).map((format) => (
+                <label key={format} className="flex items-center gap-2">
+                  <input type="checkbox" checked={(client.allowedFormats ?? []).includes(format)} onChange={(e) => setClient({ ...client, allowedFormats: e.target.checked ? [...(client.allowedFormats ?? []), format] : (client.allowedFormats ?? []).filter((row) => row !== format) })} />
+                  {format.toUpperCase()}
+                </label>
+              ))}
+            </div>
+            <textarea className={textareaClass} placeholder="Client notes" value={client.notes ?? ""} onChange={(e) => setClient({ ...client, notes: e.target.value })} />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <R365Button type="button" onClick={() => onSaveClient(client)} disabled={busy}>
+                {client.id ? "Update client" : "Save client"}
               </R365Button>
-            ) : null}
+              {client.id ? (
+                <R365Button type="button" variant="ghost" onClick={() => setClient({ name: "", active: true, allowedBrands: [], allowedLanguages: [], allowedFormats: ["xml", "json"] })} disabled={busy}>
+                  Clear form (new client)
+                </R365Button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[#1f2d26] p-4">
+            <h3 className="font-bold text-white">Clients</h3>
+            <div className="mt-3 space-y-2">
+              {clients.length === 0 ? <p className="text-sm text-slate-500">No clients yet.</p> : clients.map((row) => (
+                <div key={row.id} className="rounded border border-[#1f2d26] p-3 text-sm text-slate-300">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <strong className="text-white">{row.name}</strong>
+                      <p className="text-xs text-slate-500">{row.active ? "Active" : "Inactive"} · {(row.allowedBrands ?? []).join(", ") || "all brands"} · {(row.allowedLanguages ?? []).join(", ") || "all languages"}</p>
+                      {row.contactEmail ? <p className="mt-1 text-xs text-slate-500">{row.contactEmail}</p> : null}
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" className="text-xs text-[#22c55e]" onClick={() => loadClientIntoForm(row)}>
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs text-red-300"
+                        onClick={() => {
+                          if (window.confirm(`Delete client "${row.name}" and its API keys?`)) onDeleteClient(row.id);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="rounded-lg border border-[#1f2d26] p-4">
-          <h3 className="font-bold text-white">Issue API key</h3>
-          <select className={inputClass} value={keyDraft.clientId ?? selectedClient?.id ?? ""} onChange={(e) => setKeyDraft({ ...keyDraft, clientId: e.target.value })}>
-            {clients.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-          </select>
-          <input className={inputClass} placeholder="Key label" value={keyDraft.label ?? ""} onChange={(e) => setKeyDraft({ ...keyDraft, label: e.target.value })} />
-          <input className={inputClass} placeholder="Allowed brands, comma-separated" value={(keyDraft.allowedBrands ?? []).join(", ")} onChange={(e) => setKeyDraft({ ...keyDraft, allowedBrands: csv(e.target.value) })} />
-          <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-4">
-            {clientLanguageOptions.map(([code, label]) => (
-              <label key={code} className="flex items-center gap-2">
-                <input type="checkbox" checked={(keyDraft.allowedLanguages ?? []).includes(code)} onChange={(e) => setKeyDraft({ ...keyDraft, allowedLanguages: e.target.checked ? [...(keyDraft.allowedLanguages ?? []), code] : (keyDraft.allowedLanguages ?? []).filter((row) => row !== code) })} />
-                {label}
-              </label>
-            ))}
+        <div className="flex flex-col gap-4">
+          <div className="rounded-lg border border-[#1f2d26] p-4">
+            <h3 className="font-bold text-white">Issue API key</h3>
+            <select className={inputClass} value={keyDraft.clientId ?? selectedClient?.id ?? ""} onChange={(e) => setKeyDraft({ ...keyDraft, clientId: e.target.value })}>
+              {clients.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+            </select>
+            <input className={inputClass} placeholder="Key label" value={keyDraft.label ?? ""} onChange={(e) => setKeyDraft({ ...keyDraft, label: e.target.value })} />
+            <input className={inputClass} placeholder="Allowed brands, comma-separated" value={(keyDraft.allowedBrands ?? []).join(", ")} onChange={(e) => setKeyDraft({ ...keyDraft, allowedBrands: csv(e.target.value) })} />
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-4">
+              {clientLanguageOptions.map(([code, label]) => (
+                <label key={code} className="flex items-center gap-2">
+                  <input type="checkbox" checked={(keyDraft.allowedLanguages ?? []).includes(code)} onChange={(e) => setKeyDraft({ ...keyDraft, allowedLanguages: e.target.checked ? [...(keyDraft.allowedLanguages ?? []), code] : (keyDraft.allowedLanguages ?? []).filter((row) => row !== code) })} />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <div className="mt-3 flex gap-4 text-sm text-slate-300">
+              {(["xml", "json"] as const).map((format) => (
+                <label key={format} className="flex items-center gap-2">
+                  <input type="checkbox" checked={(keyDraft.allowedFormats ?? []).includes(format)} onChange={(e) => setKeyDraft({ ...keyDraft, allowedFormats: e.target.checked ? [...(keyDraft.allowedFormats ?? []), format] : (keyDraft.allowedFormats ?? []).filter((row) => row !== format) })} />
+                  {format.toUpperCase()}
+                </label>
+              ))}
+            </div>
+            <R365Button type="button" onClick={() => onCreateKey({ ...keyDraft, clientId: keyDraft.clientId ?? selectedClient?.id })} disabled={busy || clients.length === 0}>Create API key</R365Button>
           </div>
-          <div className="mt-3 flex gap-4 text-sm text-slate-300">
-            {(["xml", "json"] as const).map((format) => (
-              <label key={format} className="flex items-center gap-2">
-                <input type="checkbox" checked={(keyDraft.allowedFormats ?? []).includes(format)} onChange={(e) => setKeyDraft({ ...keyDraft, allowedFormats: e.target.checked ? [...(keyDraft.allowedFormats ?? []), format] : (keyDraft.allowedFormats ?? []).filter((row) => row !== format) })} />
-                {format.toUpperCase()}
-              </label>
-            ))}
+
+          <div className="rounded-lg border border-[#1f2d26] p-4">
+            <h3 className="font-bold text-white">API keys</h3>
+            <div className="mt-3 space-y-2">
+              {apiKeys.length === 0 ? <p className="text-sm text-slate-500">No API keys yet.</p> : apiKeys.map((row) => (
+                <div key={row.id} className="rounded border border-[#1f2d26] p-3 text-sm text-slate-300">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <strong className="text-white">{row.label}</strong>
+                    {row.active && !row.revokedAt ? <button type="button" className="text-xs text-red-300" onClick={() => onRevokeKey(row.id)}>Revoke</button> : <span className="text-xs text-red-300">Revoked</span>}
+                  </div>
+                  <p className="mt-1 font-mono text-xs text-slate-500">{row.maskedKey}</p>
+                  <p className="mt-1 text-xs text-slate-500">{(row.allowedFormats ?? []).join(", ").toUpperCase() || "—"} · {(row.allowedLanguages ?? []).join(", ") || "all languages"} · Last used {formatArticleDate(row.lastUsedAt)}</p>
+                </div>
+              ))}
+            </div>
           </div>
-          <R365Button type="button" onClick={() => onCreateKey({ ...keyDraft, clientId: keyDraft.clientId ?? selectedClient?.id })} disabled={busy || clients.length === 0}>Create API key</R365Button>
         </div>
       </div>
 
@@ -2010,55 +2086,6 @@ function ClientAccessPanel({
               </p>
             </div>
           ))}
-        </div>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <div className="rounded-lg border border-[#1f2d26] p-4">
-          <h3 className="font-bold text-white">Clients</h3>
-          <div className="mt-3 space-y-2">
-            {clients.length === 0 ? <p className="text-sm text-slate-500">No clients yet.</p> : clients.map((row) => (
-              <div key={row.id} className="rounded border border-[#1f2d26] p-3 text-sm text-slate-300">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <strong className="text-white">{row.name}</strong>
-                    <p className="text-xs text-slate-500">{row.active ? "Active" : "Inactive"} · {row.allowedBrands.join(", ") || "all brands"} · {row.allowedLanguages.join(", ") || "all languages"}</p>
-                    {row.contactEmail ? <p className="mt-1 text-xs text-slate-500">{row.contactEmail}</p> : null}
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="button" className="text-xs text-[#22c55e]" onClick={() => loadClientIntoForm(row)}>
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="text-xs text-red-300"
-                      onClick={() => {
-                        if (window.confirm(`Delete client "${row.name}" and its API keys?`)) onDeleteClient(row.id);
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-[#1f2d26] p-4">
-          <h3 className="font-bold text-white">API keys</h3>
-          <div className="mt-3 space-y-2">
-            {apiKeys.length === 0 ? <p className="text-sm text-slate-500">No API keys yet.</p> : apiKeys.map((row) => (
-              <div key={row.id} className="rounded border border-[#1f2d26] p-3 text-sm text-slate-300">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <strong className="text-white">{row.label}</strong>
-                  {row.active && !row.revokedAt ? <button type="button" className="text-xs text-red-300" onClick={() => onRevokeKey(row.id)}>Revoke</button> : <span className="text-xs text-red-300">Revoked</span>}
-                </div>
-                <p className="mt-1 font-mono text-xs text-slate-500">{row.maskedKey}</p>
-                <p className="mt-1 text-xs text-slate-500">{row.allowedFormats.join(", ").toUpperCase()} · {row.allowedLanguages.join(", ") || "all languages"} · Last used {formatArticleDate(row.lastUsedAt)}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 

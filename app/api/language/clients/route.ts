@@ -25,11 +25,10 @@ export async function POST(req: Request) {
   const data = await readLanguageStudioData();
   const now = new Date().toISOString();
   const name = body.name.trim();
-  const existing = body.id
-    ? data.clients[body.id]
-    : Object.values(data.clients).find((client) => client.name.trim().toLowerCase() === name.toLowerCase());
+  const id = body.id?.trim();
+  const existing = id ? data.clients[id] : Object.values(data.clients).find((client) => client.name.trim().toLowerCase() === name.toLowerCase());
   const row: LanguageClient = {
-    id: existing?.id || body.id || newLanguageId("lclient"),
+    id: existing?.id || id || newLanguageId("lclient"),
     name,
     contactEmail: body.contactEmail?.trim() || "",
     active: body.active ?? true,

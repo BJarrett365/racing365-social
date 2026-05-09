@@ -673,11 +673,13 @@ export function AdminSettingsForm() {
           here so server routes (RSS Import Builder, cron) can talk to the database at runtime — it does not use your GitHub
           token for that.
         </p>
-        <p className="mt-3 rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100/90">
-          <strong className="text-amber-50">First-time setup:</strong> you must create the RSS tables in this Supabase
-          project once. Open <strong className="text-amber-50">Supabase → SQL Editor</strong>, copy the full script from{" "}
-          <code className="text-amber-200/90">supabase/migrations/20260207120000_rss_import_builder.sql</code> in this
-          repository, paste, and <strong className="text-amber-50">Run</strong>. If you see &quot;rss_feeds&quot; / schema
+        <p className="mt-3 rounded-lg border border-amber-800/25 bg-amber-100 p-3 text-xs leading-5 text-slate-900 dark:border-amber-500/40 dark:bg-amber-950/60 dark:text-amber-50">
+          <strong className="font-bold text-slate-950 dark:text-amber-100">First-time setup:</strong> you must create the RSS tables in this Supabase
+          project once. Open <strong className="font-bold text-slate-950 dark:text-amber-100">Supabase → SQL Editor</strong>, copy the full script from{" "}
+          <code className="rounded bg-white/90 px-1.5 py-0.5 font-mono text-slate-800 ring-1 ring-amber-300/80 dark:bg-black/30 dark:text-amber-100 dark:ring-amber-600/50">
+            supabase/migrations/20260207120000_rss_import_builder.sql
+          </code>{" "}
+          in this repository, paste, and <strong className="font-bold text-slate-950 dark:text-amber-100">Run</strong>. If you see &quot;rss_feeds&quot; / schema
           cache errors, that migration has not been applied to this project yet.
         </p>
         {status?.supabase.configured && (

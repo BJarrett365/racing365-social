@@ -104,7 +104,7 @@ export async function runCrawlFeed(supabase: SupabaseClient, feedId: string): Pr
       } else {
         descriptionHtml = truncateDescription(descriptionHtml, false, f.limit_description_length, f.description_max_chars);
       }
-      let imageUrl = f.include_images ? it.imageUrl : "";
+      const imageUrl = f.include_images ? it.imageUrl : "";
       const enclosureUrl = f.include_media_enclosure ? it.enclosureUrl : "";
       const itemKey = itemKeyFromLinkAndGuid(it.link, it.guid);
       const prevStatus = statusByKey.get(itemKey);

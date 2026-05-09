@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { assertAdminWrite } from "@/app/lib/admin-auth";
 import { getServerSecretAsync } from "@/app/lib/server-secrets";
+import { normalizeSupabaseProjectUrl } from "@/app/lib/rss-builder/supabase-server";
 
 type Body = {
   adminToken?: string;
@@ -36,12 +37,13 @@ export async function POST(request: Request) {
     );
   };
 
-  const url =
+  const url = normalizeSupabaseProjectUrl(
     body.supabaseUrl?.trim() ||
-    process.env.SUPABASE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
-    (await getServerSecretAsync("SUPABASE_URL")) ||
-    "";
+      process.env.SUPABASE_URL?.trim() ||
+      process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+      (await getServerSecretAsync("SUPABASE_URL")) ||
+      "",
+  );
   const key =
     body.supabaseServiceRoleKey?.trim() ||
     process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||

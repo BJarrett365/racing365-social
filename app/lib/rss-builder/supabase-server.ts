@@ -3,6 +3,13 @@ import { getServerSecretAsync } from "@/app/lib/server-secrets";
 
 let cache: { client: SupabaseClient; fingerprint: string } | null = null;
 
+/** Strip trailing slashes and accidental `/rest/v1` suffix (avoids PostgREST "requested path is invalid"). */
+export function normalizeSupabaseProjectUrl(raw: string): string {
+  let u = raw.trim().replace(/\/+$/, "");
+  u = u.replace(/\/rest\/v1\/?$/i, "");
+  return u;
+}
+
 /** Decode `role` claim from a Supabase JWT (anon / authenticated / service_role). */
 function jwtRoleFromSupabaseKey(key: string): string | undefined {
   const parts = key.split(".");
@@ -33,11 +40,12 @@ export function formatRssBuilderDbError(message: string): string {
  * settings (same names via server-secrets), with `NEXT_PUBLIC_SUPABASE_URL` as URL fallback only.
  */
 export async function getRssBuilderSupabaseAsync(): Promise<SupabaseClient | null> {
-  const url =
+  const urlRaw =
     process.env.SUPABASE_URL?.trim() ||
     process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
     (await getServerSecretAsync("SUPABASE_URL")) ||
     "";
+  const url = normalizeSupabaseProjectUrl(urlRaw);
   const key =
     process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || (await getServerSecretAsync("SUPABASE_SERVICE_ROLE_KEY")) || "";
   if (!url.trim() || !key.trim()) {
@@ -55,9 +63,9 @@ export async function getRssBuilderSupabaseAsync(): Promise<SupabaseClient | nul
     cache = null;
     return null;
   }
-  const fingerprint = `${url.trim()}\0${keyTrim}`;
+  const fingerprint = `${url}\0${keyTrim}`;
   if (cache?.fingerprint === fingerprint) return cache.client;
-  const client = createClient(url.trim(), keyTrim, { auth: { persistSession: false, autoRefreshToken: false } });
+  const client = createClient(url, keyTrim, { auth: { persistSession: false, autoRefreshToken: false } });
   cache = { client, fingerprint };
   return client;
 }

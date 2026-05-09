@@ -711,7 +711,7 @@ export function AdminSettingsForm() {
                 setSupabaseUrlDirty(true);
                 setSupabaseUrl(e.target.value);
               }}
-              placeholder="https://your-project-ref.supabase.co"
+              placeholder="https://your-project-ref.supabase.co (no /rest/v1/)"
               autoComplete="off"
             />
           </label>

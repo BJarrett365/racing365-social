@@ -14,6 +14,9 @@ type Status = {
   daily?: { configured: boolean };
   livepeer: { configured: boolean };
   apify: { configured: boolean };
+  supabase: { configured: boolean };
+  supabaseUrlHost: string;
+  supabaseServiceRoleKeyMasked?: string;
   elevenlabsApiKeyMasked?: string;
   openaiApiKeyMasked?: string;
   runwaymlApiKeyMasked?: string;
@@ -54,6 +57,8 @@ export function AdminSettingsForm() {
   const [dailyApiKey, setDailyApiKey] = useState("");
   const [livepeerApiKey, setLivepeerApiKey] = useState("");
   const [apifyApiToken, setApifyApiToken] = useState("");
+  const [supabaseUrl, setSupabaseUrl] = useState("");
+  const [supabaseServiceRoleKey, setSupabaseServiceRoleKey] = useState("");
   const [apifyYoutubeTranscriptActorId, setApifyYoutubeTranscriptActorId] = useState("apilabs/youtube-caption-transcription-scraper");
   const [apifyYoutubeTranscriptLanguage, setApifyYoutubeTranscriptLanguage] = useState("en");
   const [apifyYoutubeTranscriptTimeoutSeconds, setApifyYoutubeTranscriptTimeoutSeconds] = useState("90");
@@ -68,6 +73,8 @@ export function AdminSettingsForm() {
   const [dailyKeyDirty, setDailyKeyDirty] = useState(false);
   const [livepeerKeyDirty, setLivepeerKeyDirty] = useState(false);
   const [apifyTokenDirty, setApifyTokenDirty] = useState(false);
+  const [supabaseUrlDirty, setSupabaseUrlDirty] = useState(false);
+  const [supabaseKeyDirty, setSupabaseKeyDirty] = useState(false);
   const [ffmpegPath, setFfmpegPath] = useState("");
   const [openaiTtsVoice, setOpenaiTtsVoice] = useState("");
   const [openaiTtsModel, setOpenaiTtsModel] = useState("");
@@ -82,6 +89,7 @@ export function AdminSettingsForm() {
   const [clearDailyApiKey, setClearDailyApiKey] = useState(false);
   const [clearLivepeerKey, setClearLivepeerKey] = useState(false);
   const [clearApifyApiToken, setClearApifyApiToken] = useState(false);
+  const [clearSupabase, setClearSupabase] = useState(false);
   const [clearFfmpegPath, setClearFfmpegPath] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -102,6 +110,8 @@ export function AdminSettingsForm() {
   const [livepeerCheckMessage, setLivepeerCheckMessage] = useState<string | null>(null);
   const [apifyCheckBusy, setApifyCheckBusy] = useState(false);
   const [apifyCheckMessage, setApifyCheckMessage] = useState<string | null>(null);
+  const [supabaseCheckBusy, setSupabaseCheckBusy] = useState(false);
+  const [supabaseCheckMessage, setSupabaseCheckMessage] = useState<string | null>(null);
   const [elevenlabsLastCheckAt, setElevenlabsLastCheckAt] = useState<string | null>(null);
   const [elevenlabsLastCheckOk, setElevenlabsLastCheckOk] = useState<boolean | null>(null);
   const [captionCheckBusy, setCaptionCheckBusy] = useState(false);
@@ -138,6 +148,8 @@ export function AdminSettingsForm() {
     setDailyKeyDirty(false);
     setLivepeerKeyDirty(false);
     setApifyTokenDirty(false);
+    setSupabaseUrlDirty(false);
+    setSupabaseKeyDirty(false);
     return next;
   }, []);
 
@@ -161,6 +173,8 @@ export function AdminSettingsForm() {
       const nextDailyApiKey = dailyApiKey.trim();
       const nextLivepeer = livepeerApiKey.trim();
       const nextApifyToken = apifyApiToken.trim();
+      const nextSupabaseUrl = supabaseUrl.trim();
+      const nextSupabaseServiceRoleKey = supabaseServiceRoleKey.trim();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       const tok = adminToken.trim();
       if (tok) headers["x-admin-token"] = tok;
@@ -181,6 +195,8 @@ export function AdminSettingsForm() {
           dailyApiKey: dailyKeyDirty ? nextDailyApiKey || undefined : undefined,
           livepeerApiKey: livepeerKeyDirty ? nextLivepeer || undefined : undefined,
           apifyApiToken: apifyTokenDirty ? nextApifyToken || undefined : undefined,
+          supabaseUrl: supabaseUrlDirty ? nextSupabaseUrl || undefined : undefined,
+          supabaseServiceRoleKey: supabaseKeyDirty ? nextSupabaseServiceRoleKey || undefined : undefined,
           apifyYoutubeTranscriptActorId: apifyYoutubeTranscriptActorId.trim() || undefined,
           apifyYoutubeTranscriptLanguage: apifyYoutubeTranscriptLanguage.trim() || undefined,
           apifyYoutubeTranscriptTimeoutSeconds: apifyYoutubeTranscriptTimeoutSeconds.trim() || undefined,
@@ -198,6 +214,7 @@ export function AdminSettingsForm() {
           clearDailyApiKey,
           clearLivepeerKey,
           clearApifyApiToken,
+          clearSupabase,
           clearFfmpegPath,
         }),
       });
@@ -217,6 +234,17 @@ export function AdminSettingsForm() {
       if (!clearDailyApiKey && nextDailyApiKey && !refreshed.daily?.configured) {
         throw new Error("Daily API key save could not be verified.");
       }
+      if (!clearApifyApiToken && nextApifyToken && !refreshed.apify.configured) {
+        throw new Error("Apify token save could not be verified.");
+      }
+      if (
+        !clearSupabase &&
+        (supabaseUrlDirty || supabaseKeyDirty) &&
+        (nextSupabaseUrl || nextSupabaseServiceRoleKey) &&
+        !refreshed.supabase?.configured
+      ) {
+        throw new Error("Supabase save could not be verified — set both project URL and service role key.");
+      }
       setMessage("Saved to admin settings. Keys are now stored and active for the next build.");
       setElevenlabsApiKey("");
       setOpenaiApiKey("");
@@ -229,6 +257,8 @@ export function AdminSettingsForm() {
       setDailyApiKey("");
       setLivepeerApiKey("");
       setApifyApiToken("");
+      setSupabaseUrl("");
+      setSupabaseServiceRoleKey("");
       setElevenlabsKeyDirty(false);
       setOpenaiKeyDirty(false);
       setRunwayKeyDirty(false);
@@ -240,6 +270,8 @@ export function AdminSettingsForm() {
       setDailyKeyDirty(false);
       setLivepeerKeyDirty(false);
       setApifyTokenDirty(false);
+      setSupabaseUrlDirty(false);
+      setSupabaseKeyDirty(false);
       setClearElevenlabsKey(false);
       setClearOpenaiKey(false);
       setClearRunwaymlKey(false);
@@ -249,6 +281,7 @@ export function AdminSettingsForm() {
       setClearDailyApiKey(false);
       setClearLivepeerKey(false);
       setClearApifyApiToken(false);
+      setClearSupabase(false);
       setClearFfmpegPath(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
@@ -494,6 +527,33 @@ export function AdminSettingsForm() {
     }
   };
 
+  const testSupabaseConnection = async () => {
+    setSupabaseCheckBusy(true);
+    setSupabaseCheckMessage(null);
+    setError(null);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const tok = adminToken.trim();
+      if (tok) headers["x-admin-token"] = tok;
+      const res = await fetch("/api/admin/supabase-check", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          adminToken: tok || undefined,
+          supabaseUrl: supabaseUrl.trim() || undefined,
+          supabaseServiceRoleKey: supabaseServiceRoleKey.trim() || undefined,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; host?: string; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error || "Supabase connection failed");
+      setSupabaseCheckMessage(`Supabase reachable${data.host ? ` (${data.host})` : ""}. Table rss_feeds is queryable.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Supabase connection failed");
+    } finally {
+      setSupabaseCheckBusy(false);
+    }
+  };
+
   const testCaptionGeneration = async () => {
     setCaptionCheckBusy(true);
     setCaptionResult(null);
@@ -586,9 +646,98 @@ export function AdminSettingsForm() {
                 {status.apify.configured ? "token on file" : "not set"}
               </span>
             </li>
+            <li>
+              Supabase:{" "}
+              <span className={status.supabase.configured ? "text-[#22c55e]" : "text-slate-600"}>
+                {status.supabase.configured
+                  ? status.supabaseUrlHost
+                    ? `URL + key (${status.supabaseUrlHost})`
+                    : "URL + key on file"
+                  : "not set"}
+              </span>
+            </li>
             {status.updatedAt && <li>Updated {new Date(status.updatedAt).toLocaleString()}</li>}
           </ul>
         )}
+      </Panel>
+
+      <Panel title="Supabase (RSS Import Builder)">
+        <p className="text-sm text-slate-400">
+          Paste your Supabase <strong className="text-slate-200">Project URL</strong> and{" "}
+          <strong className="text-slate-200">service_role</strong> secret from Dashboard → Settings → API. The service role
+          key bypasses Row Level Security — keep it server-side only; it is never sent to browsers. Free-tier projects work.
+        </p>
+        <p className="mt-3 text-sm text-slate-400">
+          If your Supabase project is <strong className="text-slate-200">connected to GitHub</strong>, that link is for
+          syncing migrations and config from your repository into Supabase. This app still needs the URL and service role
+          here so server routes (RSS Import Builder, cron) can talk to the database at runtime — it does not use your GitHub
+          token for that.
+        </p>
+        <p className="mt-3 rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100/90">
+          <strong className="text-amber-50">First-time setup:</strong> you must create the RSS tables in this Supabase
+          project once. Open <strong className="text-amber-50">Supabase → SQL Editor</strong>, copy the full script from{" "}
+          <code className="text-amber-200/90">supabase/migrations/20260207120000_rss_import_builder.sql</code> in this
+          repository, paste, and <strong className="text-amber-50">Run</strong>. If you see &quot;rss_feeds&quot; / schema
+          cache errors, that migration has not been applied to this project yet.
+        </p>
+        {status?.supabase.configured && (
+          <p className="mt-3 text-xs text-slate-500">
+            Stored project host:{" "}
+            <span className="font-mono text-slate-300">{status.supabaseUrlHost || "(unknown)"}</span>
+            {status.supabaseServiceRoleKeyMasked ? (
+              <>
+                {" "}
+                · Service role: <span className="font-mono text-slate-400">{status.supabaseServiceRoleKeyMasked}</span>
+              </>
+            ) : null}
+          </p>
+        )}
+        <div className="mt-4 space-y-4">
+          <label className="block text-xs font-semibold uppercase text-slate-500">
+            Project URL
+            <input
+              type="url"
+              className={inputClass}
+              value={supabaseUrl}
+              onChange={(e) => {
+                setSupabaseUrlDirty(true);
+                setSupabaseUrl(e.target.value);
+              }}
+              placeholder="https://your-project-ref.supabase.co"
+              autoComplete="off"
+            />
+          </label>
+          <label className="block text-xs font-semibold uppercase text-slate-500">
+            Service role secret
+            <input
+              type="password"
+              className={inputClass}
+              value={supabaseServiceRoleKey}
+              onChange={(e) => {
+                setSupabaseKeyDirty(true);
+                setSupabaseServiceRoleKey(e.target.value);
+              }}
+              placeholder="Paste service_role key (not anon)"
+              autoComplete="off"
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <R365Button variant="ghost" onClick={() => void testSupabaseConnection()} disabled={supabaseCheckBusy}>
+              {supabaseCheckBusy ? "Testing Supabase…" : "Test Supabase connection"}
+            </R365Button>
+          </div>
+          {supabaseCheckMessage ? <p className="text-xs text-emerald-400">{supabaseCheckMessage}</p> : null}
+          <label className="flex items-center gap-2 text-xs text-slate-400">
+            <input
+              type="checkbox"
+              checked={clearSupabase}
+              onChange={(e) => {
+                setClearSupabase(e.target.checked);
+              }}
+            />
+            Remove stored Supabase URL and service role key
+          </label>
+        </div>
       </Panel>
 
       <Panel title="AI provider API keys">

@@ -24,12 +24,19 @@ type Body = Partial<LanguageCronJob> & {
   notificationWebhookUrl?: string;
 };
 
-const PARSER_TYPES: LanguageSourceParserType[] = ["rss-default", "wordpress-rss", "json-api", "html-page", "custom"];
+const PARSER_TYPES: LanguageSourceParserType[] = ["rss-default", "wordpress-rss", "json-api", "xml", "html-page", "custom"];
 
 function parserType(value: unknown): LanguageSourceParserType {
   return typeof value === "string" && PARSER_TYPES.includes(value as LanguageSourceParserType)
     ? (value as LanguageSourceParserType)
     : "rss-default";
+}
+
+function normaliseMaxFeedItems(value: unknown, existing?: number): number | undefined {
+  if (value === null) return undefined;
+  if (value === undefined) return existing;
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return undefined;
+  return Math.min(500, Math.floor(value));
 }
 
 function strings(value: unknown): string[] {
@@ -95,6 +102,14 @@ export async function POST(req: Request) {
       importFullArticles: body.importFullArticles ?? true,
       notifyOnFailure: body.notifyOnFailure ?? false,
       notificationEmail: body.notificationEmail?.trim() || body.notificationWebhookUrl?.trim() || "",
+      maxFeedItems: normaliseMaxFeedItems(body.maxFeedItems, existing?.maxFeedItems),
+      incrementalFeedImport: body.incrementalFeedImport === undefined ? (existing?.incrementalFeedImport ?? true) : Boolean(body.incrementalFeedImport),
+      lastImportedPublishWatermark:
+        "lastImportedPublishWatermark" in body
+          ? typeof body.lastImportedPublishWatermark === "string" && body.lastImportedPublishWatermark.trim()
+            ? body.lastImportedPublishWatermark.trim()
+            : undefined
+          : existing?.lastImportedPublishWatermark,
       lastRunAt: existing?.lastRunAt,
       lastSuccessAt: existing?.lastSuccessAt,
       lastFailureAt: existing?.lastFailureAt,

@@ -7,16 +7,7 @@ import {
   sortDesc,
   upsertArticleAutomation,
 } from "@/app/lib/language-studio/store";
-import type {
-  LanguageArticleAutomation,
-  LanguageArticleAutomationAction,
-  LanguageArticleAutomationOutputStatus,
-  LanguageCode,
-  LanguageContentStyle,
-  LanguageProviderMode,
-  LanguageSportContext,
-  TranslationMode,
-} from "@/app/lib/language-studio/types";
+import { LANGUAGE_SPORT_CONTEXTS, type LanguageArticleAutomation, type LanguageArticleAutomationAction, type LanguageArticleAutomationOutputStatus, type LanguageCode, type LanguageContentStyle, type LanguageProviderMode, type LanguageSportContext, type TranslationMode } from "@/app/lib/language-studio/types";
 
 type Body = Partial<LanguageArticleAutomation> & {
   adminToken?: string;
@@ -24,8 +15,8 @@ type Body = Partial<LanguageArticleAutomation> & {
 
 const actions: LanguageArticleAutomationAction[] = ["rewrite", "translate", "rewrite-translate"];
 const outputStatuses: LanguageArticleAutomationOutputStatus[] = ["review_needed", "draft"];
-const contentStyles: LanguageContentStyle[] = ["News", "Transfer", "Opinion", "Preview", "Review", "Analysis", "Feature", "Live"];
-const sportContexts: LanguageSportContext[] = ["Football", "Horse Racing", "Rugby Union", "Rugby League", "Formula 1", "Cricket", "Golf", "Tennis", "NFL", "Boxing", "MMA", "Basketball"];
+const contentStyles: LanguageContentStyle[] = ["News", "Transfer", "Opinion", "Preview", "Review", "Analysis", "Feature", "Live", "Tips"];
+const sportContexts: LanguageSportContext[] = LANGUAGE_SPORT_CONTEXTS;
 const providerModes: LanguageProviderMode[] = ["openai", "deepl", "deepl-openai"];
 const translationModes: TranslationMode[] = ["translate-only", "translate-localise", "translate-rewrite", "headline-only", "seo-only", "summary-only"];
 

@@ -24,11 +24,13 @@ import type {
   LanguageQualityCheck,
   LanguageRule,
   LanguageSourceBrand,
+  LanguageSportContext,
   LanguageSportRule,
   LanguageStudioData,
   LanguageTranslation,
   LanguageTranslationMemory,
 } from "@/app/lib/language-studio/types";
+import { uniqueTags } from "@/app/lib/language-studio/tags";
 import {
   DEFAULT_COMPLIANCE_NOTES,
   DEFAULT_GUARDRAILS,
@@ -50,6 +52,7 @@ const DEFAULT_SOURCE_BRANDS: LanguageSourceBrand[] = [
     parserType: "wordpress-rss",
     active: true,
     notes: "Default PlanetF1 partner media RSS feed.",
+    defaultSport: "Formula 1",
     createdAt: "2026-04-30T00:00:00.000Z",
     updatedAt: "2026-04-30T00:00:00.000Z",
   },
@@ -61,6 +64,7 @@ const DEFAULT_SOURCE_BRANDS: LanguageSourceBrand[] = [
     parserType: "wordpress-rss",
     active: true,
     notes: "Football365 partner media RSS feed.",
+    defaultSport: "Football",
     createdAt: "2026-04-30T00:00:00.000Z",
     updatedAt: "2026-04-30T00:00:00.000Z",
   },
@@ -110,6 +114,7 @@ const DEFAULT_CLIENTS = [
     active: true,
     allowedBrands: [],
     allowedLanguages: [],
+    allowedSports: ["Horse Racing"] as LanguageSportContext[],
     allowedFormats: ["xml", "json"] as Array<"xml" | "json">,
     notes: "Default client for Racing365-specific rewritten content.",
     createdAt: "2026-05-07T00:00:00.000Z",
@@ -147,6 +152,7 @@ function emptyData(): LanguageStudioData {
     cronJobs: {},
     cronRuns: {},
     articleAutomations: {},
+    ignoredQualityIssueTypes: [],
   };
 }
 
@@ -223,6 +229,7 @@ function seedDefaultArticleAutomations(data: LanguageStudioData): void {
 }
 
 function seedGovernance(data: LanguageStudioData): LanguageStudioData {
+  if (!Array.isArray(data.ignoredQualityIssueTypes)) data.ignoredQualityIssueTypes = [];
   for (const row of DEFAULT_SOURCE_BRANDS) data.sourceBrands[row.id] ??= row;
   for (const row of DEFAULT_LANGUAGE_RULES) data.rules[row.id] ??= row;
   for (const row of DEFAULT_KNOWLEDGE_FILES) data.knowledgeFiles[row.id] ??= row;
@@ -313,6 +320,46 @@ function removeArticleCascade(data: LanguageStudioData, articleId: string): void
   }
 }
 
+/** Return article to the import-style queue so Rewrite / Translations tabs can pick it up again. */
+export async function reopenLanguageArticleForPipeline(articleId: string): Promise<LanguageArticle | undefined> {
+  const data = await readLanguageStudioData();
+  const id = articleId.trim();
+  const article = data.articles[id];
+  if (!article) return undefined;
+  article.status = "imported";
+  article.updatedAt = new Date().toISOString();
+  await writeLanguageStudioData(data);
+  return article;
+}
+
+export async function updateLanguageArticleFields(
+  articleId: string,
+  fields: { sport?: LanguageSportContext | undefined; tags?: string[] },
+): Promise<LanguageArticle | undefined> {
+  const data = await readLanguageStudioData();
+  const id = articleId.trim();
+  const article = data.articles[id];
+  if (!article) return undefined;
+  const now = new Date().toISOString();
+  if ("sport" in fields) {
+    if (fields.sport === undefined) delete article.sport;
+    else article.sport = fields.sport;
+  }
+  if ("tags" in fields) {
+    article.tags = uniqueTags(fields.tags ?? []);
+  }
+  article.updatedAt = now;
+  await writeLanguageStudioData(data);
+  return article;
+}
+
+export async function updateLanguageArticleSport(
+  articleId: string,
+  sport: LanguageSportContext | undefined,
+): Promise<LanguageArticle | undefined> {
+  return updateLanguageArticleFields(articleId, { sport });
+}
+
 export async function deleteLanguageArticles(articleIds: string[]): Promise<{ deletedIds: string[]; blockedIds: string[] }> {
   const data = await readLanguageStudioData();
   const deletedIds: string[] = [];
@@ -366,6 +413,14 @@ export async function upsertSourceBrand(row: LanguageSourceBrand): Promise<void>
   const data = await readLanguageStudioData();
   data.sourceBrands[row.id] = row;
   await writeLanguageStudioData(data);
+}
+
+export async function deleteSourceBrand(id: string): Promise<boolean> {
+  const data = await readLanguageStudioData();
+  if (!data.sourceBrands[id]) return false;
+  delete data.sourceBrands[id];
+  await writeLanguageStudioData(data);
+  return true;
 }
 
 export async function upsertTranslation(row: LanguageTranslation): Promise<void> {

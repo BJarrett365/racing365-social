@@ -1,6 +1,13 @@
 import crypto from "crypto";
 import { XMLBuilder } from "fast-xml-parser";
-import { LANGUAGE_LABELS, type LanguageArticle, type LanguageClient, type LanguageClientApiKey, type LanguageStudioData, type LanguageTranslation } from "@/app/lib/language-studio/types";
+import { LANGUAGE_LABELS, type LanguageArticle, type LanguageClient, type LanguageClientApiKey, type LanguageSportContext, type LanguageStudioData, type LanguageTranslation } from "@/app/lib/language-studio/types";
+
+function allowedSportVertical(allowed: LanguageSportContext[] | undefined, sport: LanguageSportContext | undefined): boolean {
+  const list = allowed ?? [];
+  if (list.length === 0) return true;
+  if (!sport) return false;
+  return list.includes(sport);
+}
 
 export type ClientFeedFormat = "xml" | "json";
 
@@ -34,6 +41,7 @@ export function maskedApiKey(key: LanguageClientApiKey): Omit<LanguageClientApiK
     active: key.active,
     allowedBrands: key.allowedBrands,
     allowedLanguages: key.allowedLanguages,
+    allowedSports: key.allowedSports ?? [],
     allowedFormats: key.allowedFormats,
     createdAt: key.createdAt,
     lastUsedAt: key.lastUsedAt,
@@ -76,6 +84,7 @@ export function approvedTranslationsForClient(
     if (translation.clientIds?.length && !translation.clientIds.includes(auth.client.id)) continue;
     if (!allowed(auth.client.allowedBrands, article.sourceBrand) || !allowed(auth.apiKey.allowedBrands, article.sourceBrand)) continue;
     if (!allowed(auth.client.allowedLanguages, translation.targetLanguage) || !allowed(auth.apiKey.allowedLanguages, translation.targetLanguage)) continue;
+    if (!allowedSportVertical(auth.client.allowedSports, article.sport) || !allowedSportVertical(auth.apiKey.allowedSports, article.sport)) continue;
     rows.push({ article, translation });
   }
   return rows.sort((a, b) => {
@@ -91,6 +100,7 @@ export function publicTranslationRow(article: LanguageArticle, translation: Lang
     id: translation.id,
     sourceArticleId: article.sourceArticleId ?? article.id,
     sourceBrand: article.sourceBrand,
+    sport: article.sport,
     sourceUrl: article.sourceUrl,
     clientIds: translation.clientIds ?? [],
     canonicalUrl: article.canonicalUrl,
@@ -134,6 +144,7 @@ export function buildClientFeedXml(rows: Array<{ article: LanguageArticle; trans
         sourceBrand: article.sourceBrand,
         canonicalUrl: article.canonicalUrl ?? "",
         author: article.author ?? "",
+        sport: article.sport ?? "",
         publishDate: article.publishDate ?? "",
         modifiedDate: article.modifiedDate ?? "",
         imageUrl: article.imageUrl ?? "",

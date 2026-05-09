@@ -15,7 +15,7 @@ export default function ProviderKeysAndPlatformServicesPage() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#22c55e]">Environment</p>
         <h1 className="mt-1 text-3xl font-black text-white">Provider keys and platform services</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-          Manage AI, video, live, meeting-room and translation provider settings in one place.
+          Manage AI, video, live, meeting-room, translation, and database (Supabase) settings in one place.
         </p>
       </section>
       <AdminSettingsForm />

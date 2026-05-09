@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { stripGeneratedArticleMetadataLines } from "@/app/lib/language-studio/article-pages";
+import { uniqueTags } from "@/app/lib/language-studio/tags";
 import { addAuditLog, readLanguageStudioData, upsertTranslation } from "@/app/lib/language-studio/store";
 
 type Body = {
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
     body: article ? stripGeneratedArticleMetadataLines(body.body ?? current.body, article, body.title ?? current.title) : body.body ?? current.body,
     seoTitle: body.seoTitle ?? current.seoTitle,
     metaDescription: body.metaDescription ?? current.metaDescription,
-    tags: Array.isArray(body.tags) ? body.tags : current.tags,
+    tags: Array.isArray(body.tags) ? uniqueTags(body.tags.map(String)) : uniqueTags(current.tags),
     clientIds: Array.isArray(body.clientIds) ? body.clientIds.map(String).filter(Boolean) : current.clientIds,
     socialEmbeds: Array.isArray(body.socialEmbeds) ? body.socialEmbeds as typeof current.socialEmbeds : current.socialEmbeds,
     socialPosts: Array.isArray(body.socialPosts) ? body.socialPosts as typeof current.socialPosts : current.socialPosts,

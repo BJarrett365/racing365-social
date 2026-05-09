@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { stripGeneratedArticleMetadataLines } from "@/app/lib/language-studio/article-pages";
 import { fixQualityIssues } from "@/app/lib/language-studio/language-engine";
-import { applyStoredQualityDecisions, runLanguageQualityChecks } from "@/app/lib/language-studio/quality-checks";
+import {
+  applyStoredQualityDecisions,
+  LANGUAGE_QUALITY_ISSUE_TYPES,
+  runLanguageQualityChecks,
+  sanitizeIgnoredQualityIssueTypes,
+} from "@/app/lib/language-studio/quality-checks";
 import { newLanguageId, readLanguageStudioData, writeLanguageStudioData } from "@/app/lib/language-studio/store";
 import type { LanguageKnowledgeFile, LanguageTranslation } from "@/app/lib/language-studio/types";
 
@@ -9,21 +14,20 @@ type Body = {
   checkId?: string;
   issueId?: string;
   issueIds?: string[];
-  action?: "ignore" | "ignore-all" | "escalate" | "escalate-all" | "apply-fix";
+  issueType?: string;
+  action?:
+    | "ignore"
+    | "ignore-all"
+    | "escalate"
+    | "escalate-all"
+    | "apply-fix"
+    | "restore-issue-type"
+    | "clear-all-suppressed-issue-types";
   preview?: boolean;
   proposedTranslation?: Partial<LanguageTranslation>;
   fixSummary?: string;
   learnedRule?: string;
 };
-
-function scoreForIssues(check: NonNullable<Awaited<ReturnType<typeof runLanguageQualityChecks>>>) {
-  const activeIssues = check.issues.filter((issue) => !issue.ignored);
-  return activeIssues.some((issue) => issue.severity === "red")
-    ? "red"
-    : activeIssues.some((issue) => issue.severity === "amber")
-      ? "amber"
-      : "green";
-}
 
 export async function GET(req: Request) {
   try {
@@ -36,7 +40,8 @@ export async function GET(req: Request) {
     if (!article) return NextResponse.json({ error: "Source article not found." }, { status: 404 });
     const existingChecks = Object.values(data.qualityChecks).filter((row) => row.translationId === translationId);
     const latest = existingChecks.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0];
-    const freshCheck = runLanguageQualityChecks(article, translation, Object.values(data.protectedTerms));
+    const suppressed = sanitizeIgnoredQualityIssueTypes(data.ignoredQualityIssueTypes);
+    const freshCheck = runLanguageQualityChecks(article, translation, Object.values(data.protectedTerms), suppressed);
     const check = applyStoredQualityDecisions(
       {
         ...freshCheck,
@@ -47,7 +52,7 @@ export async function GET(req: Request) {
     );
     data.qualityChecks[check.id] = check;
     await writeLanguageStudioData(data);
-    return NextResponse.json({ qualityCheck: check });
+    return NextResponse.json({ qualityCheck: check, ignoredQualityIssueTypes: sanitizeIgnoredQualityIssueTypes(data.ignoredQualityIssueTypes) });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Quality check failed.";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -57,10 +62,35 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => null)) as Body | null;
-    if (!body?.checkId || !body.action || (!["ignore-all", "escalate-all", "apply-fix"].includes(body.action) && !body.issueId)) return NextResponse.json({ error: "checkId, issueId and action are required." }, { status: 400 });
+    if (!body?.action) return NextResponse.json({ error: "action is required." }, { status: 400 });
+
+    if (body.action === "clear-all-suppressed-issue-types") {
+      const data = await readLanguageStudioData();
+      data.ignoredQualityIssueTypes = [];
+      await writeLanguageStudioData(data);
+      return NextResponse.json({ success: true, ignoredQualityIssueTypes: data.ignoredQualityIssueTypes });
+    }
+
+    if (body.action === "restore-issue-type") {
+      const raw = typeof body.issueType === "string" ? body.issueType.trim() : "";
+      if (!raw) return NextResponse.json({ error: "issueType is required." }, { status: 400 });
+      const validated = sanitizeIgnoredQualityIssueTypes([raw]);
+      if (validated.length !== 1) return NextResponse.json({ error: "Unknown or invalid issueType." }, { status: 400 });
+      const toRemove = validated[0];
+      const data = await readLanguageStudioData();
+      const next = sanitizeIgnoredQualityIssueTypes(data.ignoredQualityIssueTypes).filter((t) => t !== toRemove);
+      data.ignoredQualityIssueTypes = next;
+      await writeLanguageStudioData(data);
+      return NextResponse.json({ success: true, ignoredQualityIssueTypes: data.ignoredQualityIssueTypes });
+    }
+
+    if (!body.checkId || (!["ignore-all", "escalate-all", "apply-fix"].includes(body.action) && !body.issueId)) {
+      return NextResponse.json({ error: "checkId, issueId and action are required." }, { status: 400 });
+    }
     const data = await readLanguageStudioData();
     const check = data.qualityChecks[body.checkId];
     if (!check) return NextResponse.json({ error: "Quality check not found." }, { status: 404 });
+    const suppressedTypes = sanitizeIgnoredQualityIssueTypes(data.ignoredQualityIssueTypes);
     if (body.action === "apply-fix") {
       const translation = data.translations[check.translationId];
       const article = data.articles[check.articleId];
@@ -91,7 +121,7 @@ export async function POST(req: Request) {
         storedArticle.updatedAt = now;
       }
       const nextCheck = {
-        ...runLanguageQualityChecks(article, nextTranslation, Object.values(data.protectedTerms)),
+        ...runLanguageQualityChecks(article, nextTranslation, Object.values(data.protectedTerms), suppressedTypes),
         id: check.id,
         createdAt: check.createdAt,
         updatedAt: now,
@@ -162,7 +192,7 @@ export async function POST(req: Request) {
       };
       if (body.preview) {
         const previewCheck = {
-          ...runLanguageQualityChecks(article, nextTranslation, Object.values(data.protectedTerms)),
+          ...runLanguageQualityChecks(article, nextTranslation, Object.values(data.protectedTerms), suppressedTypes),
           id: check.id,
           createdAt: check.createdAt,
           updatedAt: now,
@@ -184,7 +214,7 @@ export async function POST(req: Request) {
         storedArticle.status = nextTranslation.status === "approved" ? "approved" : "review_needed";
         storedArticle.updatedAt = now;
       }
-      const freshCheck = runLanguageQualityChecks(article, nextTranslation, Object.values(data.protectedTerms));
+      const freshCheck = runLanguageQualityChecks(article, nextTranslation, Object.values(data.protectedTerms), suppressedTypes);
       const nextCheck = {
         ...freshCheck,
         id: check.id,
@@ -221,14 +251,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, qualityCheck: nextCheck, translation: nextTranslation, knowledgeFile: knowledge });
     }
 
-    check.issues = body.action === "ignore-all"
-      ? check.issues.map((issue) => ({ ...issue, ignored: true }))
-      : check.issues.map((issue) => issue.id === body.issueId ? { ...issue, ignored: body.action === "ignore" ? true : issue.ignored } : issue);
-    check.score = scoreForIssues(check);
-    check.updatedAt = new Date().toISOString();
-    data.qualityChecks[check.id] = check;
-    await writeLanguageStudioData(data);
-    return NextResponse.json({ success: true, qualityCheck: check });
+    if (body.action === "ignore" || body.action === "ignore-all") {
+      const translation = data.translations[check.translationId];
+      const article = data.articles[check.articleId];
+      if (!translation || !article) return NextResponse.json({ error: "Translation or source article not found." }, { status: 404 });
+      const merged = new Set(sanitizeIgnoredQualityIssueTypes(data.ignoredQualityIssueTypes));
+      if (body.action === "ignore-all") {
+        for (const issue of check.issues) merged.add(issue.type);
+      } else {
+        const target = check.issues.find((issue) => issue.id === body.issueId);
+        if (!target) return NextResponse.json({ error: "Issue not found." }, { status: 404 });
+        merged.add(target.type);
+      }
+      data.ignoredQualityIssueTypes = LANGUAGE_QUALITY_ISSUE_TYPES.filter((t) => merged.has(t));
+      const suppressedNext = sanitizeIgnoredQualityIssueTypes(data.ignoredQualityIssueTypes);
+      const now = new Date().toISOString();
+      const previousChecks = Object.values(data.qualityChecks).filter((row) => row.translationId === check.translationId && row.id !== check.id);
+      const fresh = runLanguageQualityChecks(article, translation, Object.values(data.protectedTerms), suppressedNext);
+      const nextCheck = applyStoredQualityDecisions(
+        { ...fresh, id: check.id, createdAt: check.createdAt, updatedAt: now },
+        previousChecks,
+      );
+      data.qualityChecks[nextCheck.id] = nextCheck;
+      await writeLanguageStudioData(data);
+      return NextResponse.json({
+        success: true,
+        qualityCheck: nextCheck,
+        ignoredQualityIssueTypes: data.ignoredQualityIssueTypes,
+      });
+    }
+
+    return NextResponse.json({ error: "Unsupported action." }, { status: 400 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Quality check update failed.";
     return NextResponse.json({ error: message }, { status: 500 });

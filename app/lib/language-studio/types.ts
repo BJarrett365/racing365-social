@@ -34,7 +34,7 @@ export type TranslationMode =
   | "seo-only"
   | "summary-only";
 
-export type LanguageContentStyle = "News" | "Transfer" | "Opinion" | "Preview" | "Review" | "Analysis" | "Feature" | "Live";
+export type LanguageContentStyle = "News" | "Transfer" | "Opinion" | "Preview" | "Review" | "Analysis" | "Feature" | "Live" | "Tips";
 
 export type LanguageSportContext =
   | "Football"
@@ -48,9 +48,29 @@ export type LanguageSportContext =
   | "NFL"
   | "Boxing"
   | "MMA"
-  | "Basketball";
+  | "Basketball"
+  | "Gambling"
+  | "Tips";
 
-export type LanguageSourceParserType = "rss-default" | "wordpress-rss" | "json-api" | "html-page" | "custom";
+/** Canonical list for selects, validation and article sport tagging. */
+export const LANGUAGE_SPORT_CONTEXTS: LanguageSportContext[] = [
+  "Football",
+  "Horse Racing",
+  "Rugby Union",
+  "Rugby League",
+  "Formula 1",
+  "Cricket",
+  "Golf",
+  "Tennis",
+  "NFL",
+  "Boxing",
+  "MMA",
+  "Basketball",
+  "Gambling",
+  "Tips",
+];
+
+export type LanguageSourceParserType = "rss-default" | "wordpress-rss" | "json-api" | "xml" | "html-page" | "custom";
 
 export type LanguageSourceBrand = {
   id: string;
@@ -60,6 +80,8 @@ export type LanguageSourceBrand = {
   parserType: LanguageSourceParserType;
   active: boolean;
   notes?: string;
+  /** When set, new imports from this brand default to this sport unless URL/tags imply another. */
+  defaultSport?: LanguageSportContext;
   createdAt: string;
   updatedAt: string;
 };
@@ -126,6 +148,8 @@ export type LanguageArticle = {
   metaDescription: string;
   slug: string;
   status: LanguageArticleStatus;
+  /** Editorial sport vertical (drives client feed filters and automation matching). */
+  sport?: LanguageSportContext;
   createdAt: string;
   updatedAt: string;
 };
@@ -358,6 +382,8 @@ export type LanguageClient = {
   active: boolean;
   allowedBrands: string[];
   allowedLanguages: LanguageCode[];
+  /** Empty = all sports. When set, approved feed items must match the article sport tag. */
+  allowedSports: LanguageSportContext[];
   allowedFormats: Array<"xml" | "json">;
   notes?: string;
   createdAt: string;
@@ -373,6 +399,8 @@ export type LanguageClientApiKey = {
   active: boolean;
   allowedBrands: string[];
   allowedLanguages: LanguageCode[];
+  /** Empty = inherit client behaviour (all sports if client list is also empty). */
+  allowedSports: LanguageSportContext[];
   allowedFormats: Array<"xml" | "json">;
   createdAt: string;
   lastUsedAt?: string;
@@ -411,6 +439,12 @@ export type LanguageCronJob = {
   importFullArticles: boolean;
   notifyOnFailure: boolean;
   notificationEmail?: string;
+  /** Cap how many feed items are processed per run (omit or 0 = unlimited). */
+  maxFeedItems?: number;
+  /** When true, only items with publishDate newer than lastImportedPublishWatermark are imported. */
+  incrementalFeedImport?: boolean;
+  /** Latest feed publish time seen after a successful import (ISO). */
+  lastImportedPublishWatermark?: string;
   lastRunAt?: string;
   lastSuccessAt?: string;
   lastFailureAt?: string;
@@ -494,6 +528,11 @@ export type LanguageStudioData = {
   cronJobs: Record<string, LanguageCronJob>;
   cronRuns: Record<string, LanguageCronRun>;
   articleAutomations: Record<string, LanguageArticleAutomation>;
+  /**
+   * Issue types the team chose to ignore globally (from Quality & Guardrails).
+   * Those checks are not raised on any translation until removed here.
+   */
+  ignoredQualityIssueTypes: LanguageQualityCheckIssue["type"][];
 };
 
 export type LanguageSettings = {

@@ -29,6 +29,10 @@ export type AdminStoredSettings = {
   openaiTtsModel?: string;
   elevenlabsVoiceId?: string;
   elevenlabsModel?: string;
+  /** Supabase project URL (Dashboard → Settings → API → Project URL). */
+  supabaseUrl?: string;
+  /** Service role secret — server only; powers RSS Import Builder. */
+  supabaseServiceRoleKey?: string;
   deeplApiKey?: string;
   deeplApiUrl?: string;
   languageProviderMode?: "openai" | "deepl" | "deepl-openai";
@@ -148,6 +152,8 @@ function secretFileKey(envName: string): keyof AdminStoredSettings | undefined {
     LIVEPEER_API_KEY: "livepeerApiKey",
     DEEPL_API_KEY: "deeplApiKey",
     APIFY_API_TOKEN: "apifyApiToken",
+    SUPABASE_URL: "supabaseUrl",
+    SUPABASE_SERVICE_ROLE_KEY: "supabaseServiceRoleKey",
   };
   return map[envName];
 }

@@ -2,6 +2,7 @@ import { isCronDue, nextRunAt } from "@/app/lib/language-studio/cron-scheduler";
 import { runArticleAutomationsForImport } from "@/app/lib/language-studio/article-automation-runner";
 import { sendEmail } from "@/app/lib/email/send-email";
 import { importLanguageFeed } from "@/app/lib/language-studio/import-feed";
+import { mergePublishWatermark } from "@/app/lib/language-studio/publish-date";
 import { newLanguageId, readLanguageStudioData, writeLanguageStudioData } from "@/app/lib/language-studio/store";
 import type { LanguageCronJob, LanguageCronRun } from "@/app/lib/language-studio/types";
 
@@ -73,6 +74,8 @@ export async function runLanguageCronJob(jobId: string, trigger: CronRunTrigger)
   const started = Date.now();
   const startedAt = new Date(started).toISOString();
   try {
+    const incrementalAfter = job.incrementalFeedImport === false ? undefined : job.lastImportedPublishWatermark;
+    const maxArticles = job.maxFeedItems && job.maxFeedItems > 0 ? job.maxFeedItems : undefined;
     const result = await importLanguageFeed({
       sourceBrand: job.sourceBrand,
       sourceLanguage: job.sourceLanguage,
@@ -80,6 +83,8 @@ export async function runLanguageCronJob(jobId: string, trigger: CronRunTrigger)
       parserType: job.parserType,
       processImages: job.processImages,
       importFullArticles: job.importFullArticles,
+      incrementalAfter,
+      maxArticles,
     });
     const data = await readLanguageStudioData();
     const current = data.cronJobs[job.id] ?? job;
@@ -120,6 +125,7 @@ export async function runLanguageCronJob(jobId: string, trigger: CronRunTrigger)
     const finalData = await readLanguageStudioData();
     const finalCurrent = finalData.cronJobs[job.id] ?? current;
     finalData.cronRuns[run.id] = run;
+    const watermark = mergePublishWatermark(finalCurrent.lastImportedPublishWatermark, result.articles);
     finalData.cronJobs[job.id] = {
       ...finalCurrent,
       lastRunAt: finishedAt,
@@ -128,6 +134,7 @@ export async function runLanguageCronJob(jobId: string, trigger: CronRunTrigger)
       lastRunMessage: run.message,
       consecutiveFailures: 0,
       nextRunAt: nextRunAt(finalCurrent, new Date(finishedAt)),
+      lastImportedPublishWatermark: watermark ?? finalCurrent.lastImportedPublishWatermark,
       updatedAt: finishedAt,
     };
     await writeLanguageStudioData(finalData);

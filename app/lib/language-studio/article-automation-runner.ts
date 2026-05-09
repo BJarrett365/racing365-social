@@ -56,6 +56,11 @@ function intersects(left: string[] | undefined, right: string[] | undefined): bo
   return left.some((value) => rightSet.has(value));
 }
 
+function automationMatchesArticleSport(automation: LanguageArticleAutomation, article: LanguageArticle): boolean {
+  if (!article.sport) return true;
+  return article.sport === automation.sportContext;
+}
+
 function matchingAutomations(data: LanguageStudioData, source: Pick<LanguageImport, "sourceBrand">, clientIds: string[]): LanguageArticleAutomation[] {
   return Object.values(data.articleAutomations).filter((automation) => {
     if (!automation.active) return false;
@@ -112,6 +117,7 @@ async function createTranslation(data: LanguageStudioData, automation: LanguageA
     knowledgeFiles: Object.values(data.knowledgeFiles),
     complianceNotes: Object.values(data.complianceNotes),
   });
+  const autoPublished = Boolean(automation.autoApprove);
   const row: LanguageTranslation = {
     id: newLanguageId(translationMode === "rewrite-only" ? "lrewrite" : "ltrans"),
     articleId: article.id,
@@ -119,7 +125,8 @@ async function createTranslation(data: LanguageStudioData, automation: LanguageA
     targetLanguage,
     providerMode: automation.providerMode,
     translationMode,
-    status: automation.outputStatus,
+    status: autoPublished ? "approved" : automation.outputStatus,
+    approvedAt: autoPublished ? now : undefined,
     createdAt: now,
     updatedAt: now,
     editorNotes: [
@@ -174,6 +181,7 @@ async function runAutomationForArticle(
   let skipped = 0;
   const article = data.articles[articleId];
   if (!article) return { created, skipped };
+  if (!automationMatchesArticleSport(automation, article)) return { created, skipped };
 
   if (automation.action === "rewrite" || automation.action === "rewrite-translate") {
     const targetLanguage = article.sourceLanguage;

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { generateClientApiKey, hashClientApiKey, keyPrefix, maskedApiKey } from "@/app/lib/language-studio/client-access";
 import { newLanguageId, readLanguageStudioData, upsertClientApiKey } from "@/app/lib/language-studio/store";
-import type { LanguageClientApiKey, LanguageCode } from "@/app/lib/language-studio/types";
+import type { LanguageClientApiKey, LanguageCode, LanguageSportContext } from "@/app/lib/language-studio/types";
+import { LANGUAGE_SPORT_CONTEXTS } from "@/app/lib/language-studio/types";
 
 type Body = {
   action?: "create" | "revoke";
@@ -10,11 +11,17 @@ type Body = {
   label?: string;
   allowedBrands?: string[];
   allowedLanguages?: LanguageCode[];
+  allowedSports?: LanguageSportContext[];
   allowedFormats?: Array<"xml" | "json">;
 };
 
 function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : [];
+}
+
+function sportContexts(value: unknown): LanguageSportContext[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is LanguageSportContext => typeof item === "string" && LANGUAGE_SPORT_CONTEXTS.includes(item as LanguageSportContext));
 }
 
 export async function POST(req: Request) {
@@ -47,6 +54,7 @@ export async function POST(req: Request) {
     active: true,
     allowedBrands: strings(body.allowedBrands),
     allowedLanguages: strings(body.allowedLanguages) as LanguageCode[],
+    allowedSports: sportContexts(body.allowedSports),
     allowedFormats: formats.length ? formats : client.allowedFormats,
     createdAt: new Date().toISOString(),
   };

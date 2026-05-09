@@ -7,8 +7,11 @@
  *
  * Also stops any process already listening on the dev port (macOS/Linux) so an old
  * broken Node server cannot keep serving after the build folder was removed.
+ *
+ * Do not pre-create `.next` subtrees before `next dev` — that can leave the server expecting
+ * `middleware-manifest.json` and similar files that only appear after Next's first compile.
  */
-const { existsSync, mkdirSync, rmSync, readFileSync } = require("fs");
+const { existsSync, rmSync, readFileSync } = require("fs");
 const { join } = require("path");
 const { spawn, execSync, execFileSync } = require("child_process");
 
@@ -109,13 +112,17 @@ if (process.argv.includes("--kill-port-only")) {
 
 if (process.env.SKIP_RELEASE_PORT !== "1") {
   releasePort(devPort);
+  try {
+    execSync(process.platform === "win32" ? "ping 127.0.0.1 -n 3 >nul 2>&1" : "sleep 2", { stdio: "ignore" });
+  } catch (_) {
+    /* ignore */
+  }
 }
 
 if (process.env.FORCE_CLEAN_DEV_DIST === "1" && existsSync(nextDir)) {
   rmSync(nextDir, { recursive: true, force: true });
   console.error(`[run-dev] Removed ${distDir} (FORCE_CLEAN_DEV_DIST=1).`);
 }
-mkdirSync(join(nextDir, "static", "development"), { recursive: true });
 
 const nextCli = join(root, "node_modules", "next", "dist", "bin", "next");
 const args = [nextCli, "dev", "-p", devPort, "-H", devHost];

@@ -1,6 +1,6 @@
 import { mapWithConcurrency } from "@/app/lib/map-with-concurrency";
 import type { LanguageArticle, LanguageSocialEmbed } from "@/app/lib/language-studio/types";
-import { sanitizeImportedContent } from "@/app/lib/language-studio/sanitize";
+import { sanitizeImportedContent, stripSourceCreditHtmlBlocks, stripTrailingSourceAttributionPlain } from "@/app/lib/language-studio/sanitize";
 
 const ARTICLE_STOP_MARKERS = [
   "Related Articles",
@@ -11,6 +11,19 @@ const ARTICLE_STOP_MARKERS = [
   "Read next:",
   "Want to be the first to know",
   "You can also subscribe",
+  "Like what you've read?",
+  "MOST READ",
+  "Get exclusive Willie Mullins",
+  "Discover Sporting Life Plus",
+  "Fetching latest games",
+  "Horse Racing Powered By",
+  "Featured Events",
+  "Privacy Preference Centre",
+  "We are dedicated to promoting safer gambling",
+  "Source credit:",
+  "Football data provided by",
+  "Join for Free",
+  "Join for free Log in",
 ];
 
 type ArticlePageData = {
@@ -127,6 +140,16 @@ function extractArticleHtml(html: string): string {
   if (article) return article;
   const main = /<main\b[^>]*>([\s\S]*?)<\/main>/i.exec(html)?.[1];
   return main ?? html;
+}
+
+/** Drop global chrome often bundled into article HTML when full pages are fetched (Sporting Life–style layouts, etc.). */
+function stripSiteChromeFromHtml(html: string): string {
+  return stripSourceCreditHtmlBlocks(html)
+    .replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, "")
+    .replace(/<nav\b[^>]*>[\s\S]*?<\/nav>/gi, "")
+    .replace(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi, "")
+    .replace(/<aside\b[^>]*>[\s\S]*?<\/aside>/gi, "")
+    .trim();
 }
 
 function trimAfterArticle(text: string): string {
@@ -253,25 +276,27 @@ export async function enrichLanguageArticlesFromPages(articles: LanguageArticle[
       });
       if (!res.ok) return article;
 
-      const html = await res.text();
-      const jsonLd = extractJsonLdArticleData(html);
+      const rawHtml = await res.text();
+      const jsonLd = extractJsonLdArticleData(rawHtml);
       const jsonLdBody = jsonLd.body ?? "";
-      const htmlBody = trimAfterArticle(textFromHtml(extractArticleHtml(html)));
+      const htmlForArticle = stripSiteChromeFromHtml(rawHtml);
+      const htmlBody = trimAfterArticle(stripTrailingSourceAttributionPlain(textFromHtml(extractArticleHtml(htmlForArticle))));
       const rawBody = sanitizeImportedContent(jsonLdBody.length > htmlBody.length ? jsonLdBody : htmlBody);
-      const author = jsonLd.author || firstMetaContent(html, ["author", "article:author"]) || extractAuthorFromText(htmlBody, article) || article.author;
-      const publishDate = jsonLd.publishDate || firstMetaContent(html, ["article:published_time", "publishdate"]) || article.publishDate || extractDateFromText(htmlBody);
-      const modifiedDate = jsonLd.modifiedDate || firstMetaContent(html, ["article:modified_time", "lastmod"]) || article.modifiedDate;
+      const author = jsonLd.author || firstMetaContent(rawHtml, ["author", "article:author"]) || extractAuthorFromText(htmlBody, article) || article.author;
+      const publishDate = jsonLd.publishDate || firstMetaContent(rawHtml, ["article:published_time", "publishdate"]) || article.publishDate || extractDateFromText(htmlBody);
+      const modifiedDate = jsonLd.modifiedDate || firstMetaContent(rawHtml, ["article:modified_time", "lastmod"]) || article.modifiedDate;
       const body = stripArticleHeaderLines(rawBody, { ...article, author }, { ...jsonLd, author });
       const social = extractSocialEmbedsFromBody(body || article.body);
-      const standfirst = jsonLd.description || firstMetaContent(html, ["description", "og:description"]) || article.standfirst;
-      const imageUrl = article.imageUrl || jsonLd.imageUrl || firstMetaContent(html, ["og:image", "twitter:image"]);
+      const bodyText = stripTrailingSourceAttributionPlain(social.body || body || article.body);
+      const standfirst = jsonLd.description || firstMetaContent(rawHtml, ["description", "og:description"]) || article.standfirst;
+      const imageUrl = article.imageUrl || jsonLd.imageUrl || firstMetaContent(rawHtml, ["og:image", "twitter:image"]);
 
       return {
         ...article,
         author,
         publishDate,
         modifiedDate,
-        body: social.body || body || article.body,
+        body: bodyText || article.body,
         socialEmbeds: social.socialEmbeds.length ? social.socialEmbeds : article.socialEmbeds,
         standfirst,
         metaDescription: standfirst.slice(0, 180) || article.metaDescription,

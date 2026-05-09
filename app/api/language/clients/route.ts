@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { maskedApiKey } from "@/app/lib/language-studio/client-access";
 import { deleteClient, newLanguageId, readLanguageStudioData, sortDesc, upsertClient } from "@/app/lib/language-studio/store";
-import type { LanguageClient, LanguageCode } from "@/app/lib/language-studio/types";
+import type { LanguageClient, LanguageCode, LanguageSportContext } from "@/app/lib/language-studio/types";
+import { LANGUAGE_SPORT_CONTEXTS } from "@/app/lib/language-studio/types";
 
 type Body = Partial<LanguageClient>;
 
 function arrayOfStrings(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.map((item) => String(item).trim()).filter(Boolean);
+}
+
+function arrayOfSportContexts(value: unknown): LanguageSportContext[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is LanguageSportContext => typeof item === "string" && LANGUAGE_SPORT_CONTEXTS.includes(item as LanguageSportContext));
 }
 
 export async function GET() {
@@ -34,6 +40,7 @@ export async function POST(req: Request) {
     active: body.active ?? true,
     allowedBrands: arrayOfStrings(body.allowedBrands),
     allowedLanguages: arrayOfStrings(body.allowedLanguages) as LanguageCode[],
+    allowedSports: body.allowedSports !== undefined ? arrayOfSportContexts(body.allowedSports) : (existing?.allowedSports ?? []),
     allowedFormats: (arrayOfStrings(body.allowedFormats).filter((format) => format === "xml" || format === "json") as Array<"xml" | "json">),
     notes: body.notes?.trim() || "",
     createdAt: body.createdAt || existing?.createdAt || now,

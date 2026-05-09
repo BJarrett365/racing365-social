@@ -1,6 +1,7 @@
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import { decodeHtmlEntities } from "@/app/lib/html-entities";
-import type { LanguageArticle, LanguageCode, LanguageTranslation } from "@/app/lib/language-studio/types";
+import { inferArticleSport } from "@/app/lib/language-studio/article-sport";
+import type { LanguageArticle, LanguageCode, LanguageSportContext, LanguageTranslation } from "@/app/lib/language-studio/types";
 import { newLanguageId } from "@/app/lib/language-studio/store";
 import { sanitizeImportedContent } from "@/app/lib/language-studio/sanitize";
 
@@ -116,7 +117,13 @@ function extractArticleBody(item: UnknownRecord, fallback: string): string {
 
 export function parseLanguageXmlFeed(
   xml: string,
-  opts: { importId: string; sourceBrand: string; sourceLanguage: LanguageCode; sourceUrl?: string },
+  opts: {
+    importId: string;
+    sourceBrand: string;
+    sourceLanguage: LanguageCode;
+    sourceUrl?: string;
+    defaultSport?: LanguageSportContext;
+  },
 ): { feedTitle: string; articles: LanguageArticle[] } {
   const parsed = parser.parse(xml) as UnknownRecord;
   const rssChannel = rec(rec(parsed.rss).channel);
@@ -137,6 +144,15 @@ export function parseLanguageXmlFeed(
     const modifiedDate = cleanImportedText(first(item["atom:updated"], item.updated, item.modified));
     const author = cleanImportedText(first(item["dc:creator"], item.author, rec(item.author).name));
     const tags = extractTags(item);
+    const sport = inferArticleSport({
+      sourceBrand: opts.sourceBrand,
+      canonicalUrl,
+      sourceUrl: opts.sourceUrl,
+      category: tags[0] ?? "",
+      tags,
+      title,
+      defaultSport: opts.defaultSport,
+    });
     const article: LanguageArticle = {
       id: newLanguageId("larticle"),
       importId: opts.importId,
@@ -159,6 +175,7 @@ export function parseLanguageXmlFeed(
       metaDescription: description.slice(0, 180),
       slug: slugify(title),
       status: "imported",
+      sport,
       createdAt: now,
       updatedAt: now,
     };
@@ -189,6 +206,7 @@ export function buildTranslationXml(
         canonicalUrl: article.canonicalUrl ?? "",
         articleId: article.sourceArticleId ?? article.id,
         author: article.author ?? "",
+        sport: article.sport ?? "",
         imageUrl: article.imageUrl ?? "",
         imageLibraryRel: article.imageLibraryRel ?? "",
         translatedImageLibraryRel: opts.imageLibraryRel ?? "",
@@ -245,6 +263,7 @@ export function buildTranslationJson(
       canonicalUrl: article.canonicalUrl,
       articleId: article.sourceArticleId ?? article.id,
       author: article.author,
+      sport: article.sport,
       publishDate: article.publishDate,
       modifiedDate: article.modifiedDate,
       category: article.category,

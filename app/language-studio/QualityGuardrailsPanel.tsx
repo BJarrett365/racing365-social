@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { LanguageQualityCheck, LanguageTranslation } from "@/app/lib/language-studio/types";
+import type { LanguageQualityCheck, LanguageQualityCheckIssue, LanguageTranslation } from "@/app/lib/language-studio/types";
 
 type Me = { user?: { role: string; email: string } };
 type PendingFix = {
@@ -15,6 +15,10 @@ type PendingFix = {
 const guardrailButtonClass = "inline-flex items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-bold text-[color:var(--text-secondary)] shadow-sm transition hover:border-[color:var(--accent)] hover:bg-[color:var(--surface-hover)] hover:text-[color:var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60";
 const ignoreButtonClass = "inline-flex items-center justify-center rounded-xl border border-emerald-500/50 bg-emerald-500/15 px-3 py-2 text-xs font-bold text-emerald-800 shadow-sm transition hover:border-emerald-500 hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-60 dark:text-emerald-100";
 const escalateButtonClass = "inline-flex items-center justify-center rounded-xl border border-amber-500/55 bg-amber-500/20 px-3 py-2 text-xs font-bold text-amber-900 shadow-sm transition hover:border-amber-500 hover:bg-amber-500/30 disabled:cursor-not-allowed disabled:opacity-60 dark:text-amber-100";
+
+function formatIssueTypeLabel(t: string): string {
+  return t.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export function QualityGuardrailsPanel({
   translationId,
@@ -36,6 +40,7 @@ export function QualityGuardrailsPanel({
   onTranslationFixed?: (translation: LanguageTranslation) => void;
 }) {
   const [check, setCheck] = useState<LanguageQualityCheck | null>(null);
+  const [ignoredQualityIssueTypes, setIgnoredQualityIssueTypes] = useState<LanguageQualityCheckIssue["type"][]>([]);
   const [me, setMe] = useState<Me | null>(null);
   const [fixing, setFixing] = useState(false);
   const [pendingFix, setPendingFix] = useState<PendingFix | null>(null);
@@ -43,6 +48,7 @@ export function QualityGuardrailsPanel({
   const load = useCallback(async () => {
     if (!translationId) {
       setCheck(null);
+      setIgnoredQualityIssueTypes([]);
       setPendingFix(null);
       onBlockedChange(false);
       return;
@@ -51,6 +57,7 @@ export function QualityGuardrailsPanel({
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Quality check failed");
     setCheck(data.qualityCheck);
+    setIgnoredQualityIssueTypes(Array.isArray(data.ignoredQualityIssueTypes) ? data.ignoredQualityIssueTypes : []);
     setPendingFix(null);
     onBlockedChange(data.qualityCheck?.score === "red");
   }, [onBlockedChange, translationId]);
@@ -62,6 +69,7 @@ export function QualityGuardrailsPanel({
   useEffect(() => {
     void load().catch(() => {
       setCheck(null);
+      setIgnoredQualityIssueTypes([]);
       onBlockedChange(false);
     });
   }, [load, onBlockedChange]);
@@ -86,6 +94,7 @@ export function QualityGuardrailsPanel({
         });
       } else {
         setCheck(data.qualityCheck);
+        if (Array.isArray(data.ignoredQualityIssueTypes)) setIgnoredQualityIssueTypes(data.ignoredQualityIssueTypes);
         onBlockedChange(data.qualityCheck?.score === "red");
         if (data.translation) onTranslationFixed?.(data.translation);
       }
@@ -118,6 +127,32 @@ export function QualityGuardrailsPanel({
     setFixing(false);
   };
 
+  const restoreSuppressedIssueType = async (issueType: LanguageQualityCheckIssue["type"]) => {
+    setFixing(true);
+    const res = await fetch("/api/language/quality-checks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "restore-issue-type", issueType }),
+    });
+    const data = await res.json();
+    if (res.ok && Array.isArray(data.ignoredQualityIssueTypes)) setIgnoredQualityIssueTypes(data.ignoredQualityIssueTypes);
+    if (translationId) await load().catch(() => undefined);
+    setFixing(false);
+  };
+
+  const clearAllSuppressedIssueTypes = async () => {
+    setFixing(true);
+    const res = await fetch("/api/language/quality-checks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "clear-all-suppressed-issue-types" }),
+    });
+    const data = await res.json();
+    if (res.ok && Array.isArray(data.ignoredQualityIssueTypes)) setIgnoredQualityIssueTypes(data.ignoredQualityIssueTypes);
+    if (translationId) await load().catch(() => undefined);
+    setFixing(false);
+  };
+
   const badgeClass = check?.score === "red"
     ? "border-red-500/50 bg-red-500/15 text-red-700 dark:text-red-200"
     : check?.score === "amber"
@@ -135,9 +170,39 @@ export function QualityGuardrailsPanel({
           <p className="mt-1 text-xs text-[color:var(--text-muted)]">
             {check ? `${activeIssueCount} active issue${activeIssueCount === 1 ? "" : "s"} to review` : "Select a translation to run quality checks."}
           </p>
+          {check ? (
+            <p className="mt-2 text-xs leading-relaxed text-[color:var(--text-muted)]">
+              Ignore adds that issue type to a studio-wide list so it is not raised on other articles. Use Restore below to turn a check back on.
+            </p>
+          ) : null}
         </div>
         <span className={`rounded-full border px-3 py-1 text-xs font-black uppercase ${badgeClass}`}>{check?.score ?? "checking"}</span>
       </div>
+      {ignoredQualityIssueTypes.length > 0 ? (
+        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 text-xs text-[color:var(--text-secondary)]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-semibold text-[color:var(--text-primary)]">Suppressed check types (studio-wide)</p>
+            <button type="button" className={guardrailButtonClass} disabled={fixing} onClick={() => void clearAllSuppressedIssueTypes()}>
+              Clear all
+            </button>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {ignoredQualityIssueTypes.map((t) => (
+              <span key={t} className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-1 font-mono text-[10px] text-[color:var(--text-primary)]">
+                {formatIssueTypeLabel(t)}
+                <button
+                  type="button"
+                  className="ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800 hover:bg-amber-500/20 dark:text-amber-100"
+                  disabled={fixing}
+                  onClick={() => void restoreSuppressedIssueType(t)}
+                >
+                  Restore
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {!check ? <p className="rounded-xl bg-[color:var(--surface-muted)] p-3 text-sm text-[color:var(--text-secondary)]">Select a translation to run quality checks.</p> : null}
       {check?.issues.length === 0 ? <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-800 dark:text-emerald-100">No guardrail issues found.</p> : null}
       {pendingFix && translation ? (
@@ -167,7 +232,7 @@ export function QualityGuardrailsPanel({
       {hasActiveIssues ? (
         <div className="grid gap-2 sm:grid-cols-2">
           <button type="button" className={ignoreButtonClass} onClick={() => void updateIssue(undefined, "ignore-all")}>
-            Ignore all warnings for this translation
+            Ignore all types shown (studio-wide)
           </button>
           <button type="button" className={escalateButtonClass} onClick={() => void updateIssue(undefined, "escalate-all")}>
             {fixing ? "Fixing with AI..." : "Fix all warnings with AI"}
@@ -185,7 +250,9 @@ export function QualityGuardrailsPanel({
             <p className="mt-2 leading-5 text-[color:var(--text-secondary)]">{issue.message}</p>
             {issue.suggestedFix ? <p className="mt-2 rounded-xl bg-[color:var(--surface)] p-3 leading-5 text-[color:var(--text-secondary)]">Suggested fix: {issue.suggestedFix}</p> : null}
             <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" className={ignoreButtonClass} onClick={() => void updateIssue(issue.id, "ignore")}>Ignore warning</button>
+              <button type="button" className={ignoreButtonClass} disabled={issue.ignored} onClick={() => void updateIssue(issue.id, "ignore")}>
+                {issue.ignored ? "Ignored" : "Ignore this type (studio-wide)"}
+              </button>
               <button type="button" className={escalateButtonClass} onClick={() => void updateIssue(issue.id, "escalate")}>{fixing ? "Fixing..." : "Fix with AI"}</button>
             </div>
           </div>

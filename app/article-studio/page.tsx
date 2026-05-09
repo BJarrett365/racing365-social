@@ -9,25 +9,25 @@ export const metadata = {
 
 const articleWorkflows = [
   {
-    title: "Import Articles",
+    title: "Import (latest)",
     status: "Live",
     href: "/language-studio?tab=Imports",
     description:
-      "Bring in XML, RSS, URL, API and HTML page sources before rewriting, translating or moving articles to review.",
+      "Pull the newest RSS, XML, URL or API items into Language Studio with optional caps and date windows, then route them into rewrite and translation.",
   },
   {
-    title: "Rewrite Articles",
+    title: "Rewrite (new pipeline)",
     status: "Live",
     href: "/language-studio?tab=Rewrite",
     description:
-      "Rewrite imported articles and YouTube transcript source material with content style, sport, journalist profile and editorial rules.",
+      "Imported new articles that are still in the pipeline and available for an English rewrite before translation or review.",
   },
   {
-    title: "Translate Articles",
+    title: "Translate (new pipeline)",
     status: "Live",
     href: "/language-studio?tab=Translations",
     description:
-      "Translate and localise approved source articles into the Language Studio target language stack.",
+      "Imported new articles that are still in the pipeline and ready for target-language translation and localisation.",
   },
   {
     title: "YouTube Transcripts",
@@ -44,11 +44,25 @@ const articleWorkflows = [
       "Turn article-led scripts and editorial assets into Planet Sport news shorts, video outputs and image formats.",
   },
   {
-    title: "Review Queue",
+    title: "Review queue (manual)",
     status: "Live",
     href: "/language-studio?tab=Review%20Queue",
     description:
-      "Review generated rewrites and translations before approval, export feeds and client delivery.",
+      "Editorial review for AI rewrites and translations before approval, export feeds and client delivery.",
+  },
+  {
+    title: "Published",
+    status: "Live",
+    href: "/language-studio?tab=Published",
+    description:
+      "Published rewrites, published translations by day, and finished source articles you can send back to the pipeline.",
+  },
+  {
+    title: "Automated",
+    status: "Live",
+    href: "/language-studio?tab=Automated",
+    description:
+      "Schedule feed import crons and configure post-import AI rewrite and translation automations (admin tools).",
   },
 ];
 

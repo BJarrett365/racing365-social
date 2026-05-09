@@ -1,4 +1,6 @@
 import { enrichLanguageArticlesFromPages, extractSocialEmbedsFromBody } from "@/app/lib/language-studio/article-pages";
+import { inferArticleSport } from "@/app/lib/language-studio/article-sport";
+import { parsePublishMs, sortArticlesByPublishDateDesc } from "@/app/lib/language-studio/publish-date";
 import { saveLanguageArticleImagesToLibrary } from "@/app/lib/language-studio/library-images";
 import {
   newLanguageId,
@@ -8,7 +10,7 @@ import {
 import { parseLanguageXmlFeed } from "@/app/lib/language-studio/xml";
 import { decodeHtmlEntities } from "@/app/lib/html-entities";
 import { sanitizeImportedContent } from "@/app/lib/language-studio/sanitize";
-import type { LanguageArticle, LanguageCode, LanguageImport, LanguageJournalistProfile, LanguageSourceParserType } from "@/app/lib/language-studio/types";
+import type { LanguageArticle, LanguageCode, LanguageImport, LanguageJournalistProfile, LanguageSourceParserType, LanguageSportContext } from "@/app/lib/language-studio/types";
 
 export const DEFAULT_LANGUAGE_FEED_URL = "https://www.planetf1.com/partner-media-content-feed";
 
@@ -20,6 +22,10 @@ export type ImportLanguageFeedInput = {
   processImages?: boolean;
   importFullArticles?: boolean;
   parserType?: LanguageSourceParserType;
+  /** Cap how many feed items are processed (after sort / incremental filter). */
+  maxArticles?: number;
+  /** ISO timestamp: only items with publishDate newer than this are imported (incremental cron). */
+  incrementalAfter?: string;
 };
 
 export type ImportLanguageFeedResult = {
@@ -192,7 +198,10 @@ function absoluteUrl(href: string, sourceUrl: string): string {
   }
 }
 
-function extractHtmlPageArticles(html: string, opts: { importId: string; sourceBrand: string; sourceLanguage: LanguageCode; sourceUrl: string }): { feedTitle: string; articles: LanguageArticle[] } {
+function extractHtmlPageArticles(
+  html: string,
+  opts: { importId: string; sourceBrand: string; sourceLanguage: LanguageCode; sourceUrl: string; defaultSport?: LanguageSportContext },
+): { feedTitle: string; articles: LanguageArticle[] } {
   const now = new Date().toISOString();
   const source = new URL(opts.sourceUrl);
   const linkMatches = [...html.matchAll(/<a\b[^>]*href=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi)];
@@ -220,6 +229,15 @@ function extractHtmlPageArticles(html: string, opts: { importId: string; sourceB
     articles: baseArticles.map(({ canonicalUrl, title, index }) => {
       const description = firstHtmlMeta(html, ["description", "og:description"]);
       const body = links.length ? description || title : textFromHtml(html);
+      const sport = inferArticleSport({
+        sourceBrand: opts.sourceBrand,
+        canonicalUrl,
+        sourceUrl: opts.sourceUrl,
+        category: "",
+        tags: [],
+        title,
+        defaultSport: opts.defaultSport,
+      });
       const article: LanguageArticle = {
         id: newLanguageId("larticle"),
         importId: opts.importId,
@@ -242,12 +260,29 @@ function extractHtmlPageArticles(html: string, opts: { importId: string; sourceB
         metaDescription: description.slice(0, 180),
         slug: title.toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 90),
         status: "imported",
+        sport,
         createdAt: now,
         updatedAt: now,
       };
       return article;
     }),
   };
+}
+
+function applyFeedArticleWindow(articles: LanguageArticle[], opts: { incrementalAfter?: string; maxArticles?: number }): LanguageArticle[] {
+  let list = sortArticlesByPublishDateDesc(articles);
+  if (opts.incrementalAfter?.trim()) {
+    const cutoff = parsePublishMs(opts.incrementalAfter) - 120_000;
+    list = list.filter((article) => {
+      const t = parsePublishMs(article.publishDate);
+      if (!t) return true;
+      return t > cutoff;
+    });
+  }
+  if (opts.maxArticles != null && opts.maxArticles > 0) {
+    list = list.slice(0, Math.floor(opts.maxArticles));
+  }
+  return list;
 }
 
 export async function importLanguageFeed(input: ImportLanguageFeedInput): Promise<ImportLanguageFeedResult> {
@@ -258,13 +293,21 @@ export async function importLanguageFeed(input: ImportLanguageFeedInput): Promis
   if (!xml && sourceUrl && input.parserType !== "html-page") xml = await fetchXml(sourceUrl);
   if (!xml && input.parserType !== "html-page") throw new Error("XML content or sourceUrl is required.");
 
+  const existing = await readLanguageStudioData();
+  const brandRow = Object.values(existing.sourceBrands).find((row) => row.name.trim().toLowerCase() === sourceBrand.trim().toLowerCase());
+  const defaultSport = brandRow?.defaultSport;
+
   const importId = newLanguageId("limport");
   const parsed = input.parserType === "html-page" && sourceUrl
-    ? extractHtmlPageArticles(await fetchHtml(sourceUrl), { importId, sourceBrand, sourceLanguage, sourceUrl })
-    : parseLanguageXmlFeed(xml, { importId, sourceBrand, sourceLanguage, sourceUrl });
+    ? extractHtmlPageArticles(await fetchHtml(sourceUrl), { importId, sourceBrand, sourceLanguage, sourceUrl, defaultSport })
+    : parseLanguageXmlFeed(xml, { importId, sourceBrand, sourceLanguage, sourceUrl, defaultSport });
+  const windowedArticles = applyFeedArticleWindow(parsed.articles, {
+    incrementalAfter: input.incrementalAfter,
+    maxArticles: input.maxArticles,
+  });
   const fullArticles = input.importFullArticles === false
-    ? parsed.articles
-    : await enrichLanguageArticlesFromPages(parsed.articles);
+    ? windowedArticles
+    : await enrichLanguageArticlesFromPages(windowedArticles);
   const articlesWithSocialEmbeds = fullArticles.map((article) => {
     if (article.socialEmbeds?.length) return article;
     const social = extractSocialEmbedsFromBody(article.body);
@@ -273,7 +316,6 @@ export async function importLanguageFeed(input: ImportLanguageFeedInput): Promis
       : article;
   });
 
-  const existing = await readLanguageStudioData();
   const existingByKey = new Map<string, LanguageArticle>();
   const existingImageByUrl = new Map<string, string>();
   for (const article of Object.values(existing.articles)) {

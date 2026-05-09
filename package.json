@@ -15,6 +15,7 @@
     "build": "NEXT_DIST_DIR=.next-prod next build",
     "start": "NEXT_DIST_DIR=.next-prod node scripts/ensure-next-build.cjs && NEXT_DIST_DIR=.next-prod node scripts/run-start.cjs",
     "lint": "next lint",
+    "test:rss-builder": "vitest run app/lib/rss-builder",
     "typegen": "next typegen",
     "install-ffmpeg-static": "node node_modules/ffmpeg-static/install.js",
     "puppeteer:install": "npx puppeteer browsers install chrome",
@@ -42,6 +43,7 @@
     "eslint": "^9.23.0",
     "eslint-config-next": "^15.2.4",
     "tailwindcss": "^4.0.17",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "vitest": "^3.2.4"
   }
 }

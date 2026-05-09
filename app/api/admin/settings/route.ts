@@ -38,6 +38,9 @@ type Body = {
   clearDailyApiKey?: boolean;
   clearLivepeerKey?: boolean;
   clearApifyApiToken?: boolean;
+  clearSupabase?: boolean;
+  supabaseUrl?: string;
+  supabaseServiceRoleKey?: string;
 };
 
 export async function GET() {
@@ -52,6 +55,16 @@ export async function GET() {
   const restreamOk = Boolean(s.restreamClientId?.trim() && s.restreamClientSecret?.trim());
   const muxOk = Boolean(s.muxTokenId?.trim() && s.muxTokenSecret?.trim());
   const muxWebhookOk = Boolean(s.muxWebhookSigningSecret?.trim());
+  const supabaseOk = Boolean(s.supabaseUrl?.trim() && s.supabaseServiceRoleKey?.trim());
+  const supabaseUrlHost = (() => {
+    const raw = (s.supabaseUrl ?? "").trim();
+    if (!raw) return "";
+    try {
+      return new URL(raw).hostname;
+    } catch {
+      return "";
+    }
+  })();
   return NextResponse.json({
     elevenlabs: { configured: mask(s.elevenlabsApiKey) },
     openai: { configured: mask(s.openaiApiKey) },
@@ -62,6 +75,8 @@ export async function GET() {
     daily: { configured: mask(s.dailyApiKey) },
     livepeer: { configured: mask(s.livepeerApiKey) },
     apify: { configured: mask(s.apifyApiToken) },
+    supabase: { configured: supabaseOk },
+    supabaseUrlHost,
     elevenlabsApiKeyMasked: maskPreview(s.elevenlabsApiKey),
     openaiApiKeyMasked: maskPreview(s.openaiApiKey),
     runwaymlApiKeyMasked: maskPreview(s.runwaymlApiKey),
@@ -73,6 +88,7 @@ export async function GET() {
     dailyApiKeyMasked: maskPreview(s.dailyApiKey),
     livepeerApiKeyMasked: maskPreview(s.livepeerApiKey),
     apifyApiTokenMasked: maskPreview(s.apifyApiToken),
+    supabaseServiceRoleKeyMasked: maskPreview(s.supabaseServiceRoleKey),
     apifyYoutubeTranscriptActorId:
       s.apifyYoutubeTranscriptActorId?.trim() || "apilabs/youtube-caption-transcription-scraper",
     apifyYoutubeTranscriptLanguage: s.apifyYoutubeTranscriptLanguage?.trim() || "en",
@@ -115,6 +131,7 @@ export async function POST(request: Request) {
   if (body.clearDailyApiKey) clearKeys.push("dailyApiKey");
   if (body.clearLivepeerKey) clearKeys.push("livepeerApiKey");
   if (body.clearApifyApiToken) clearKeys.push("apifyApiToken");
+  if (body.clearSupabase) clearKeys.push("supabaseUrl", "supabaseServiceRoleKey");
 
   const partial: Partial<AdminStoredSettings> = {};
   if (body.elevenlabsApiKey?.trim()) partial.elevenlabsApiKey = body.elevenlabsApiKey.trim();
@@ -128,6 +145,8 @@ export async function POST(request: Request) {
   if (body.dailyApiKey?.trim()) partial.dailyApiKey = body.dailyApiKey.trim();
   if (body.livepeerApiKey?.trim()) partial.livepeerApiKey = body.livepeerApiKey.trim();
   if (body.apifyApiToken?.trim()) partial.apifyApiToken = body.apifyApiToken.trim();
+  if (body.supabaseUrl?.trim()) partial.supabaseUrl = body.supabaseUrl.trim();
+  if (body.supabaseServiceRoleKey?.trim()) partial.supabaseServiceRoleKey = body.supabaseServiceRoleKey.trim();
   if (body.apifyYoutubeTranscriptActorId?.trim()) partial.apifyYoutubeTranscriptActorId = body.apifyYoutubeTranscriptActorId.trim();
   if (body.apifyYoutubeTranscriptLanguage?.trim()) partial.apifyYoutubeTranscriptLanguage = body.apifyYoutubeTranscriptLanguage.trim();
   if (body.apifyYoutubeTranscriptTimeoutSeconds?.trim()) partial.apifyYoutubeTranscriptTimeoutSeconds = body.apifyYoutubeTranscriptTimeoutSeconds.trim();

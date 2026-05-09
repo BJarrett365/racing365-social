@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { R365Button } from "@/app/components/R365Button";
-import type {
-  LanguageArticleAutomationAction,
-  LanguageCode,
-  LanguageContentStyle,
-  LanguageProviderMode,
-  LanguageSportContext,
-  TranslationMode,
+import {
+  LANGUAGE_SPORT_CONTEXTS,
+  type LanguageArticleAutomationAction,
+  type LanguageCode,
+  type LanguageContentStyle,
+  type LanguageProviderMode,
+  type LanguageSportContext,
+  type TranslationMode,
 } from "@/app/lib/language-studio/types";
 
 type ClientRow = {
@@ -273,13 +274,13 @@ export function ArticleAutomationsPanel() {
           <label className="text-xs font-semibold uppercase text-slate-500">
             Content style
             <select className={inputClass} value={draft.contentStyle ?? "Preview"} onChange={(e) => setDraft({ ...draft, contentStyle: e.target.value as LanguageContentStyle })}>
-              {["News", "Transfer", "Opinion", "Preview", "Review", "Analysis", "Feature", "Live"].map((style) => <option key={style} value={style}>{style}</option>)}
+              {["News", "Transfer", "Opinion", "Preview", "Review", "Analysis", "Feature", "Live", "Tips"].map((style) => <option key={style} value={style}>{style}</option>)}
             </select>
           </label>
           <label className="text-xs font-semibold uppercase text-slate-500">
             Sport
             <select className={inputClass} value={draft.sportContext ?? "Horse Racing"} onChange={(e) => setDraft({ ...draft, sportContext: e.target.value as LanguageSportContext })}>
-              {["Football", "Horse Racing", "Rugby Union", "Rugby League", "Formula 1", "Cricket", "Golf", "Tennis", "NFL", "Boxing", "MMA", "Basketball"].map((sport) => <option key={sport} value={sport}>{sport}</option>)}
+              {LANGUAGE_SPORT_CONTEXTS.map((sport) => <option key={sport} value={sport}>{sport}</option>)}
             </select>
           </label>
           <label className="text-xs font-semibold uppercase text-slate-500">

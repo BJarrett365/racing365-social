@@ -7,6 +7,28 @@ import type {
   LanguageTranslation,
 } from "@/app/lib/language-studio/types";
 
+/** All issue `type` values produced by `runLanguageQualityChecks` (for sanitising stored preferences). */
+export const LANGUAGE_QUALITY_ISSUE_TYPES: LanguageQualityCheckIssue["type"][] = [
+  "missing-title",
+  "missing-body",
+  "changed-numbers",
+  "changed-quotes",
+  "untranslated-blocks",
+  "protected-terms-changed",
+  "seo-title-too-long",
+  "meta-description-too-long",
+  "slug-missing",
+  "possible-hallucination",
+  "risk-terms-found",
+  "compliance-flags-found",
+];
+
+export function sanitizeIgnoredQualityIssueTypes(value: unknown): LanguageQualityCheckIssue["type"][] {
+  if (!Array.isArray(value)) return [];
+  const allowed = new Set(LANGUAGE_QUALITY_ISSUE_TYPES);
+  return value.filter((t): t is LanguageQualityCheckIssue["type"] => typeof t === "string" && allowed.has(t as LanguageQualityCheckIssue["type"]));
+}
+
 function numbers(text: string): string[] {
   return text.match(/\b\d+(?:[.,:]\d+)*(?:%|s|m|am|pm)?\b/gi) ?? [];
 }
@@ -67,7 +89,9 @@ export function runLanguageQualityChecks(
   article: LanguageArticle,
   translation: LanguageTranslation,
   protectedTerms: LanguageProtectedTerm[],
+  globallyIgnoredTypes: LanguageQualityCheckIssue["type"][] = [],
 ): LanguageQualityCheck {
+  const suppressed = new Set(sanitizeIgnoredQualityIssueTypes(globallyIgnoredTypes));
   const issues: LanguageQualityCheckIssue[] = [];
   const sourceNumbers = numbers([article.title, article.standfirst, article.body].join("\n"));
   const translatedNumbers = numbers([translation.title, translation.standfirst, translation.body].join("\n"));
@@ -103,12 +127,13 @@ export function runLanguageQualityChecks(
   }
 
   const now = new Date().toISOString();
+  const filteredIssues = issues.filter((issue) => !suppressed.has(issue.type));
   return {
     id: newLanguageId("lquality"),
     articleId: article.id,
     translationId: translation.id,
-    score: scoreForIssues(issues),
-    issues,
+    score: scoreForIssues(filteredIssues),
+    issues: filteredIssues,
     createdAt: now,
     updatedAt: now,
   };

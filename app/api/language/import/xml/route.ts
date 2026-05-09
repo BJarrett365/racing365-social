@@ -10,6 +10,8 @@ type Body = {
   processImages?: boolean;
   importFullArticles?: boolean;
   parserType?: LanguageSourceParserType;
+  maxArticles?: number;
+  incrementalAfter?: string;
 };
 
 export async function POST(req: Request) {
@@ -21,7 +23,11 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await importLanguageFeed(body);
+    const result = await importLanguageFeed({
+      ...body,
+      maxArticles: typeof body.maxArticles === "number" && body.maxArticles > 0 ? Math.min(500, Math.floor(body.maxArticles)) : undefined,
+      incrementalAfter: typeof body.incrementalAfter === "string" && body.incrementalAfter.trim() ? body.incrementalAfter.trim() : undefined,
+    });
     return NextResponse.json({ success: true, ...result });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Import failed.";

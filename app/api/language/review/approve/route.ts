@@ -3,7 +3,7 @@ import { sessionFromRequest } from "@/app/lib/auth/sessions";
 import { stripGeneratedArticleMetadataLines } from "@/app/lib/language-studio/article-pages";
 import { exportJson, exportXml } from "@/app/lib/language-studio/language-engine";
 import { copyLanguageArticleImageForExport } from "@/app/lib/language-studio/library-images";
-import { applyStoredQualityDecisions, runLanguageQualityChecks } from "@/app/lib/language-studio/quality-checks";
+import { applyStoredQualityDecisions, runLanguageQualityChecks, sanitizeIgnoredQualityIssueTypes } from "@/app/lib/language-studio/quality-checks";
 import { newLanguageId, readLanguageStudioData, writeLanguageStudioData } from "@/app/lib/language-studio/store";
 import type { LanguageExport } from "@/app/lib/language-studio/types";
 
@@ -25,7 +25,8 @@ export async function POST(req: Request) {
     const approved = body.approved !== false;
     const existingChecks = Object.values(data.qualityChecks).filter((row) => row.translationId === current.id);
     const latest = existingChecks.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0];
-    const freshCheck = runLanguageQualityChecks(article, current, Object.values(data.protectedTerms));
+    const suppressed = sanitizeIgnoredQualityIssueTypes(data.ignoredQualityIssueTypes);
+    const freshCheck = runLanguageQualityChecks(article, current, Object.values(data.protectedTerms), suppressed);
     const qualityCheck = applyStoredQualityDecisions(
       {
         ...freshCheck,

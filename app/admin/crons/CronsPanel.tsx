@@ -38,6 +38,9 @@ type CronJob = {
   importFullArticles: boolean;
   notifyOnFailure: boolean;
   notificationEmail?: string;
+  maxFeedItems?: number;
+  incrementalFeedImport?: boolean;
+  lastImportedPublishWatermark?: string;
   lastRunAt?: string;
   lastSuccessAt?: string;
   lastFailureAt?: string;
@@ -109,6 +112,8 @@ function emptyDraft(source?: SourceBrandRow, client?: ClientRow): Partial<CronJo
     importFullArticles: true,
     notifyOnFailure: true,
     notificationEmail: "",
+    maxFeedItems: 30,
+    incrementalFeedImport: true,
   };
 }
 
@@ -194,7 +199,11 @@ export function CronsPanel() {
     const res = await fetch("/api/language/crons", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(adminToken ? { "x-admin-token": adminToken } : {}) },
-      body: JSON.stringify({ ...draft, adminToken }),
+      body: JSON.stringify({
+        ...draft,
+        adminToken,
+        maxFeedItems: draft.maxFeedItems != null && draft.maxFeedItems > 0 ? draft.maxFeedItems : null,
+      }),
     });
     const data = await readApiJson<{ error?: string; job?: CronJob }>(res, "Cron save failed");
     if (!res.ok) throw new Error(data.error || "Cron save failed.");
@@ -241,10 +250,11 @@ export function CronsPanel() {
   });
 
   const duplicateJob = (job: CronJob) => {
-    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...copy } = job;
+    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, lastImportedPublishWatermark: _wm, ...copy } = job;
     void _id;
     void _createdAt;
     void _updatedAt;
+    void _wm;
     setDraft({
       ...copy,
       name: `${job.name} copy`,
@@ -312,6 +322,7 @@ export function CronsPanel() {
             Import type
             <select className={inputClass} value={draft.parserType ?? "rss-default"} onChange={(e) => setDraft({ ...draft, parserType: e.target.value as LanguageSourceParserType })}>
               <option value="rss-default">RSS / XML default</option>
+              <option value="xml">XML feed</option>
               <option value="wordpress-rss">WordPress RSS</option>
               <option value="json-api">JSON API</option>
               <option value="html-page">URL / HTML page</option>
@@ -391,7 +402,45 @@ export function CronsPanel() {
           <label className={checkboxClass}><input type="checkbox" checked={draft.active ?? true} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />Active</label>
           <label className={checkboxClass}><input type="checkbox" checked={draft.processImages ?? true} onChange={(e) => setDraft({ ...draft, processImages: e.target.checked })} />Process images</label>
           <label className={checkboxClass}><input type="checkbox" checked={draft.importFullArticles ?? true} onChange={(e) => setDraft({ ...draft, importFullArticles: e.target.checked })} />Import full articles</label>
+          <label className={checkboxClass}>
+            <input type="checkbox" checked={draft.incrementalFeedImport ?? true} onChange={(e) => setDraft({ ...draft, incrementalFeedImport: e.target.checked })} />
+            Incremental import (skip items older than last successful run)
+          </label>
           <label className={checkboxClass}><input type="checkbox" checked={draft.notifyOnFailure ?? true} onChange={(e) => setDraft({ ...draft, notifyOnFailure: e.target.checked })} />Notify on failure</label>
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <label className="text-xs font-semibold uppercase text-slate-500">
+            Max articles per run
+            <input
+              className={inputClass}
+              type="number"
+              min={0}
+              max={500}
+              placeholder="0 = unlimited"
+              value={draft.maxFeedItems ?? ""}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setDraft({ ...draft, maxFeedItems: Number.isFinite(n) && n > 0 ? n : undefined });
+              }}
+            />
+            <span className="mt-1 block text-xs font-normal text-slate-500">After newest-first sort and incremental filter, only this many items are enriched and saved (cap cost).</span>
+          </label>
+          <div className="text-xs text-slate-500">
+            <p className="font-semibold uppercase text-slate-500">Feed watermark</p>
+            <p className="mt-2 rounded-lg border border-[#1f2d26] bg-black/30 p-3 font-mono text-[11px] text-slate-400">
+              {draft.lastImportedPublishWatermark?.trim() || "None yet — first successful run records the latest item publish time from the feed."}
+            </p>
+            <button
+              type="button"
+              className="mt-2 rounded-lg border border-[#1f2d26] px-3 py-1.5 text-xs font-bold text-slate-300 hover:border-amber-500/50"
+              onClick={() => {
+                if (!window.confirm("Clear the import watermark? The next run may re-process older feed items if incremental import is on.")) return;
+                setDraft({ ...draft, lastImportedPublishWatermark: "" });
+              }}
+            >
+              Clear watermark (full re-scan next run)
+            </button>
+          </div>
         </div>
         <label className="mt-4 block text-xs font-semibold uppercase text-slate-500">
           Failure notification email
@@ -422,6 +471,12 @@ export function CronsPanel() {
                     <p className="font-bold text-white">{job.name}</p>
                     <p className="mt-1 text-sm text-slate-400">{job.sourceBrand} · {job.frequency} · next {formatDate(job.nextRunAt)}</p>
                     <p className="mt-1 text-xs text-slate-500">{job.lastRunMessage ?? "Waiting for first run."}</p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      Incremental watermark:{" "}
+                      {job.lastImportedPublishWatermark ? new Date(job.lastImportedPublishWatermark).toLocaleString() : "—"}
+                      {job.maxFeedItems ? ` · cap ${job.maxFeedItems}/run` : ""}
+                      {job.incrementalFeedImport === false ? " · full feed" : ""}
+                    </p>
                   </div>
                   <span className={`rounded-full border px-3 py-1 text-xs font-bold ${statusClass(job.lastRunStatus)}`}>{job.active ? job.lastRunStatus ?? "ready" : "paused"}</span>
                 </div>

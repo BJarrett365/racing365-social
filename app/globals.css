@@ -447,3 +447,33 @@ html.light .bg-black\/30 {
   border-radius: 12px;
   color: var(--text-muted);
 }
+
+/* Language Studio — indeterminate progress bar on processing overlay */
+@keyframes ls-processing-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(280%);
+  }
+}
+
+.ls-processing-track {
+  position: relative;
+  height: 8px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgb(31 45 38 / 0.9);
+}
+
+.ls-processing-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 38%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgb(34 197 94 / 0.35), rgb(34 197 94 / 1), rgb(74 222 128 / 0.95));
+  animation: ls-processing-indeterminate 1.35s ease-in-out infinite;
+}

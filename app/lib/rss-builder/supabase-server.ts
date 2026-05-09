@@ -22,7 +22,7 @@ export function formatRssBuilderDbError(message: string): string {
     return `${message} — Use the Supabase **service_role** secret (Dashboard → Settings → API), not the **anon** key. If the key is correct, run the privileges migration \`20260209140000_rss_builder_privileges.sql\` in the SQL Editor.`;
   }
   if (m.includes("permission denied for table") || m.includes("permission denied for relation")) {
-    return `${message} — Run \`20260210120000_rss_builder_fix_service_role_grants.sql\` in Supabase SQL Editor (grants \`USAGE\` on schema \`public\` and explicit DML on all \`rss_*\` tables for \`service_role\`). Confirm Admin uses the **service_role** JWT, not anon.`;
+    return `${message} — Local dev still talks to your hosted Supabase: open the SQL Editor for the project that matches your \`SUPABASE_URL\` / Admin URL (e.g. *.supabase.co), paste the full file \`supabase/migrations/20260210120000_rss_builder_fix_service_role_grants.sql\` from this repo, and Run. That grants \`USAGE\` on schema \`public\` and DML on all \`rss_*\` for \`service_role\`. Use the **service_role** API secret, not anon.`;
   }
   return message;
 }

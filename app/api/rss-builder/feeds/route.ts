@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { makeFeedSlug } from "@/app/lib/rss-builder/slug";
+import { splitFeedSourceUrls } from "@/app/lib/rss-builder/feed-sources";
 import { getRssBuilderSupabaseAsync, rssBuilderUnavailableResponse, formatRssBuilderDbError } from "@/app/lib/rss-builder/supabase-server";
 import { assertRssBuilderAccess } from "@/app/lib/rss-builder/route-guard";
 import { defaultFilterConfig, type RssCrawlFrequency, type RssFeedSourceType } from "@/app/lib/rss-builder/types";
@@ -42,9 +43,14 @@ export async function POST(req: Request) {
   const name = body.name?.trim();
   if (!name) return NextResponse.json({ error: "name is required." }, { status: 400 });
   const sourceType = body.source_type ?? "rss_url";
-  if (!body.source_url?.trim() && !body.manual_urls?.trim()) {
-    return NextResponse.json({ error: "source_url or manual_urls is required." }, { status: 400 });
+  const primary = splitFeedSourceUrls(body.source_url);
+  const secondary = splitFeedSourceUrls(body.manual_urls);
+  const urlList =
+    sourceType === "manual_urls" ? (secondary.length > 0 ? secondary : primary) : [...primary, ...secondary];
+  if (urlList.length === 0) {
+    return NextResponse.json({ error: "Add at least one source URL (one per line)." }, { status: 400 });
   }
+  const joined = urlList.join("\n");
 
   const slug = makeFeedSlug(name);
   const now = new Date().toISOString();
@@ -52,8 +58,8 @@ export async function POST(req: Request) {
     slug,
     name,
     source_type: sourceType,
-    source_url: body.source_url?.trim() || null,
-    manual_urls: body.manual_urls?.trim() || null,
+    source_url: sourceType === "manual_urls" ? null : joined,
+    manual_urls: sourceType === "manual_urls" ? joined : null,
     crawl_frequency: body.crawl_frequency ?? "1h",
     posts_per_feed: Math.min(500, Math.max(1, Math.floor(body.posts_per_feed ?? 50))),
     next_crawl_at: now,

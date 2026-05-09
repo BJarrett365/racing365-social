@@ -26,10 +26,18 @@ function jwtRoleFromSupabaseKey(key: string): string | undefined {
 export function formatRssBuilderDbError(message: string): string {
   const m = message.toLowerCase();
   if (m.includes("row-level security") || m.includes("rls policy")) {
-    return `${message} — Use the Supabase **service_role** secret (Dashboard → Settings → API), not the **anon** key. If the key is correct, run the privileges migration \`20260209140000_rss_builder_privileges.sql\` in the SQL Editor.`;
+    return `${message}
+
+Use the Supabase **service_role** secret (Dashboard → Settings → API), not the **anon** key. If the key is already **service_role**, run the privileges migration \`20260209140000_rss_builder_privileges.sql\` in that project’s SQL Editor.`;
   }
   if (m.includes("permission denied for table") || m.includes("permission denied for relation")) {
-    return `${message} — Local dev still talks to your hosted Supabase: open the SQL Editor for the project that matches your \`SUPABASE_URL\` / Admin URL (e.g. *.supabase.co), paste the full file \`supabase/migrations/20260210120000_rss_builder_fix_service_role_grants.sql\` from this repo, and Run. That grants \`USAGE\` on schema \`public\` and DML on all \`rss_*\` for \`service_role\`. Use the **service_role** API secret, not anon.`;
+    return `${message}
+
+Local dev still uses your hosted Supabase project. Open the **SQL Editor** for the project whose URL matches \`SUPABASE_URL\` (or the URL you saved under Admin → Supabase, e.g. \`*.supabase.co\`).
+
+From this repo, open \`supabase/migrations/20260210120000_rss_builder_fix_service_role_grants.sql\`, copy the **entire** file, paste into SQL Editor, and **Run**. That grants \`USAGE\` on schema \`public\` and DML on all \`rss_*\` tables for **service_role**.
+
+In Admin (or \`.env.local\`), use the **service_role** API secret from Supabase → Settings → API — not the **anon** key.`;
   }
   return message;
 }
@@ -74,7 +82,7 @@ export function rssBuilderUnavailableResponse() {
   return new Response(
     JSON.stringify({
       error:
-        "RSS Import Builder requires Supabase. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the environment, or save them under Admin → Provider keys → Supabase. You must use the **service_role** secret (not the anon key). Apply the SQL migrations in supabase/migrations/.",
+        "RSS Import Builder requires Supabase. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the environment, or save them under Admin → Provider keys → Supabase.\n\nYou must use the **service_role** secret (not the **anon** key). Apply the SQL migrations under \`supabase/migrations/\` in the SQL Editor for that project.",
     }),
     { status: 503, headers: { "Content-Type": "application/json" } },
   );

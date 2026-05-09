@@ -9,12 +9,19 @@ function rowToExportItem(row: {
   image_url: string | null;
   enclosure_url: string | null;
   published_at: string | null;
+  created_at: string;
 }): ExportItem {
+  const pub =
+    row.published_at && Number.isFinite(Date.parse(row.published_at))
+      ? new Date(row.published_at).toUTCString()
+      : row.created_at && Number.isFinite(Date.parse(row.created_at))
+        ? new Date(row.created_at).toUTCString()
+        : new Date().toUTCString();
   return {
     title: row.title,
     link: row.link,
     guid: row.item_key,
-    pubDate: row.published_at ? new Date(row.published_at).toUTCString() : new Date().toUTCString(),
+    pubDate: pub,
     descriptionHtml: row.description_html ?? "",
     imageUrl: row.image_url,
     enclosureUrl: row.enclosure_url,
@@ -24,7 +31,7 @@ function rowToExportItem(row: {
 export async function loadExportItemsForFeed(supabase: SupabaseClient, feedId: string): Promise<ExportItem[]> {
   const { data, error } = await supabase
     .from("rss_feed_items")
-    .select("title,link,item_key,description_html,image_url,enclosure_url,published_at,pinned")
+    .select("title,link,item_key,description_html,image_url,enclosure_url,published_at,created_at,pinned")
     .eq("feed_id", feedId)
     .eq("status", "visible")
     .order("pinned", { ascending: false })
@@ -40,6 +47,7 @@ export async function loadExportItemsForFeed(supabase: SupabaseClient, feedId: s
       image_url: string | null;
       enclosure_url: string | null;
       published_at: string | null;
+      created_at: string;
     }),
   );
 }
@@ -51,7 +59,7 @@ export async function loadExportItemsForBundle(supabase: SupabaseClient, bundleI
   if (feedIds.length === 0) return [];
   const { data, error } = await supabase
     .from("rss_feed_items")
-    .select("title,link,item_key,description_html,image_url,enclosure_url,published_at,pinned")
+    .select("title,link,item_key,description_html,image_url,enclosure_url,published_at,created_at,pinned")
     .in("feed_id", feedIds)
     .eq("status", "visible");
   if (error) throw new Error(error.message);
@@ -65,6 +73,7 @@ export async function loadExportItemsForBundle(supabase: SupabaseClient, bundleI
       image_url: string | null;
       enclosure_url: string | null;
       published_at: string | null;
+      created_at: string;
     });
     const k = item.link.trim().toLowerCase();
     if (!byLink.has(k)) byLink.set(k, item);

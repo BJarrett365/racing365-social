@@ -7,6 +7,8 @@ import {
   truncateTitle,
 } from "@/app/lib/rss-builder/apply-filters";
 import { fetchRssSourceBody } from "@/app/lib/rss-builder/fetch-source";
+import { collectFeedCrawlUrls } from "@/app/lib/rss-builder/feed-sources";
+import { hydrateMissingArticleHeroImages } from "@/app/lib/rss-builder/hydrate-article-images";
 import { looksLikeHtmlDocument, resolveBodyToRssChannel } from "@/app/lib/rss-builder/html-listing";
 import { itemKeyFromLinkAndGuid } from "@/app/lib/rss-builder/slug";
 import type { RssChannelItem, RssFeedRow, RssFilterConfig, RssItemStatus } from "@/app/lib/rss-builder/types";
@@ -30,19 +32,6 @@ function mergeFilterConfig(raw: unknown): RssFilterConfig {
   const base = defaultFilterConfig();
   if (!raw || typeof raw !== "object") return base;
   return { ...base, ...(raw as RssFilterConfig) };
-}
-
-async function collectXmlSources(feed: RssFeedRow): Promise<string[]> {
-  if (feed.source_type === "manual_urls" && feed.manual_urls?.trim()) {
-    return feed.manual_urls
-      .split(/\r?\n/)
-      .map((u) => u.trim())
-      .filter(Boolean);
-  }
-  if (feed.source_url?.trim()) {
-    return [feed.source_url.trim()];
-  }
-  throw new Error("Feed has no source URL or manual URLs.");
 }
 
 export async function runCrawlFeed(supabase: SupabaseClient, feedId: string): Promise<{ itemsUpserted: number; itemsSeen: number }> {
@@ -77,7 +66,7 @@ export async function runCrawlFeed(supabase: SupabaseClient, feedId: string): Pr
       (existingItems ?? []).map((r: { item_key: string; status: RssItemStatus }) => [r.item_key, r.status]),
     );
 
-    const urls = await collectXmlSources(f);
+    const urls = collectFeedCrawlUrls(f);
     const merged: RssChannelItem[] = [];
     let lastSourceBodyPrefix = "";
     const perUrlCap = Math.min(500, Math.max(1, f.posts_per_feed));
@@ -99,6 +88,11 @@ export async function runCrawlFeed(supabase: SupabaseClient, feedId: string): Pr
 
     let prepared = prepareItems(merged);
     prepared = applyRssTransforms(prepared, filterConfig);
+    if (f.include_images) {
+      prepared = await hydrateMissingArticleHeroImages(prepared, {
+        maxFetches: Math.min(80, Math.max(8, f.posts_per_feed)),
+      });
+    }
     prepared = applyRssFilters(prepared, filterConfig, blocked);
     prepared = prepared.slice(0, Math.min(500, Math.max(1, f.posts_per_feed)));
 
@@ -111,7 +105,6 @@ export async function runCrawlFeed(supabase: SupabaseClient, feedId: string): Pr
         descriptionHtml = truncateDescription(descriptionHtml, false, f.limit_description_length, f.description_max_chars);
       }
       let imageUrl = f.include_images ? it.imageUrl : "";
-      if (!f.include_thumbnail) imageUrl = "";
       const enclosureUrl = f.include_media_enclosure ? it.enclosureUrl : "";
       const itemKey = itemKeyFromLinkAndGuid(it.link, it.guid);
       const prevStatus = statusByKey.get(itemKey);

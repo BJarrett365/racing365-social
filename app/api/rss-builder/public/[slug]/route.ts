@@ -33,6 +33,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
         channelDescription: `RSS Import Builder feed: ${feed.name}`,
         selfLink: selfRss,
         items,
+        includeImages: Boolean(feed.include_images),
         includeMediaEnclosure: Boolean(feed.include_media_enclosure),
         includeThumbnailInDescription: Boolean(feed.include_thumbnail),
       });
@@ -58,6 +59,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
         channelDescription: `RSS Import Builder bundle: ${bundle.name}`,
         selfLink: selfRss,
         items,
+        includeImages: true,
         includeMediaEnclosure: true,
         includeThumbnailInDescription: true,
       });

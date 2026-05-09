@@ -16,6 +16,7 @@
     "start": "NEXT_DIST_DIR=.next-prod node scripts/ensure-next-build.cjs && NEXT_DIST_DIR=.next-prod node scripts/run-start.cjs",
     "lint": "next lint",
     "test:rss-builder": "vitest run app/lib/rss-builder",
+    "audit:local-http": "node scripts/check-local-http.mjs",
     "typegen": "next typegen",
     "install-ffmpeg-static": "node node_modules/ffmpeg-static/install.js",
     "puppeteer:install": "npx puppeteer browsers install chrome",

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { makeFeedSlug } from "@/app/lib/rss-builder/slug";
-import { getRssBuilderSupabaseAsync, rssBuilderUnavailableResponse } from "@/app/lib/rss-builder/supabase-server";
+import { getRssBuilderSupabaseAsync, rssBuilderUnavailableResponse, formatRssBuilderDbError } from "@/app/lib/rss-builder/supabase-server";
 import { assertRssBuilderAccess } from "@/app/lib/rss-builder/route-guard";
 import { defaultFilterConfig, type RssCrawlFrequency, type RssFeedSourceType } from "@/app/lib/rss-builder/types";
 
@@ -11,9 +11,9 @@ export async function GET(req: Request) {
   if (!supabase) return rssBuilderUnavailableResponse();
 
   const { data: feeds, error: e1 } = await supabase.from("rss_feeds").select("*").order("updated_at", { ascending: false });
-  if (e1) return NextResponse.json({ error: e1.message }, { status: 500 });
+  if (e1) return NextResponse.json({ error: formatRssBuilderDbError(e1.message) }, { status: 500 });
   const { data: bundles, error: e2 } = await supabase.from("rss_bundles").select("*").order("updated_at", { ascending: false });
-  if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
+  if (e2) return NextResponse.json({ error: formatRssBuilderDbError(e2.message) }, { status: 500 });
 
   return NextResponse.json({ feeds: feeds ?? [], bundles: bundles ?? [] });
 }
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
   };
 
   const { data: feed, error } = await supabase.from("rss_feeds").insert(insert).select("*").single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) return NextResponse.json({ error: formatRssBuilderDbError(error.message) }, { status: 400 });
 
   await supabase.from("rss_feed_filters").insert({ feed_id: feed.id, config: defaultFilterConfig() });
   await supabase.from("rss_feed_translation_settings").insert({

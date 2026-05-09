@@ -663,9 +663,11 @@ export function AdminSettingsForm() {
 
       <Panel title="Supabase (RSS Import Builder)">
         <p className="text-sm text-slate-400">
-          Paste your Supabase <strong className="text-slate-200">Project URL</strong> and{" "}
-          <strong className="text-slate-200">service_role</strong> secret from Dashboard → Settings → API. The service role
-          key bypasses Row Level Security — keep it server-side only; it is never sent to browsers. Free-tier projects work.
+          Paste your Supabase <strong className="text-slate-200">Project URL</strong> and the{" "}
+          <strong className="text-slate-200">service_role</strong> secret (the long JWT labelled &quot;service_role&quot; in
+          API settings — <strong className="text-slate-200">not</strong> the <code className="text-slate-300">anon</code>{" "}
+          key). The service role bypasses Row Level Security for server routes — keep it server-side only; it is never sent
+          to browsers. Free-tier projects work.
         </p>
         <p className="mt-3 text-sm text-slate-400">
           If your Supabase project is <strong className="text-slate-200">connected to GitHub</strong>, that link is for
@@ -680,7 +682,11 @@ export function AdminSettingsForm() {
             supabase/migrations/20260207120000_rss_import_builder.sql
           </code>{" "}
           in this repository, paste, and <strong className="font-bold text-slate-950 dark:text-amber-100">Run</strong>. If you see &quot;rss_feeds&quot; / schema
-          cache errors, that migration has not been applied to this project yet.
+          cache errors, that migration has not been applied to this project yet. If you see <strong className="font-bold text-slate-950 dark:text-amber-100">row-level security</strong> when creating a feed, paste the <strong className="font-bold text-slate-950 dark:text-amber-100">service_role</strong> key (not anon) and run{" "}
+          <code className="rounded bg-white/90 px-1.5 py-0.5 font-mono text-slate-800 ring-1 ring-amber-300/80 dark:bg-black/30 dark:text-amber-100 dark:ring-amber-600/50">
+            supabase/migrations/20260209140000_rss_builder_privileges.sql
+          </code>{" "}
+          once.
         </p>
         {status?.supabase.configured && (
           <p className="mt-3 text-xs text-slate-500">

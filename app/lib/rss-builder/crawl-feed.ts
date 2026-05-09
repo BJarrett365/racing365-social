@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { extractXmlPayload } from "@/app/lib/language-studio/import-feed";
 import {
   applyRssFilters,
   applyRssTransforms,
@@ -8,7 +7,7 @@ import {
   truncateTitle,
 } from "@/app/lib/rss-builder/apply-filters";
 import { fetchRssSourceBody } from "@/app/lib/rss-builder/fetch-source";
-import { parseRssXmlToChannel } from "@/app/lib/rss-builder/parse-rss";
+import { looksLikeHtmlDocument, resolveBodyToRssChannel } from "@/app/lib/rss-builder/html-listing";
 import { itemKeyFromLinkAndGuid } from "@/app/lib/rss-builder/slug";
 import type { RssChannelItem, RssFeedRow, RssFilterConfig, RssItemStatus } from "@/app/lib/rss-builder/types";
 import { defaultFilterConfig } from "@/app/lib/rss-builder/types";
@@ -81,19 +80,19 @@ export async function runCrawlFeed(supabase: SupabaseClient, feedId: string): Pr
     const urls = await collectXmlSources(f);
     const merged: RssChannelItem[] = [];
     let lastSourceBodyPrefix = "";
+    const perUrlCap = Math.min(500, Math.max(1, f.posts_per_feed));
     for (const url of urls) {
       const body = await fetchRssSourceBody(url);
       lastSourceBodyPrefix = body.trim().slice(0, 400);
-      const xml = extractXmlPayload(body);
-      const parsed = parseRssXmlToChannel(xml);
+      const parsed = resolveBodyToRssChannel(body, url, perUrlCap);
       merged.push(...parsed.items);
     }
     const rawSeen = merged.length;
 
     if (rawSeen === 0) {
-      const looksHtml = /^\s*<!doctype\s+html/i.test(lastSourceBodyPrefix) || /^\s*<html[\s>]/i.test(lastSourceBodyPrefix);
+      const looksHtml = looksLikeHtmlDocument(lastSourceBodyPrefix);
       const hint = looksHtml
-        ? "The URL returned a normal web page (HTML), not an RSS or Atom XML feed. Open the site, find the RSS feed link (often an orange icon, or a URL ending in .xml, /rss, /feed, or atom), and paste that URL as the source."
+        ? "This page did not yield RSS/Atom items or extractable article links. Try a section or news index URL, or the site’s direct feed URL (.xml, /rss, /feed, atom)."
         : "No items were found in the XML. The feed may be empty, blocked, or use a format we cannot parse yet.";
       throw new Error(hint);
     }

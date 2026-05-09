@@ -333,8 +333,7 @@ export default function RssImportBuilderClient() {
         <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#eab308]">Tools / Import</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-white md:text-5xl">RSS Import Builder</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 md:text-base">
-          Crawl RSS or Atom feeds, filter and normalise items in Supabase, then expose a stable RSS or JSON URL for Language Studio
-          URL-to-article imports — no widgets, only clean export endpoints.
+          Point at a site&apos;s RSS/Atom URL or an HTML news index: we crawl, store items in Supabase, and create a stable RSS or JSON feed for that source — filtered, deduped export URLs for Language Studio or any reader. No widgets, only endpoints.
         </p>
         <div className="mt-6 flex flex-wrap gap-2">
           <Link href="/language-studio?tab=Imports">
@@ -486,7 +485,7 @@ export default function RssImportBuilderClient() {
                           onChange={(e) => setFeedFormDraft((d) => ({ ...d, source_url: e.target.value }))}
                         />
                         <p className="mt-1.5 text-xs font-normal normal-case text-[color:var(--text-muted)]">
-                          Must be a direct <strong className="text-[color:var(--text-secondary)]">RSS or Atom XML</strong> URL (not a normal article listing page). If crawl returns 0 items, use the site&apos;s feed link (often <code className="text-[11px]">/feed</code>, <code className="text-[11px]">/rss</code>, or <code className="text-[11px]">.xml</code>).
+                          Each crawl fills this feed&apos;s items, which power the <strong className="text-[color:var(--text-secondary)]">RSS/JSON export</strong> for the site. If the URL returns <strong className="text-[color:var(--text-secondary)]">RSS or Atom</strong>, we use feed entries; if it returns <strong className="text-[color:var(--text-secondary)]">HTML</strong>, we collect same-domain article links from the page. If you get zero items, try a news index URL or a direct feed (<code className="text-[11px]">/feed</code>, <code className="text-[11px]">/rss</code>, <code className="text-[11px]">.xml</code>).
                         </p>
                       </label>
                       <label className="block text-xs font-semibold uppercase text-[color:var(--text-muted)] md:col-span-2">
@@ -735,7 +734,7 @@ export default function RssImportBuilderClient() {
         <aside className="space-y-4">
           <Panel title="Export URLs">
             <p className="text-xs text-[color:var(--text-muted)]">
-              Use these in Language Studio &quot;RSS / URL import&quot; or any reader. Token is secret — treat like a password.
+              These URLs are the generated RSS/JSON feeds for your configured source. Use them in Language Studio &quot;RSS / URL import&quot; or any reader. Token is secret — treat like a password.
             </p>
             {exportUrls.rss ? (
               <div className="mt-3 space-y-2">

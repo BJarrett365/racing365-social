@@ -3,6 +3,8 @@
 -- anon key was used by mistake, or when RLS was enabled on these tables without policies.
 --
 -- Run in Supabase SQL Editor after 20260207120000_rss_import_builder.sql
+-- If you see "permission denied for table rss_*" with the service_role key, also run
+-- 20260210120000_rss_builder_fix_service_role_grants.sql (schema USAGE + explicit GRANTs).
 
 alter table if exists public.rss_feeds disable row level security;
 alter table if exists public.rss_feed_items disable row level security;

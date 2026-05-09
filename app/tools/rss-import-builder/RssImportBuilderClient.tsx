@@ -485,6 +485,9 @@ export default function RssImportBuilderClient() {
                           value={(feedFormDraft.source_url as string) ?? ""}
                           onChange={(e) => setFeedFormDraft((d) => ({ ...d, source_url: e.target.value }))}
                         />
+                        <p className="mt-1.5 text-xs font-normal normal-case text-[color:var(--text-muted)]">
+                          Must be a direct <strong className="text-[color:var(--text-secondary)]">RSS or Atom XML</strong> URL (not a normal article listing page). If crawl returns 0 items, use the site&apos;s feed link (often <code className="text-[11px]">/feed</code>, <code className="text-[11px]">/rss</code>, or <code className="text-[11px]">.xml</code>).
+                        </p>
                       </label>
                       <label className="block text-xs font-semibold uppercase text-[color:var(--text-muted)] md:col-span-2">
                         Manual URLs (one per line)

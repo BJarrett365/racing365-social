@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { extractXmlPayload } from "@/app/lib/language-studio/import-feed";
 import {
   applyRssFilters,
   applyRssTransforms,
@@ -6,7 +7,7 @@ import {
   truncateDescription,
   truncateTitle,
 } from "@/app/lib/rss-builder/apply-filters";
-import { fetchRssXml } from "@/app/lib/rss-builder/fetch-source";
+import { fetchRssSourceBody } from "@/app/lib/rss-builder/fetch-source";
 import { parseRssXmlToChannel } from "@/app/lib/rss-builder/parse-rss";
 import { itemKeyFromLinkAndGuid } from "@/app/lib/rss-builder/slug";
 import type { RssChannelItem, RssFeedRow, RssFilterConfig, RssItemStatus } from "@/app/lib/rss-builder/types";
@@ -79,12 +80,23 @@ export async function runCrawlFeed(supabase: SupabaseClient, feedId: string): Pr
 
     const urls = await collectXmlSources(f);
     const merged: RssChannelItem[] = [];
+    let lastSourceBodyPrefix = "";
     for (const url of urls) {
-      const xml = await fetchRssXml(url);
+      const body = await fetchRssSourceBody(url);
+      lastSourceBodyPrefix = body.trim().slice(0, 400);
+      const xml = extractXmlPayload(body);
       const parsed = parseRssXmlToChannel(xml);
       merged.push(...parsed.items);
     }
     const rawSeen = merged.length;
+
+    if (rawSeen === 0) {
+      const looksHtml = /^\s*<!doctype\s+html/i.test(lastSourceBodyPrefix) || /^\s*<html[\s>]/i.test(lastSourceBodyPrefix);
+      const hint = looksHtml
+        ? "The URL returned a normal web page (HTML), not an RSS or Atom XML feed. Open the site, find the RSS feed link (often an orange icon, or a URL ending in .xml, /rss, /feed, or atom), and paste that URL as the source."
+        : "No items were found in the XML. The feed may be empty, blocked, or use a format we cannot parse yet.";
+      throw new Error(hint);
+    }
 
     let prepared = prepareItems(merged);
     prepared = applyRssTransforms(prepared, filterConfig);

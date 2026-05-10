@@ -79,6 +79,16 @@ Call this every 5 minutes. It checks saved cron jobs and only runs jobs whose sc
 
 When `CRON_SECRET` is set, send `Authorization: Bearer <CRON_SECRET>`.
 
+## RSS Import Builder crawls
+
+Due RSS Import Builder feeds (where `next_crawl_at` is in the past and status is `active`) are processed by:
+
+```text
+GET /api/cron/rss-builder-crawl
+```
+
+On Vercel, `vercel.json` includes an hourly schedule for this path. On Netlify, add the same URL to your external cron or Netlify Scheduled Functions (for example hourly), with the same `Authorization` header when `CRON_SECRET` is set. Without a scheduled caller, **manual “Crawl now” is the only thing that fetches articles**; the per-feed “1 hour” setting only controls how soon the feed becomes due after each successful crawl.
+
 ## Storage Notes
 
 Netlify serverless functions do not provide durable writable filesystem storage.

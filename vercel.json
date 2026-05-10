@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/language-imports",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/rss-builder-crawl",
+      "schedule": "0 * * * *"
     }
   ]
 }

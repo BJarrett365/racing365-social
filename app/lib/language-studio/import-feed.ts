@@ -289,16 +289,28 @@ export async function importLanguageFeed(input: ImportLanguageFeedInput): Promis
   const sourceBrand = input.sourceBrand?.trim() || "PlanetF1";
   const sourceLanguage = input.sourceLanguage || "en";
   const sourceUrl = input.sourceUrl?.trim();
+  /** Public RSS builder exports are XML/RSS; treat as feed even if UI says "HTML page". */
+  const treatRssBuilderExportAsXml = (() => {
+    const u = sourceUrl;
+    if (!u) return false;
+    return /\/api\/rss-builder\/public\//i.test(u) && /[?&]token=/.test(u);
+  })();
+
   let xml = extractXmlPayload(input.xml?.trim() || "");
-  if (!xml && sourceUrl && input.parserType !== "html-page") xml = await fetchXml(sourceUrl);
-  if (!xml && input.parserType !== "html-page") throw new Error("XML content or sourceUrl is required.");
+  if (!xml && sourceUrl && (input.parserType !== "html-page" || treatRssBuilderExportAsXml)) {
+    xml = await fetchXml(sourceUrl);
+  }
+  if (!xml && input.parserType !== "html-page" && !treatRssBuilderExportAsXml) {
+    throw new Error("XML content or sourceUrl is required.");
+  }
 
   const existing = await readLanguageStudioData();
   const brandRow = Object.values(existing.sourceBrands).find((row) => row.name.trim().toLowerCase() === sourceBrand.trim().toLowerCase());
   const defaultSport = brandRow?.defaultSport;
 
   const importId = newLanguageId("limport");
-  const parsed = input.parserType === "html-page" && sourceUrl
+  const useHtmlPage = input.parserType === "html-page" && sourceUrl && !treatRssBuilderExportAsXml;
+  const parsed = useHtmlPage
     ? extractHtmlPageArticles(await fetchHtml(sourceUrl), { importId, sourceBrand, sourceLanguage, sourceUrl, defaultSport })
     : parseLanguageXmlFeed(xml, { importId, sourceBrand, sourceLanguage, sourceUrl, defaultSport });
   const windowedArticles = applyFeedArticleWindow(parsed.articles, {

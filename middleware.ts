@@ -12,6 +12,8 @@ const PUBLIC_PATHS = [
   "/api/auth/logout",
   "/api/client-api",
   "/api/client-feeds",
+  /** RSS Import Builder export URLs; auth is `?token=` matching export_token (no session). */
+  "/api/rss-builder/public",
   "/api/cron",
   "/api/health",
   "/api/webhooks",

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
 import { normalizeBundleNameKey } from "@/app/lib/rss-builder/bundle-name";
+import { splitFeedSourceUrls } from "@/app/lib/rss-builder/feed-sources";
 import { resolvePreviewImageUrl } from "@/app/lib/rss-builder/preview-image";
 import { defaultFilterConfig, type RssCrawlFrequency, type RssFeedRow, type RssFeedSourceType, type RssFilterConfig, type RssTranslationProvider } from "@/app/lib/rss-builder/types";
 

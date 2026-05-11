@@ -232,30 +232,36 @@ export default function RssImportBuilderClient() {
     });
   }, [run]);
 
+  type FeedDetailPayload = {
+    feed: RssFeedRow;
+    items: RssFeedItemRow[];
+    filters: FeedFiltersRow | null;
+    translation: TranslationRow | null;
+  };
+
+  const ingestFeedDetail = useCallback((data: FeedDetailPayload) => {
+    setFeedDetail(data);
+    setFilterDraft(data.filters?.config ?? defaultFilterConfig());
+    if (data.translation) {
+      setTranslationDraft({
+        enabled: data.translation.enabled,
+        from_lang: data.translation.from_lang,
+        to_lang: data.translation.to_lang,
+        provider: data.translation.provider,
+      });
+    } else {
+      setTranslationDraft({ enabled: false, from_lang: "auto", to_lang: "en", provider: "deepl" });
+    }
+    setFeedFormDraft(data.feed);
+  }, []);
+
   const loadFeed = useCallback(
     (id: string) =>
       run(async () => {
-        const data = await apiJson<{
-          feed: RssFeedRow;
-          items: RssFeedItemRow[];
-          filters: FeedFiltersRow | null;
-          translation: TranslationRow | null;
-        }>(`/api/rss-builder/feeds/${id}`);
-        setFeedDetail(data);
-        setFilterDraft(data.filters?.config ?? defaultFilterConfig());
-        if (data.translation) {
-          setTranslationDraft({
-            enabled: data.translation.enabled,
-            from_lang: data.translation.from_lang,
-            to_lang: data.translation.to_lang,
-            provider: data.translation.provider,
-          });
-        } else {
-          setTranslationDraft({ enabled: false, from_lang: "auto", to_lang: "en", provider: "deepl" });
-        }
-        setFeedFormDraft(data.feed);
+        const data = await apiJson<FeedDetailPayload>(`/api/rss-builder/feeds/${id}`);
+        ingestFeedDetail(data);
       }),
-    [run],
+    [run, ingestFeedDetail],
   );
 
   const loadBundle = useCallback(
@@ -383,10 +389,22 @@ export default function RssImportBuilderClient() {
   const crawl = () =>
     run(async () => {
       if (!selectedFeedId) return;
-      await apiJson(`/api/rss-builder/feeds/${selectedFeedId}/crawl`, { method: "POST", body: JSON.stringify({}) });
-      setMessage("Crawl finished.");
-      await loadFeed(selectedFeedId);
-      await loadList();
+      const id = selectedFeedId;
+      try {
+        await apiJson(`/api/rss-builder/feeds/${id}/crawl`, { method: "POST", body: JSON.stringify({}) });
+        setMessage("Crawl finished.");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Something went wrong");
+      }
+      try {
+        const data = await apiJson<FeedDetailPayload>(`/api/rss-builder/feeds/${id}`);
+        ingestFeedDetail(data);
+        const list = await apiJson<{ feeds: RssFeedRow[]; bundles: RssBundleRow[] }>("/api/rss-builder/feeds");
+        setFeeds(list.feeds);
+        setBundles(list.bundles);
+      } catch {
+        /* ignore secondary load errors */
+      }
     });
 
   const saveFeedFields = () =>

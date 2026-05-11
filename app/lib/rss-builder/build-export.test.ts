@@ -1,3 +1,4 @@
+import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { buildRss2ChannelXml } from "@/app/lib/rss-builder/build-export";
 
@@ -108,6 +109,32 @@ describe("buildRss2ChannelXml", () => {
     expect(xml).toContain("<enclosure ");
     expect(xml).toContain("audio.mp3");
     expect(xml).not.toContain("<media:content ");
+  });
+
+  it("escapes literal ]]> inside description CDATA", () => {
+    const xml = buildRss2ChannelXml({
+      channelTitle: "T",
+      channelLink: "https://example.com/",
+      channelDescription: "D",
+      selfLink: "https://example.com/rss.xml",
+      includeImages: false,
+      includeMediaEnclosure: false,
+      includeThumbnailInDescription: false,
+      items: [
+        {
+          title: "Bad",
+          link: "https://example.com/a",
+          guid: "g:a",
+          pubDate: "Sat, 01 Jan 2022 00:00:00 GMT",
+          descriptionHtml: "<script>evil]]>more</script>",
+        },
+      ],
+    });
+    expect(xml).toContain("]]]]><![CDATA[>");
+    expect(XMLValidator.validate(xml)).toBe(true);
+    const parsed = new XMLParser({ ignoreAttributes: false }).parse(xml);
+    const desc = parsed?.rss?.channel?.item?.description;
+    expect(String(desc)).toContain("evil]]>more");
   });
 
   it("honours selfLinkType on atom:link self", () => {

@@ -16,8 +16,9 @@ function escapeText(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Wrap in CDATA; any literal `]]>` in `s` must be split or the document is invalid XML. */
 function cdata(s: string): string {
-  return `<![CDATA[${s.replace(/]]>/g, "]]>")}]]>`;
+  return `<![CDATA[${s.replace(/]]>/g, "]]]]><![CDATA[>")}]]>`;
 }
 
 function looksLikeVideoUrl(url: string): boolean {

@@ -93,6 +93,42 @@ describe("extractHtmlListingToRssChannelItems", () => {
     expect(items[0]?.imageUrl).toBe(img);
   });
 
+  it("Sporting Life: fills from __NEXT_DATA__ when anchors are only hub links (shareUrl + headline)", () => {
+    const story = {
+      shareUrl: "https://www.sportinglife.com/racing/news/horse-racing/231830",
+      headline: "Maltese Cross wins trial with a dominant performance today",
+      thumbnail: "https://www.sportinglife.com/images/news/640x360/8a1cd73d-8456-4d93-959e-f77c2821bcd7.jpg",
+    };
+    const json = JSON.stringify({ props: { pageProps: { stories: [story] } } });
+    const html = `<!DOCTYPE html><html><head><title>Racing News</title></head><body>
+      <a href="https://www.sportinglife.com/racing/news">Horse Racing hub navigation text here</a>
+      <script id="__NEXT_DATA__" type="application/json">${json}</script>
+    </body></html>`;
+    const { items } = extractHtmlListingToRssChannelItems(html, "https://www.sportinglife.com/racing/news", 25);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.link).toBe("https://www.sportinglife.com/racing/news/horse-racing/231830");
+    expect(items[0]?.title).toContain("Maltese Cross");
+    expect(items[0]?.imageUrl).toContain("sportinglife.com/images/news/");
+  });
+
+  it("dedupes __NEXT_DATA__ entries that duplicate anchor URLs (Sporting Life)", () => {
+    const u = "https://www.sportinglife.com/racing/news/horse-racing/231830";
+    const json = JSON.stringify({
+      props: {
+        pageProps: {
+          stories: [{ url: u, title: "Duplicate title from JSON payload only", image: "https://cdn.example.com/json.jpg" }],
+        },
+      },
+    });
+    const html = `<!DOCTYPE html><html><head><title>News</title></head><body>
+      <script id="__NEXT_DATA__" type="application/json">${json}</script>
+      <a href="${u}">Maltese Cross wins trial with enough words in the anchor title</a>
+    </body></html>`;
+    const { items } = extractHtmlListingToRssChannelItems(html, "https://www.sportinglife.com/racing/news", 10);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.title).toContain("Maltese Cross");
+  });
+
   it("extracts stories from __NEXT_DATA__ when the page has no article <a> links (Next.js listings)", () => {
     const story = {
       url: "https://www.racingpost.com/news/previews/seconds-out-for-the-latest-chapter-aO55r7v5j1aC",

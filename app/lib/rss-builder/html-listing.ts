@@ -540,10 +540,38 @@ function genericAnchorTitle(title: string): boolean {
   return /^(news|more|read more|latest|click here|next|previous|home|menu)$/i.test(norm);
 }
 
+/** First string property that might hold a story URL (Sporting Life / Next.js CMS shapes). */
+function firstStoryUrlField(o: Record<string, unknown>): string {
+  const keys = [
+    "url",
+    "link",
+    "href",
+    "uri",
+    "canonicalUrl",
+    "shareUrl",
+    "permalink",
+    "articleUrl",
+    "webUrl",
+    "path",
+  ] as const;
+  for (const k of keys) {
+    const v = o[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  const can = o.canonical;
+  if (can && typeof can === "object" && !Array.isArray(can)) {
+    const co = can as Record<string, unknown>;
+    const h = co.href ?? co.url;
+    if (typeof h === "string" && h.trim()) return h.trim();
+  }
+  return "";
+}
+
 /**
  * Next.js listing pages often ship story URLs only inside `__NEXT_DATA__`, with no usable
- * `<a href>` article links in the initial HTML (e.g. Racing Post). Walk the JSON like image
- * indexing and collect article-shaped objects with a URL and title.
+ * `<a href>` article links in the initial HTML (e.g. Racing Post), or only hub/nav anchors
+ * (Sporting Life). Walk the JSON like image indexing and collect article-shaped objects
+ * with a URL and title.
  */
 function collectStoriesFromNextData(
   html: string,
@@ -572,9 +600,13 @@ function collectStoriesFromNextData(
       "primaryHeadline",
       "cardTitle",
       "seoTitle",
+      "socialTitle",
+      "shortTitle",
       "name",
       "standFirst",
       "summary",
+      "teaser",
+      "dek",
     ] as const;
     for (const k of keys) {
       const v = o[k];
@@ -587,8 +619,8 @@ function collectStoriesFromNextData(
 
   const tryRecord = (o: Record<string, unknown>): void => {
     if (out.size >= maxItems) return;
-    const linkRaw = o.url ?? o.link ?? o.href ?? o.uri ?? o.canonicalUrl ?? o.path;
-    if (typeof linkRaw !== "string" || !linkRaw.trim()) return;
+    const linkRaw = firstStoryUrlField(o);
+    if (!linkRaw) return;
     let abs = linkRaw.trim();
     if (abs.startsWith("//")) abs = `https:${abs}`;
     else if (!/^https?:\/\//i.test(abs)) abs = absoluteUrl(abs, sourceUrl);
@@ -666,11 +698,15 @@ export function extractHtmlListingToRssChannelItems(
     if (candidates.size >= cap) break;
   }
 
-  if (candidates.size === 0) {
+  if (candidates.size < cap) {
     const fromNext = collectStoriesFromNextData(html, sourceUrl, cap);
+    const seenKeys = new Set([...candidates.keys()].map(normalizeStoryLinkKey));
     for (const [link, rec] of fromNext) {
       if (candidates.size >= cap) break;
-      if (!candidates.has(link)) candidates.set(link, rec);
+      const key = normalizeStoryLinkKey(link);
+      if (seenKeys.has(key)) continue;
+      seenKeys.add(key);
+      candidates.set(link, rec);
     }
   }
 

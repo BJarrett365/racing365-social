@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { DUPLICATE_BUNDLE_NAME_MESSAGE, escapeForPostgrestIlikeExact } from "@/app/lib/rss-builder/bundle-name";
 import { getRssBuilderSupabaseAsync, rssBuilderUnavailableResponse } from "@/app/lib/rss-builder/supabase-server";
 import { assertRssBuilderAccess } from "@/app/lib/rss-builder/route-guard";
 
@@ -27,10 +28,21 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
   }
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (typeof body.name === "string" && body.name.trim()) patch.name = body.name.trim();
+  if (typeof body.name === "string" && body.name.trim()) {
+    const trimmed = body.name.trim();
+    const pattern = escapeForPostgrestIlikeExact(trimmed);
+    const { data: clash } = await supabase.from("rss_bundles").select("id").ilike("name", pattern).neq("id", id).maybeSingle();
+    if (clash) return NextResponse.json({ error: DUPLICATE_BUNDLE_NAME_MESSAGE }, { status: 409 });
+    patch.name = trimmed;
+  }
   if (typeof body.starred === "boolean") patch.starred = body.starred;
   const { data, error } = await supabase.from("rss_bundles").update(patch).eq("id", id).select("*").single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    if (error.code === "23505") {
+      return NextResponse.json({ error: DUPLICATE_BUNDLE_NAME_MESSAGE }, { status: 409 });
+    }
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
   return NextResponse.json({ bundle: data });
 }
 

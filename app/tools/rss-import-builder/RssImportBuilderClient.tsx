@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
-import { splitFeedSourceUrls } from "@/app/lib/rss-builder/feed-sources";
+import { normalizeBundleNameKey } from "@/app/lib/rss-builder/bundle-name";
 import { resolvePreviewImageUrl } from "@/app/lib/rss-builder/preview-image";
 import { defaultFilterConfig, type RssCrawlFrequency, type RssFeedRow, type RssFeedSourceType, type RssFilterConfig, type RssTranslationProvider } from "@/app/lib/rss-builder/types";
 
@@ -211,6 +211,12 @@ export default function RssImportBuilderClient() {
     [bundles, selectedBundleId],
   );
 
+  const newBundleNameTaken = useMemo(() => {
+    const key = normalizeBundleNameKey(newBundleName);
+    if (!key) return false;
+    return bundles.some((b) => normalizeBundleNameKey(b.name) === key);
+  }, [bundles, newBundleName]);
+
   const run = useCallback(async (fn: () => Promise<void>) => {
     setBusy(true);
     setError(null);
@@ -276,6 +282,33 @@ export default function RssImportBuilderClient() {
       }),
     [run],
   );
+
+  const openBundleEditor = (id: string) => {
+    setKind("bundle");
+    setSelectedBundleId(id);
+    setSelectedFeedId(null);
+    setTab("bundle");
+  };
+
+  const deleteBundle = (id: string, name: string) => {
+    if (
+      !window.confirm(
+        `Delete bundle “${name}”? This permanently removes the bundle and which feeds were attached. Feed data is not deleted.`,
+      )
+    ) {
+      return;
+    }
+    void run(async () => {
+      await apiJson<{ success: boolean }>(`/api/rss-builder/bundles/${id}`, { method: "DELETE" });
+      setBundles((rows) => rows.filter((b) => b.id !== id));
+      if (selectedBundleId === id) {
+        setSelectedBundleId(null);
+        setBundleFeedIds([]);
+      }
+      setMessage("Bundle deleted.");
+      await loadList();
+    });
+  };
 
   const deleteFeed = (id: string, name: string) => {
     if (
@@ -657,23 +690,53 @@ export default function RssImportBuilderClient() {
           <Panel title="Bundles">
             <div className="space-y-2">
               {bundles.map((b) => (
-                <button
+                <div
                   key={b.id}
-                  type="button"
-                  onClick={() => {
-                    setKind("bundle");
-                    setSelectedBundleId(b.id);
-                    setSelectedFeedId(null);
-                    setTab("bundle");
-                  }}
-                  className={`flex w-full flex-col rounded-lg border px-3 py-2 text-left text-sm transition ${
+                  className={`flex overflow-hidden rounded-lg border transition ${
                     kind === "bundle" && selectedBundleId === b.id
-                      ? "border-violet-500/60 bg-violet-500/10 text-[color:var(--text-primary)]"
+                      ? "border-violet-500/60 bg-violet-500/10"
                       : "border-[color:var(--border)] bg-[color:var(--surface-muted)] hover:border-violet-500/40"
                   }`}
                 >
-                  <span className="font-semibold">{b.name}</span>
-                </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => openBundleEditor(b.id)}
+                    className={`flex min-w-0 flex-1 flex-col px-3 py-2 text-left text-sm transition ${
+                      kind === "bundle" && selectedBundleId === b.id
+                        ? "text-[color:var(--text-primary)]"
+                        : "text-[color:var(--text-primary)]"
+                    }`}
+                  >
+                    <span className="font-semibold">{b.name}</span>
+                  </button>
+                  <div className="flex shrink-0 flex-col justify-center gap-0.5 border-l border-[color:var(--border)] bg-[color:var(--surface)]/60 py-1 pl-1 pr-1">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      title="Edit bundle"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        openBundleEditor(b.id);
+                      }}
+                      className="rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-violet-700 hover:bg-violet-500/15 dark:text-violet-200"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      title="Delete bundle"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        deleteBundle(b.id, b.name);
+                      }}
+                      className="rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-red-600 hover:bg-red-500/10 dark:text-red-300"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
               ))}
               {bundles.length === 0 ? <p className="text-xs text-[color:var(--text-muted)]">No bundles yet.</p> : null}
             </div>
@@ -685,8 +748,13 @@ export default function RssImportBuilderClient() {
                 value={newBundleName}
                 onChange={(e) => setNewBundleName(e.target.value)}
               />
+              {newBundleNameTaken ? (
+                <p className="text-xs text-amber-700 dark:text-amber-200/90">
+                  A bundle with this name already exists (comparison ignores spaces and letter case).
+                </p>
+              ) : null}
               <div className="w-full [&>button]:w-full">
-                <R365Button disabled={busy} onClick={() => void createBundle()}>
+                <R365Button disabled={busy || newBundleNameTaken || !newBundleName.trim()} onClick={() => void createBundle()}>
                   Create bundle
                 </R365Button>
               </div>

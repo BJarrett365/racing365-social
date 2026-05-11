@@ -13,7 +13,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   if (error || !feed) return NextResponse.json({ error: "Feed not found." }, { status: 404 });
 
   const [{ data: items }, { data: filter }, { data: translation }, { data: logs }] = await Promise.all([
-    supabase.from("rss_feed_items").select("*").eq("feed_id", id).order("published_at", { ascending: false }).limit(500),
+    supabase
+      .from("rss_feed_items")
+      .select("*")
+      .eq("feed_id", id)
+      .order("pinned", { ascending: false })
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(500),
     supabase.from("rss_feed_filters").select("*").eq("feed_id", id).maybeSingle(),
     supabase.from("rss_feed_translation_settings").select("*").eq("feed_id", id).maybeSingle(),
     supabase.from("rss_feed_crawl_logs").select("*").eq("feed_id", id).order("started_at", { ascending: false }).limit(20),

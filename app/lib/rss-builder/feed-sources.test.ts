@@ -20,6 +20,16 @@ describe("collectFeedCrawlUrls", () => {
     expect(urls).toEqual(["https://a.com/1", "https://a.com/2", "https://b.com/x"]);
   });
 
+  it("merges source_url and manual_urls for xml_feed like rss_url", () => {
+    expect(
+      collectFeedCrawlUrls({
+        source_type: "xml_feed",
+        source_url: "https://a.com/feed.xml\nhttps://a.com/more.xml",
+        manual_urls: "https://b.com/atom.xml",
+      }),
+    ).toEqual(["https://a.com/feed.xml", "https://a.com/more.xml", "https://b.com/atom.xml"]);
+  });
+
   it("dedupes preserving order", () => {
     const urls = collectFeedCrawlUrls({
       source_type: "site_url",

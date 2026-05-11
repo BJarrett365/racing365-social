@@ -4,6 +4,7 @@ import {
   extractHtmlListingToRssChannelItems,
   looksLikeHtmlDocument,
   resolveBodyToRssChannel,
+  resolveBodyToRssChannelXmlOnly,
 } from "@/app/lib/rss-builder/html-listing";
 
 describe("looksLikeHtmlDocument", () => {
@@ -238,5 +239,27 @@ describe("resolveBodyToRssChannel", () => {
     expect(channelTitle).toContain("Index");
     expect(items).toHaveLength(1);
     expect(items[0]?.link).toMatch(/news\/foo/);
+  });
+});
+
+describe("resolveBodyToRssChannelXmlOnly", () => {
+  it("returns RSS items without HTML fallback", () => {
+    const xml = `<?xml version="1.0"?><rss version="2.0"><channel><title>T</title>
+      <item><title>One</title><link>https://example.com/a</link></item>
+    </channel></rss>`;
+    const { items, channelTitle } = resolveBodyToRssChannelXmlOnly(xml, "https://example.com/feed.xml", 10);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.title).toBe("One");
+    expect(channelTitle).toContain("T");
+  });
+
+  it("rejects HTML responses", () => {
+    const html = `<!DOCTYPE html><html><head><title>x</title></head><body></body></html>`;
+    expect(() => resolveBodyToRssChannelXmlOnly(html, "https://example.com/", 10)).toThrow(/HTML/);
+  });
+
+  it("rejects empty item lists in otherwise parseable XML", () => {
+    const xml = `<?xml version="1.0"?><rss version="2.0"><channel><title>Empty</title></channel></rss>`;
+    expect(() => resolveBodyToRssChannelXmlOnly(xml, "https://example.com/e.xml", 10)).toThrow(/no RSS items/);
   });
 });

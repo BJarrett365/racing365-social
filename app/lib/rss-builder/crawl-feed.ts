@@ -9,7 +9,11 @@ import {
 import { fetchRssSourceBody } from "@/app/lib/rss-builder/fetch-source";
 import { collectFeedCrawlUrls } from "@/app/lib/rss-builder/feed-sources";
 import { hydrateMissingArticleHeroImages } from "@/app/lib/rss-builder/hydrate-article-images";
-import { looksLikeHtmlDocument, resolveBodyToRssChannel } from "@/app/lib/rss-builder/html-listing";
+import {
+  looksLikeHtmlDocument,
+  resolveBodyToRssChannel,
+  resolveBodyToRssChannelXmlOnly,
+} from "@/app/lib/rss-builder/html-listing";
 import { itemKeyFromLinkAndGuid } from "@/app/lib/rss-builder/slug";
 import type { RssChannelItem, RssFeedRow, RssFilterConfig, RssItemStatus } from "@/app/lib/rss-builder/types";
 import { defaultFilterConfig } from "@/app/lib/rss-builder/types";
@@ -73,12 +77,20 @@ export async function runCrawlFeed(supabase: SupabaseClient, feedId: string): Pr
     for (const url of urls) {
       const body = await fetchRssSourceBody(url);
       lastSourceBodyPrefix = body.trim().slice(0, 400);
-      const parsed = resolveBodyToRssChannel(body, url, perUrlCap);
+      const parsed =
+        f.source_type === "xml_feed"
+          ? resolveBodyToRssChannelXmlOnly(body, url, perUrlCap)
+          : resolveBodyToRssChannel(body, url, perUrlCap);
       merged.push(...parsed.items);
     }
     const rawSeen = merged.length;
 
     if (rawSeen === 0) {
+      if (f.source_type === "xml_feed") {
+        throw new Error(
+          "No items were merged from your XML feed URL(s). Each URL must return RSS 2.0 or Atom with item/entry elements. If the server returns an HTML page, use source type RSS / smart URL or Site / HTML listing instead.",
+        );
+      }
       const looksHtml = looksLikeHtmlDocument(lastSourceBodyPrefix);
       const hint = looksHtml
         ? "This page did not yield RSS/Atom items or extractable article links. Try a section or news index URL, or the site’s direct feed URL (.xml, /rss, /feed, atom)."

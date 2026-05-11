@@ -618,7 +618,8 @@ export default function RssImportBuilderClient() {
                   value={newFeedSourceType}
                   onChange={(e) => setNewFeedSourceType(e.target.value as RssFeedSourceType)}
                 >
-                  <option value="rss_url">RSS / Atom (one or more URLs)</option>
+                  <option value="xml_feed">XML feed — RSS 2.0 / Atom URLs only</option>
+                  <option value="rss_url">RSS / Atom or HTML (smart, one or more URLs)</option>
                   <option value="site_url">Site / HTML listing (one or more URLs)</option>
                   <option value="manual_urls">Manual URL list only</option>
                 </select>
@@ -627,7 +628,11 @@ export default function RssImportBuilderClient() {
                 {newFeedSourceType === "manual_urls" ? "URLs (one per line)" : "Source URLs (one per line)"}
                 <textarea
                   className="mt-1 min-h-[5.5rem] w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 font-mono text-xs"
-                  placeholder={"https://example.com/feed.xml\nhttps://other.com/racing/news"}
+                  placeholder={
+                    newFeedSourceType === "xml_feed"
+                      ? "https://www.example.com/news/feed.xml\nhttps://partner.example.com/atom.xml"
+                      : "https://example.com/feed.xml\nhttps://other.com/racing/news"
+                  }
                   value={newFeedSources}
                   onChange={(e) => setNewFeedSources(e.target.value)}
                 />
@@ -728,7 +733,8 @@ export default function RssImportBuilderClient() {
                           value={(feedFormDraft.source_type as RssFeedSourceType) ?? "rss_url"}
                           onChange={(e) => setFeedFormDraft((d) => ({ ...d, source_type: e.target.value as RssFeedSourceType }))}
                         >
-                          <option value="rss_url">RSS URL</option>
+                          <option value="xml_feed">XML feed (RSS 2.0 / Atom only)</option>
+                          <option value="rss_url">RSS / smart (XML or HTML)</option>
                           <option value="manual_urls">Manual URLs</option>
                           <option value="site_url">Site URL</option>
                           <option value="sitemap">Sitemap</option>
@@ -739,12 +745,29 @@ export default function RssImportBuilderClient() {
                         Source URL(s)
                         <textarea
                           className="mt-1 min-h-[5.5rem] w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 font-mono text-xs"
-                          placeholder={"https://www.example.com/feed\nhttps://www.other.com/news"}
+                          placeholder={
+                            (feedFormDraft.source_type as RssFeedSourceType | undefined) === "xml_feed"
+                              ? "https://www.example.com/feed.xml\nhttps://cdn.example.com/partner-feed.atom"
+                              : "https://www.example.com/feed\nhttps://www.other.com/news"
+                          }
                           value={(feedFormDraft.source_url as string) ?? ""}
                           onChange={(e) => setFeedFormDraft((d) => ({ ...d, source_url: e.target.value }))}
                         />
                         <p className="mt-1.5 text-xs font-normal normal-case text-[color:var(--text-muted)]">
-                          One URL per line for multiple feeds or listing pages; crawls are merged into this export (deduped by link). RSS/Atom and HTML rules apply per URL. Optional <strong className="text-[color:var(--text-secondary)]">Manual URLs</strong> below are also crawled for RSS and site types.
+                          {(feedFormDraft.source_type as RssFeedSourceType | undefined) === "xml_feed" ? (
+                            <>
+                              Each line must return <strong className="text-[color:var(--text-secondary)]">RSS 2.0 or Atom XML</strong> (direct{" "}
+                              <code className="rounded bg-[color:var(--surface-muted)] px-1">.xml</code>,{" "}
+                              <code className="rounded bg-[color:var(--surface-muted)] px-1">/feed</code>,{" "}
+                              <code className="rounded bg-[color:var(--surface-muted)] px-1">/rss</code>, etc.). HTML pages are rejected for this type.
+                              Optional <strong className="text-[color:var(--text-secondary)]">Manual URLs</strong> below are merged on each crawl.
+                            </>
+                          ) : (
+                            <>
+                              One URL per line for multiple feeds or listing pages; crawls are merged into this export (deduped by link). RSS/Atom and HTML rules apply per URL. Optional{" "}
+                              <strong className="text-[color:var(--text-secondary)]">Manual URLs</strong> below are also crawled for RSS and site types.
+                            </>
+                          )}
                         </p>
                       </label>
                       <label className="block text-xs font-semibold uppercase text-[color:var(--text-muted)] md:col-span-2">

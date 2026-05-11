@@ -778,3 +778,37 @@ export function resolveBodyToRssChannel(
     "No article links found on this HTML page. Try a news or section index URL, or paste the site’s RSS/Atom feed URL.",
   );
 }
+
+/**
+ * RSS 2.0 or Atom only: no HTML listing fallback. Each URL must return a syndication document.
+ */
+export function resolveBodyToRssChannelXmlOnly(
+  body: string,
+  _sourceUrl: string,
+  maxItems: number,
+): { channelTitle: string; items: RssChannelItem[] } {
+  const trimmed = body.trim();
+  if (!trimmed) {
+    throw new Error("The feed URL returned an empty body.");
+  }
+  if (looksLikeHtmlDocument(trimmed)) {
+    throw new Error(
+      "This URL returned HTML, not raw RSS/Atom XML. Use RSS / smart URL or Site / HTML listing for web pages, or the direct feed URL (.xml, /feed, /rss).",
+    );
+  }
+  const xml = extractXmlPayload(trimmed);
+  let parsed: { channelTitle: string; items: RssChannelItem[] };
+  try {
+    parsed = parseRssXmlToChannel(xml);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "parse error";
+    throw new Error(`Could not parse as RSS 2.0 or Atom XML: ${msg}`);
+  }
+  if (parsed.items.length === 0) {
+    throw new Error(
+      "The feed XML contained no RSS items or Atom entries. Use the channel document that lists stories, not a single article page.",
+    );
+  }
+  const cap = Math.min(500, Math.max(1, maxItems));
+  return { channelTitle: parsed.channelTitle, items: parsed.items.slice(0, cap) };
+}

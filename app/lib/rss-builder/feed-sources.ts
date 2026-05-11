@@ -23,6 +23,7 @@ function dedupePreserveOrder(urls: string[]): string[] {
 /**
  * URLs to fetch for one feed crawl. Merges `source_url` and `manual_urls` when both are set
  * (multiple sites / feeds in one export). `manual_urls` source type uses the manual field first.
+ * `xml_feed` merges URLs the same way as `rss_url`; crawl treats each URL as strict RSS/Atom only.
  */
 export function collectFeedCrawlUrls(feed: {
   source_type: RssFeedSourceType;

@@ -1,4 +1,4 @@
-export type RssFeedSourceType = "rss_url" | "site_url" | "manual_urls" | "topic" | "sitemap";
+export type RssFeedSourceType = "rss_url" | "xml_feed" | "site_url" | "manual_urls" | "topic" | "sitemap";
 
 export type RssFeedStatus = "active" | "paused" | "failed";
 

@@ -72,30 +72,37 @@ export async function runCrawlFeed(supabase: SupabaseClient, feedId: string): Pr
 
     const urls = collectFeedCrawlUrls(f);
     const merged: RssChannelItem[] = [];
+    const sourceErrors: string[] = [];
     let lastSourceBodyPrefix = "";
     const perUrlCap = Math.min(500, Math.max(1, f.posts_per_feed));
     for (const url of urls) {
-      const body = await fetchRssSourceBody(url);
-      lastSourceBodyPrefix = body.trim().slice(0, 400);
-      const parsed =
-        f.source_type === "xml_feed"
-          ? resolveBodyToRssChannelXmlOnly(body, url, perUrlCap)
-          : resolveBodyToRssChannel(body, url, perUrlCap);
-      merged.push(...parsed.items);
+      try {
+        const body = await fetchRssSourceBody(url);
+        lastSourceBodyPrefix = body.trim().slice(0, 400);
+        const parsed =
+          f.source_type === "xml_feed"
+            ? resolveBodyToRssChannelXmlOnly(body, url, perUrlCap)
+            : resolveBodyToRssChannel(body, url, perUrlCap);
+        merged.push(...parsed.items);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "error";
+        sourceErrors.push(`${url} — ${msg}`);
+      }
     }
     const rawSeen = merged.length;
 
     if (rawSeen === 0) {
+      const failed = sourceErrors.length > 0 ? `\n\n${sourceErrors.join("\n\n")}` : "";
       if (f.source_type === "xml_feed") {
         throw new Error(
-          "No items were merged from your XML feed URL(s). Each URL must return RSS 2.0 or Atom with item/entry elements. If the server returns an HTML page, use source type RSS / smart URL or Site / HTML listing instead.",
+          `No items were merged from your XML feed URL(s). Each URL must return RSS 2.0 or Atom with item/entry elements. If a line returns HTML or is blocked, fix or remove that URL.${failed}`,
         );
       }
       const looksHtml = looksLikeHtmlDocument(lastSourceBodyPrefix);
       const hint = looksHtml
         ? "This page did not yield RSS/Atom items or extractable article links. Try a section or news index URL, or the site’s direct feed URL (.xml, /rss, /feed, atom)."
         : "No items were found in the XML. The feed may be empty, blocked, or use a format we cannot parse yet.";
-      throw new Error(hint);
+      throw new Error(`${hint}${failed}`);
     }
 
     let prepared = prepareItems(merged);
@@ -146,7 +153,7 @@ export async function runCrawlFeed(supabase: SupabaseClient, feedId: string): Pr
       .update({
         last_crawled_at: now,
         next_crawl_at: next,
-        last_error: null,
+        last_error: sourceErrors.length > 0 ? `Some source URLs failed (${sourceErrors.length}): ${sourceErrors[0]?.slice(0, 500) ?? ""}` : null,
         status: "active",
         updated_at: now,
       })

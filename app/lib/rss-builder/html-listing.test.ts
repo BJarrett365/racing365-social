@@ -93,6 +93,25 @@ describe("extractHtmlListingToRssChannelItems", () => {
     expect(items[0]?.imageUrl).toBe(img);
   });
 
+  it("extracts stories from __NEXT_DATA__ when the page has no article <a> links (Next.js listings)", () => {
+    const story = {
+      url: "https://www.racingpost.com/news/previews/seconds-out-for-the-latest-chapter-aO55r7v5j1aC",
+      title: "Seconds out for the latest chapter in an improbable rivalry today",
+      image: "https://cdn.example.com/racing-post-card.jpg",
+    };
+    const json = JSON.stringify({ props: { pageProps: { articles: [story] } } });
+    const html = `<!DOCTYPE html><html><head><title>Latest News</title></head><body>
+      <div id="__next"></div>
+      <script id="__NEXT_DATA__" type="application/json">${json}</script>
+    </body></html>`;
+    const { items, channelTitle } = extractHtmlListingToRssChannelItems(html, "https://www.racingpost.com/news/", 25);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.link).toContain("racingpost.com/news/previews/");
+    expect(items[0]?.title).toContain("Seconds out");
+    expect(items[0]?.imageUrl).toBe("https://cdn.example.com/racing-post-card.jpg");
+    expect(channelTitle).toContain("Latest News");
+  });
+
   it("uses __NEXT_DATA__ image when anchor has no thumbnail", () => {
     const json = JSON.stringify({
       props: {

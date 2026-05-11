@@ -541,6 +541,91 @@ function genericAnchorTitle(title: string): boolean {
 }
 
 /**
+ * Next.js listing pages often ship story URLs only inside `__NEXT_DATA__`, with no usable
+ * `<a href>` article links in the initial HTML (e.g. Racing Post). Walk the JSON like image
+ * indexing and collect article-shaped objects with a URL and title.
+ */
+function collectStoriesFromNextData(
+  html: string,
+  sourceUrl: string,
+  maxItems: number,
+): Map<string, { title: string; thumbFromAnchor: string }> {
+  const out = new Map<string, { title: string; thumbFromAnchor: string }>();
+  const source = new URL(sourceUrl);
+  const siteOrigin = source.origin;
+  const m = /<script[^>]*\bid=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i.exec(html);
+  if (!m?.[1]) return out;
+
+  let data: unknown;
+  try {
+    data = JSON.parse(m[1].trim());
+  } catch {
+    return out;
+  }
+
+  const titleFromObject = (o: Record<string, unknown>): string => {
+    const keys = [
+      "title",
+      "headline",
+      "displayTitle",
+      "articleTitle",
+      "primaryHeadline",
+      "cardTitle",
+      "seoTitle",
+      "name",
+      "standFirst",
+      "summary",
+    ] as const;
+    for (const k of keys) {
+      const v = o[k];
+      if (typeof v !== "string" || !v.trim()) continue;
+      const t = textFromHtml(v).replace(/\s+/g, " ").trim();
+      if (t.length >= 8 && !genericAnchorTitle(t)) return t;
+    }
+    return "";
+  };
+
+  const tryRecord = (o: Record<string, unknown>): void => {
+    if (out.size >= maxItems) return;
+    const linkRaw = o.url ?? o.link ?? o.href ?? o.uri ?? o.canonicalUrl ?? o.path;
+    if (typeof linkRaw !== "string" || !linkRaw.trim()) return;
+    let abs = linkRaw.trim();
+    if (abs.startsWith("//")) abs = `https:${abs}`;
+    else if (!/^https?:\/\//i.test(abs)) abs = absoluteUrl(abs, sourceUrl);
+    if (!abs || !/^https?:\/\//i.test(abs)) return;
+    let url: URL;
+    try {
+      url = new URL(abs);
+    } catch {
+      return;
+    }
+    if (!sameSiteHostname(url.hostname, source.hostname)) return;
+    if (!pathnameLooksArticleLike(url.pathname, url.hostname)) return;
+    const title = titleFromObject(o);
+    if (!title) return;
+    const href = url.toString();
+    if (out.has(href)) return;
+    const img = pickImageFromStoryObjectWithOrigin(o, siteOrigin);
+    out.set(href, { title, thumbFromAnchor: img });
+  };
+
+  const walk = (v: unknown, depth: number): void => {
+    if (depth > 24 || out.size >= maxItems || v == null) return;
+    if (typeof v !== "object") return;
+    if (Array.isArray(v)) {
+      for (const el of v) walk(el, depth + 1);
+      return;
+    }
+    const obj = v as Record<string, unknown>;
+    tryRecord(obj);
+    for (const el of Object.values(obj)) walk(el, depth + 1);
+  };
+
+  walk(data, 0);
+  return out;
+}
+
+/**
  * Pull same-domain article-like links from an HTML listing or hub page into RSS-shaped items.
  */
 export function extractHtmlListingToRssChannelItems(
@@ -579,6 +664,14 @@ export function extractHtmlListingToRssChannelItems(
     }
     if (!candidates.has(href)) candidates.set(href, { title, thumbFromAnchor });
     if (candidates.size >= cap) break;
+  }
+
+  if (candidates.size === 0) {
+    const fromNext = collectStoriesFromNextData(html, sourceUrl, cap);
+    for (const [link, rec] of fromNext) {
+      if (candidates.size >= cap) break;
+      if (!candidates.has(link)) candidates.set(link, rec);
+    }
   }
 
   const siteOrigin = source.origin;

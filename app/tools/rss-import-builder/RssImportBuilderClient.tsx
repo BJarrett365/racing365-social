@@ -321,22 +321,28 @@ export default function RssImportBuilderClient() {
 
   const exportUrls = useMemo(() => {
     const base = publicExportBase();
-    if (!base) return { rss: "", json: "" };
+    if (!base) return { rss: "", xml: "", json: "" };
     if (kind === "feed" && feedDetail?.feed) {
       const { slug, export_token: token } = feedDetail.feed;
+      const encSlug = encodeURIComponent(slug);
+      const encTok = encodeURIComponent(token);
       return {
-        rss: `${base}/${encodeURIComponent(slug)}?token=${encodeURIComponent(token)}&format=rss`,
-        json: `${base}/${encodeURIComponent(slug)}?token=${encodeURIComponent(token)}&format=json`,
+        rss: `${base}/${encSlug}?token=${encTok}&format=rss`,
+        xml: `${base}/${encSlug}?token=${encTok}&format=xml`,
+        json: `${base}/${encSlug}?token=${encTok}&format=json`,
       };
     }
     if (kind === "bundle" && selectedBundle) {
       const { slug, export_token: token } = selectedBundle;
+      const encSlug = encodeURIComponent(slug);
+      const encTok = encodeURIComponent(token);
       return {
-        rss: `${base}/${encodeURIComponent(slug)}?token=${encodeURIComponent(token)}&format=rss`,
-        json: `${base}/${encodeURIComponent(slug)}?token=${encodeURIComponent(token)}&format=json`,
+        rss: `${base}/${encSlug}?token=${encTok}&format=rss`,
+        xml: `${base}/${encSlug}?token=${encTok}&format=xml`,
+        json: `${base}/${encSlug}?token=${encTok}&format=json`,
       };
     }
-    return { rss: "", json: "" };
+    return { rss: "", xml: "", json: "" };
   }, [kind, feedDetail, selectedBundle]);
 
   const createFeed = () =>
@@ -1260,16 +1266,28 @@ export default function RssImportBuilderClient() {
         <aside className="space-y-4">
           <Panel title="Export URLs">
             <p className="text-xs text-[color:var(--text-muted)]">
-              These URLs are the generated RSS/JSON feeds for your configured source. Use them in Language Studio &quot;RSS / URL import&quot; or any reader. Token is secret — treat like a password.
+              These URLs are the generated feeds for your configured source. <strong className="text-[color:var(--text-secondary)]">RSS</strong> and{" "}
+              <strong className="text-[color:var(--text-secondary)]">XML</strong> return the same RSS 2.0 document; XML uses a generic{" "}
+              <code className="rounded bg-[color:var(--surface-muted)] px-1">application/xml</code> content type for tools that expect XML.{" "}
+              <strong className="text-[color:var(--text-secondary)]">JSON</strong> is a structured alternative. Token is secret — treat like a password.
             </p>
             {exportUrls.rss ? (
               <div className="mt-3 space-y-2">
                 <div>
-                  <p className="text-xs font-bold uppercase text-[color:var(--text-muted)]">RSS</p>
+                  <p className="text-xs font-bold uppercase text-[color:var(--text-muted)]">RSS (application/rss+xml)</p>
                   <p className="break-all font-mono text-[10px] leading-relaxed text-[color:var(--text-secondary)]">{exportUrls.rss}</p>
                   <div className="mt-1">
                     <R365Button variant="ghost" onClick={() => void copyText(exportUrls.rss)}>
                       Copy RSS URL
+                    </R365Button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase text-[color:var(--text-muted)]">XML (application/xml)</p>
+                  <p className="break-all font-mono text-[10px] leading-relaxed text-[color:var(--text-secondary)]">{exportUrls.xml}</p>
+                  <div className="mt-1">
+                    <R365Button variant="ghost" onClick={() => void copyText(exportUrls.xml)}>
+                      Copy XML URL
                     </R365Button>
                   </div>
                 </div>

@@ -76,6 +76,8 @@ export function buildRss2ChannelXml(opts: {
   channelLink: string;
   channelDescription: string;
   selfLink: string;
+  /** `atom:link rel="self"` type attribute (default RSS media type). */
+  selfLinkType?: string;
   items: ExportItem[];
   /** When false, omit lead images, enclosures, and MRSS derived from stored image_url. */
   includeImages: boolean;
@@ -128,7 +130,7 @@ export function buildRss2ChannelXml(opts: {
     `<link>${escapeText(opts.channelLink)}</link>`,
     `<description>${escapeText(opts.channelDescription)}</description>`,
     `<lastBuildDate>${new Date().toUTCString()}</lastBuildDate>`,
-    `<atom:link rel="self" type="application/rss+xml" href="${escapeText(opts.selfLink)}"/>`,
+    `<atom:link rel="self" type="${escapeText(opts.selfLinkType ?? "application/rss+xml")}" href="${escapeText(opts.selfLink)}"/>`,
     itemsXml,
     "</channel>",
     "</rss>",

@@ -109,4 +109,28 @@ describe("buildRss2ChannelXml", () => {
     expect(xml).toContain("audio.mp3");
     expect(xml).not.toContain("<media:content ");
   });
+
+  it("honours selfLinkType on atom:link self", () => {
+    const xml = buildRss2ChannelXml({
+      channelTitle: "T",
+      channelLink: "https://example.com/",
+      channelDescription: "D",
+      selfLink: "https://example.com/out.xml?format=xml",
+      selfLinkType: "application/xml",
+      includeImages: false,
+      includeMediaEnclosure: false,
+      includeThumbnailInDescription: false,
+      items: [
+        {
+          title: "One",
+          link: "https://example.com/a",
+          guid: "g:a",
+          pubDate: "Sat, 01 Jan 2022 00:00:00 GMT",
+          descriptionHtml: "<p>x</p>",
+        },
+      ],
+    });
+    expect(xml).toContain('type="application/xml"');
+    expect(xml).toContain('href="https://example.com/out.xml?format=xml"');
+  });
 });

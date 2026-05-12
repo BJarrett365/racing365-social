@@ -79,6 +79,8 @@ export async function POST(request: Request) {
     user.passwordSalt = salt;
     user.passwordSetAt = now;
     user.emailVerifiedAt = user.emailVerifiedAt ?? now;
+    user.passwordResetTokenHash = undefined;
+    user.passwordResetExpiresAt = undefined;
   } else {
     if (body.name !== undefined) user.name = body.name.trim() || user.name;
     if (validRole(body.role)) user.role = body.role;

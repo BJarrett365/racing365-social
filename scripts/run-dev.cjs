@@ -14,6 +14,7 @@
 const { existsSync, rmSync, readFileSync } = require("fs");
 const { join } = require("path");
 const { spawn, execSync, execFileSync } = require("child_process");
+const http = require("http");
 
 const root = join(__dirname, "..");
 try {
@@ -145,13 +146,72 @@ console.error(
     (!useTurbo && devEnv.WATCHPACK_POLLING === "true"
       ? `[run-dev] WATCHPACK_POLLING=true + next.config webpack poll (dev). Disable poll: NEXT_WEBPACK_POLL=0; disable both: WATCHPACK_POLLING=0\n`
       : "") +
+    `[run-dev] Language Studio import crons: set ENABLE_DEV_CRON_POLL=1 to poll this server like npm start; otherwise nothing calls /api/cron/language-imports until you refresh manually.\n` +
     `[run-dev] Do not use npm start until you run npm run build.\n`,
 );
+
+const devCronPollEnabled =
+  process.env.ENABLE_DEV_CRON_POLL === "1" && process.env.CRON_POLL_DISABLED !== "1";
+const cronPollMs = Number(process.env.CRON_POLL_INTERVAL_MS || 60_000);
+
+function pollDueCrons() {
+  const headers = {};
+  if (process.env.CRON_SECRET) headers.Authorization = `Bearer ${process.env.CRON_SECRET}`;
+  if (process.env.ADMIN_TOKEN) headers["x-admin-token"] = process.env.ADMIN_TOKEN;
+  const req = http.request(
+    {
+      hostname: "127.0.0.1",
+      port: devPort,
+      path: "/api/cron/language-imports",
+      method: "POST",
+      headers,
+      timeout: 25_000,
+    },
+    (res) => {
+      let body = "";
+      res.setEncoding("utf8");
+      res.on("data", (chunk) => {
+        body += chunk;
+      });
+      res.on("end", () => {
+        if (res.statusCode && res.statusCode >= 400) {
+          console.error(`[run-dev] cron poll failed ${res.statusCode}: ${body.slice(0, 300)}`);
+          return;
+        }
+        try {
+          const data = JSON.parse(body);
+          if (data.ran) console.error(`[run-dev] cron poll ran ${data.ran} due job(s).`);
+        } catch {
+          /* ignore */
+        }
+      });
+    },
+  );
+  req.on("timeout", () => req.destroy(new Error("cron poll timed out")));
+  req.on("error", (error) => {
+    console.error(`[run-dev] cron poll error: ${error.message}`);
+  });
+  req.end();
+}
 
 const child = spawn(process.execPath, args, {
   cwd: root,
   stdio: "inherit",
   env: devEnv,
 });
+
+if (
+  devCronPollEnabled &&
+  Number.isFinite(cronPollMs) &&
+  cronPollMs >= 30_000
+) {
+  console.error(
+    `[run-dev] ENABLE_DEV_CRON_POLL=1: calling /api/cron/language-imports every ${Math.round(cronPollMs / 1000)}s (same behavior as npm start). Omit this env to avoid background imports while coding.\n`,
+  );
+  setTimeout(() => {
+    pollDueCrons();
+    setInterval(pollDueCrons, cronPollMs);
+  }, 15_000);
+}
 
 child.on("exit", (code) => process.exit(code ?? 0));

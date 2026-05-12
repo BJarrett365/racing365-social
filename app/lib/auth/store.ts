@@ -70,6 +70,7 @@ export function publicUser(user: PlexaUser): PublicPlexaUser {
     passwordSetAt: user.passwordSetAt,
     emailVerifiedAt: user.emailVerifiedAt,
     verifyTokenExpiresAt: user.verifyTokenExpiresAt,
+    passwordResetExpiresAt: user.passwordResetExpiresAt,
     lastLoginAt: user.lastLoginAt,
     invitedAt: user.invitedAt,
     createdAt: user.createdAt,

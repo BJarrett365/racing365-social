@@ -19,6 +19,9 @@ export type PlexaUser = {
   emailVerifiedAt?: string;
   verifyTokenHash?: string;
   verifyTokenExpiresAt?: string;
+  /** SHA-256 hex of raw reset token (self-service forgot password). */
+  passwordResetTokenHash?: string;
+  passwordResetExpiresAt?: string;
   lastLoginAt?: string;
   invitedAt?: string;
   createdAt: string;
@@ -29,7 +32,7 @@ export type PlexaAuthData = {
   users: Record<string, PlexaUser>;
 };
 
-export type PublicPlexaUser = Omit<PlexaUser, "passwordHash" | "passwordSalt" | "verifyTokenHash"> & {
+export type PublicPlexaUser = Omit<PlexaUser, "passwordHash" | "passwordSalt" | "verifyTokenHash" | "passwordResetTokenHash"> & {
   hasPassword: boolean;
   emailVerified: boolean;
 };

@@ -24,4 +24,23 @@ describe("parseRssXmlToChannel", () => {
     expect(items[0].link).toBe("https://example.com/a");
     expect(items[0].descriptionHtml).toContain("Body");
   });
+
+  it("strips stray CDATA close markers from descriptions (partner RSS quirks)", () => {
+    const xml = `<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <title>ATR</title>
+    <item>
+      <title>T</title>
+      <link>https://www.attheraces.com/news/x</link>
+      <guid>g-cdata</guid>
+      <description>Ed Dunlop's filly has already won the Italian Guineas. ]]></description>
+      <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>`;
+    const { items } = parseRssXmlToChannel(xml);
+    expect(items[0].descriptionHtml).not.toContain("]]>");
+    expect(items[0].descriptionHtml).toContain("Italian Guineas");
+  });
 });

@@ -49,8 +49,23 @@ function first(...values: unknown[]): string {
   return "";
 }
 
+/**
+ * Remove CDATA delimiters that survive as plain text when `stopNodes` keeps raw XML, or when
+ * partner feeds (e.g. At The Races) leave a stray `]]>` after the visible snippet.
+ */
+function stripXmlCdataArtifacts(value: string): string {
+  let s = value.trim();
+  if (!s) return s;
+  if (/^<!\[CDATA\[/i.test(s)) {
+    s = s.replace(/^<!\[CDATA\[/i, "");
+    s = s.replace(/\]\]>\s*$/g, "");
+  }
+  s = s.replace(/\]\]>\s*$/g, "").trim();
+  return s;
+}
+
 function clean(value: string): string {
-  return sanitizeImportedContent(decodeHtmlEntities(value));
+  return sanitizeImportedContent(decodeHtmlEntities(stripXmlCdataArtifacts(value)));
 }
 
 function extractLink(item: UnknownRecord): string {

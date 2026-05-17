@@ -5,6 +5,8 @@ import { BRAND_SUITE } from "@/app/lib/brand";
 
 export const metadata = {
   title: `Article Studio · ${BRAND_SUITE}`,
+  description:
+    "Import, rewrite and review sports articles, transcripts and feeds — editorial workflows linked to Language Studio and export-ready outputs.",
 };
 
 const articleWorkflows = [

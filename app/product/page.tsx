@@ -6,7 +6,7 @@ import { BRAND_SUITE, BRAND_TAGLINE } from "@/app/lib/brand";
 export const metadata: Metadata = {
   title: `Product · ${BRAND_SUITE}`,
   description:
-    "Planet Sport Studio product overview: AI-native sports media production across articles, translations, shorts, social images, scripts, library assets and export.",
+    "Planet Sport Studio product overview: AI-native sports media production across articles, translations and localisation, shorts, social images, scripts, library assets and export.",
 };
 
 const features = [

@@ -5,6 +5,8 @@ import { BRAND_SUITE } from "@/app/lib/brand";
 
 export const metadata = {
   title: `Data Studio · ${BRAND_SUITE}`,
+  description:
+    "Match previews, reports and structured sport data — Football365-style briefing, Loop Feed and fixture tools for UK-first editorial teams.",
 };
 
 export default function DataStudioPage() {

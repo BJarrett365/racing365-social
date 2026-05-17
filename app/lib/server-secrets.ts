@@ -37,6 +37,8 @@ export type AdminStoredSettings = {
   deeplApiUrl?: string;
   languageProviderMode?: "openai" | "deepl" | "deepl-openai";
   languageOpenaiModel?: string;
+  /** Default model for `/api/openai/text-to-image` (e.g. gpt-image-1, dall-e-2). Override with OPENAI_IMAGE_MODEL env. */
+  openaiImageModel?: string;
   updatedAt?: string;
 };
 
@@ -154,6 +156,7 @@ function secretFileKey(envName: string): keyof AdminStoredSettings | undefined {
     APIFY_API_TOKEN: "apifyApiToken",
     SUPABASE_URL: "supabaseUrl",
     SUPABASE_SERVICE_ROLE_KEY: "supabaseServiceRoleKey",
+    OPENAI_IMAGE_MODEL: "openaiImageModel",
   };
   return map[envName];
 }

@@ -34,6 +34,7 @@ type Status = {
   ffmpegPath: string;
   openaiTtsVoice: string;
   openaiTtsModel: string;
+  openaiImageModel: string;
   elevenlabsVoiceId: string;
   elevenlabsModel: string;
   updatedAt: string | null;
@@ -78,6 +79,7 @@ export function AdminSettingsForm() {
   const [ffmpegPath, setFfmpegPath] = useState("");
   const [openaiTtsVoice, setOpenaiTtsVoice] = useState("");
   const [openaiTtsModel, setOpenaiTtsModel] = useState("");
+  const [openaiImageModel, setOpenaiImageModel] = useState("");
   const [elevenlabsVoiceId, setElevenlabsVoiceId] = useState("");
   const [elevenlabsModel, setElevenlabsModel] = useState("");
   const [clearElevenlabsKey, setClearElevenlabsKey] = useState(false);
@@ -132,6 +134,7 @@ export function AdminSettingsForm() {
     setFfmpegPath(data.ffmpegPath || "");
     setOpenaiTtsVoice(data.openaiTtsVoice || "");
     setOpenaiTtsModel(data.openaiTtsModel || "");
+    setOpenaiImageModel(data.openaiImageModel || "");
     setElevenlabsVoiceId(data.elevenlabsVoiceId || "");
     setElevenlabsModel(data.elevenlabsModel || "");
     setApifyYoutubeTranscriptActorId(data.apifyYoutubeTranscriptActorId || "apilabs/youtube-caption-transcription-scraper");
@@ -203,6 +206,7 @@ export function AdminSettingsForm() {
           ffmpegPath: ffmpegPath.trim() || undefined,
           openaiTtsVoice: openaiTtsVoice.trim() || undefined,
           openaiTtsModel: openaiTtsModel.trim() || undefined,
+          openaiImageModel: openaiImageModel.trim() || undefined,
           elevenlabsVoiceId: elevenlabsVoiceId.trim() || undefined,
           elevenlabsModel: elevenlabsModel.trim() || undefined,
           clearElevenlabsKey,
@@ -1369,6 +1373,22 @@ export function AdminSettingsForm() {
                 placeholder="tts-1"
               />
             </div>
+          </label>
+          <label className="block text-xs font-semibold uppercase text-slate-500">
+            OpenAI image model (text-to-image)
+            <input
+              className={inputClass}
+              value={openaiImageModel}
+              onChange={(e) => setOpenaiImageModel(e.target.value)}
+              placeholder="gpt-image-1 (default if empty)"
+            />
+            <span className="mt-1 block text-[11px] font-normal normal-case text-slate-500">
+              Override with{" "}
+              <code className="rounded bg-black/40 px-1 py-0.5 font-mono text-slate-400">OPENAI_IMAGE_MODEL</code> env.
+              Use the exact model id your OpenAI project exposes (e.g.{" "}
+              <code className="font-mono text-slate-400">gpt-image-1</code>,{" "}
+              <code className="font-mono text-slate-400">dall-e-2</code>).
+            </span>
           </label>
           <label className="block text-xs font-semibold uppercase text-slate-500">
             ElevenLabs voice ID / model

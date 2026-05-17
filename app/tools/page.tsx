@@ -34,6 +34,27 @@ const importTools: ToolCard[] = [
 
 const studioTools: ToolCard[] = [
   {
+    name: "Loop Feed teams",
+    description:
+      "Save each club’s Loop topic content URL once. Data Studio uses Side A / Side B dropdowns for match-day social context in reports.",
+    href: "/tools/loop-feed-teams",
+    status: "Live",
+  },
+  {
+    name: "Loop Feed priority reporters",
+    description:
+      "Per-sport list of trusted handles, Loop topics, and notes (e.g. transfers). Data Studio folds these into AI previews and reports.",
+    href: "/tools/loop-feed-priority-reporters",
+    status: "Live",
+  },
+  {
+    name: "Data Studio",
+    description:
+      "Multi-sport data hub: fixture feeds (rolling out per vertical), match-report workflow entry, and a learning library for sites, brands and article styles.",
+    href: "/data-studio",
+    status: "Live",
+  },
+  {
     name: "YouTube Video Download",
     description: "Download permitted YouTube source videos for owned or licensed workflows.",
     href: "/tools",

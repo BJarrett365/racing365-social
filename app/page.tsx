@@ -1,158 +1,117 @@
 import Link from "next/link";
 import { Panel } from "@/app/components/Panel";
 import { BRAND_SUITE_UPPER } from "@/app/lib/brand";
+import {
+  NAV_GROUP_LABEL,
+  NAV_GROUP_ORDER,
+  NEWS_SHORTS_CARDS,
+  PRIMARY_STUDIO_CARDS,
+  SUPPORT_CARDS,
+  type StudioDashboardCard,
+} from "@/app/lib/studio-entries";
 
-const primaryCards = [
-  {
-    title: "Shorts Studio",
-    href: "/templates",
-    heading: "Portrait social video templates",
-    description: "Build short-form clips from racing, football, F1 and sport-specific template bundles.",
-    cta: "Open Shorts Studio",
-    accent: "gold",
-  },
-  {
-    title: "Landscape Studio",
-    href: "/landscape",
-    heading: "Landscape video workflows",
-    description: "Create wider-format editorial and social video outputs for desktop and platform publishing.",
-    cta: "Open Landscape Studio",
-    accent: "green",
-  },
-  {
-    title: "Article Studio",
-    href: "/article-studio",
-    heading: "Import, rewrite, translate and review",
-    description: "Bring article imports, YouTube transcripts, rewrites, translations and review into one hub.",
-    cta: "Open Article Studio",
-    accent: "gold",
-  },
-  {
-    title: "Language Studio",
-    href: "/language-studio",
-    heading: "Translation, localisation and export",
-    description: "Run source imports, rewrites, translations, governance checks and XML/JSON exports.",
-    cta: "Open Language Studio",
-    accent: "green",
-  },
-  {
-    title: "Podcast Studio",
-    href: "/podcast-template",
-    heading: "Podcast script builder",
-    description: "Shape articles, notes and transcripts into podcast-ready scripts and formats.",
-    cta: "Open Podcast Studio",
-    accent: "green",
-  },
-  {
-    title: "Audio Studio",
-    href: "/audio-studio",
-    heading: "Notes, transcription, TTS and voice workflows",
-    description: "Record, upload, transcribe, translate and create reusable voice assets with OpenAI and ElevenLabs.",
-    cta: "Open Audio Studio",
-    accent: "gold",
-  },
-  {
-    title: "Tools",
-    href: "/tools",
-    heading: "Utility hub",
-    description: "Access YouTube importing, URL-to-article workflows, export tools and creator utilities.",
-    cta: "Open Tools",
-    accent: "green",
-  },
-  {
-    title: "Library",
-    href: "/library",
-    heading: "Assets and generated outputs",
-    description: "Review saved images, videos, manifests, source media and reusable creative assets.",
-    cta: "Open Library",
-    accent: "gold",
-  },
-  {
-    title: "Schedule Studio",
-    href: "/editing-studio",
-    heading: "Editorial scheduling and social workflow",
-    description: "Manage projects, copy, media, previews and export-ready schedule items.",
-    cta: "Coming soon",
-    accent: "muted",
-    status: "Coming soon",
-  },
-  {
-    title: "Live Control",
-    href: "/live",
-    heading: "Mux and Restream sessions",
-    description: "Create, monitor and manage live sessions with provider setup and ingest controls.",
-    cta: "Coming soon",
-    accent: "muted",
-    status: "Coming soon",
-  },
-];
+function StudioDashboardCardBlock({ card }: { card: StudioDashboardCard }) {
+  const panelBody = (
+    <Panel title={card.title}>
+      <div className="flex h-full flex-col">
+        {card.status ? (
+          <div className="mb-2 flex justify-end">
+            <span className="rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-muted)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[color:var(--text-secondary)]">
+              {card.status}
+            </span>
+          </div>
+        ) : null}
+        <p className="mt-2 text-sm font-semibold text-[color:var(--text-secondary)]">{card.heading}</p>
+        <p className="mt-2 flex-1 text-sm leading-6 text-[color:var(--text-muted)]">{card.description}</p>
+        <span
+          className={`mt-6 inline-flex text-sm font-semibold ${
+            card.accent === "muted"
+              ? "text-[color:var(--text-secondary)]"
+              : card.accent === "gold"
+                ? "text-[#eab308]"
+                : "text-[#22c55e]"
+          }`}
+        >
+          {card.cta}
+          {card.status ? null : " →"}
+        </span>
+      </div>
+    </Panel>
+  );
 
-const supportCards = [
-  { title: "Product", href: "/product", description: "Overview, features and use cases." },
-  { title: "How It Works", href: "/how-it-works", description: "Step-by-step workflow guide." },
-  { title: "Guard Rails", href: "/guard-rails", description: "Editorial and safety boundaries." },
-  { title: "Brand Guidelines", href: "/brand-guidelines", description: "Planet Sport Studio visual and tone guidance." },
-  { title: "Prompts", href: "/prompts", description: "Prompt library and AI instructions." },
-  { title: "Admin", href: "/admin", description: "Settings, integrations and keys." },
-];
+  if (card.status) {
+    return (
+      <div
+        className="rounded-2xl opacity-[0.92] ring-1 ring-[color:var(--border)]"
+        aria-label={`${card.title} (${card.status})`}
+      >
+        {panelBody}
+      </div>
+    );
+  }
 
-const newsShortsCards = [
-  {
-    title: "News Shorts (Planet Sport)",
-    href: "/news-shorts",
-    heading: "Video and social images from article content",
-    description:
-      "Create Planet Sport news-led short videos, quote cards, thumbnails and social images from article scripts and editorial assets.",
-    cta: "Open News Shorts",
-  },
-];
+  return (
+    <Link href={card.href} className="block transition hover:-translate-y-0.5 hover:opacity-95">
+      {panelBody}
+    </Link>
+  );
+}
 
 export default function HomePage() {
   return (
     <div className="space-y-10">
       <div className="max-w-3xl">
         {BRAND_SUITE_UPPER ? (
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#eab308]">
-            {BRAND_SUITE_UPPER}
-          </p>
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#eab308]">{BRAND_SUITE_UPPER}</p>
         ) : null}
         <h1 className="mt-2 text-4xl font-black tracking-tight text-[color:var(--text-primary)]">
           Planet Sport Studio Control Room
         </h1>
         <p className="mt-4 text-lg text-slate-400">
-          Create short videos, social images, captions, articles and multilingual outputs from one AI-powered
-          production hub. Choose a studio, shape the story, then publish or export with the right assets ready.
+          Create short videos, social images, captions, articles and multilingual outputs from one AI-powered production
+          hub. Choose a studio, shape the story, then publish or export with the right assets ready.
+        </p>
+        <p className="mt-3 text-sm text-[color:var(--text-muted)]">
+          Tip: use{" "}
+          <strong className="text-[color:var(--text-secondary)]">Studios</strong> in the header for quick jumps — or{" "}
+          <Link href="/#studios" className="font-semibold text-[#22c55e] underline-offset-2 hover:underline">
+            jump to the studio grid
+          </Link>{" "}
+          on mobile.
         </p>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {primaryCards.map((card) => (
-          <Link key={card.title} href={card.href} className="block transition hover:-translate-y-0.5 hover:opacity-95">
-            <Panel title={card.status ?? card.title}>
-              <div className="flex h-full flex-col">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-xl font-bold text-[color:var(--text-primary)]">{card.title}</h2>
-                  {card.status ? (
-                    <span className="rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-muted)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[color:var(--text-secondary)]">
-                      {card.status}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-2 text-sm font-semibold text-[color:var(--text-secondary)]">{card.heading}</p>
-                <p className="mt-2 flex-1 text-sm leading-6 text-[color:var(--text-muted)]">{card.description}</p>
-                <span className={`mt-6 inline-flex text-sm font-semibold ${card.accent === "muted" ? "text-[color:var(--text-secondary)]" : card.accent === "gold" ? "text-[#eab308]" : "text-[#22c55e]"}`}>
-                  {card.cta} →
-                </span>
+      <div id="studios" className="scroll-mt-28 space-y-10 md:scroll-mt-24">
+        {NAV_GROUP_ORDER.map((group) => {
+          const cards = PRIMARY_STUDIO_CARDS.filter((c) => c.navGroup === group);
+          if (cards.length === 0) return null;
+          const headingId = `studio-group-${group}`;
+          return (
+            <section key={group} aria-labelledby={headingId}>
+              <h2
+                id={headingId}
+                className="mb-4 text-sm font-bold uppercase tracking-[0.2em] text-[color:var(--text-muted)]"
+              >
+                {NAV_GROUP_LABEL[group]}
+              </h2>
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {cards.map((card) => (
+                  <StudioDashboardCardBlock key={card.title} card={card} />
+                ))}
               </div>
-            </Panel>
-          </Link>
-        ))}
+            </section>
+          );
+        })}
       </div>
 
       <Panel title="News Shorts & Social Image">
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {newsShortsCards.map((card) => (
-            <Link key={card.title} href={card.href} className="block rounded-xl border border-[#1f2d26] bg-black/20 p-4 transition hover:border-[#22c55e]/60">
+          {NEWS_SHORTS_CARDS.map((card) => (
+            <Link
+              key={card.title}
+              href={card.href}
+              className="block rounded-xl border border-[#1f2d26] bg-black/20 p-4 transition hover:border-[#22c55e]/60"
+            >
               <h2 className="text-xl font-bold text-[color:var(--text-primary)]">{card.title}</h2>
               <p className="mt-2 text-sm font-semibold text-slate-300">{card.heading}</p>
               <p className="mt-2 text-sm leading-6 text-slate-400">{card.description}</p>
@@ -164,8 +123,12 @@ export default function HomePage() {
 
       <Panel title="Support">
         <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-          {supportCards.map((card) => (
-            <Link key={card.title} href={card.href} className="rounded-lg border border-[#1f2d26] bg-black/20 p-3 transition hover:border-[#22c55e]/60">
+          {SUPPORT_CARDS.map((card) => (
+            <Link
+              key={card.title}
+              href={card.href}
+              className="rounded-lg border border-[#1f2d26] bg-black/20 p-3 transition hover:border-[#22c55e]/60"
+            >
               <p className="text-sm font-bold text-[color:var(--text-primary)]">{card.title}</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">{card.description}</p>
             </Link>

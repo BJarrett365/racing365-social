@@ -20,3 +20,19 @@ export function stripAppPathPrefix(pathname: string): string {
   if (pathname.startsWith(`${APP_PATH_PREFIX}/`)) return pathname.slice(APP_PATH_PREFIX.length);
   return pathname;
 }
+
+/**
+ * Absolute URL for same-origin assets when building links on the server (e.g. library file URLs).
+ * Uses `Host` / `X-Forwarded-*` so the origin matches the browser (avoids 127.0.0.1 vs localhost),
+ * and applies {@link withAppPathPrefix} when the app is mounted under a subpath.
+ */
+export function absoluteUrlWithAppBasePath(request: Request, pathnameAndQuery: string): string {
+  const url = new URL(request.url);
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwardedHost || request.headers.get("host") || url.host;
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const proto = forwardedProto || url.protocol.replace(":", "") || "https";
+  const origin = `${proto}://${host}`;
+  const pq = pathnameAndQuery.startsWith("/") ? pathnameAndQuery : `/${pathnameAndQuery}`;
+  return `${origin}${withAppPathPrefix(pq)}`;
+}

@@ -30,6 +30,13 @@ const articleWorkflows = [
       "Imported new articles that are still in the pipeline and ready for target-language translation and localisation.",
   },
   {
+    title: "Data Studio",
+    status: "Live",
+    href: "/data-studio",
+    description:
+      "Sport-by-sport fixture data hub with a learning library: BBC-style references for study plus Football365, TEAMtalk and Planet Football alignment via Language Studio.",
+  },
+  {
     title: "YouTube Transcripts",
     status: "Live",
     href: "/article-studio/youtube-transcripts",

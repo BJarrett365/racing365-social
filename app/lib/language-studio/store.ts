@@ -380,12 +380,22 @@ export async function deleteLanguageArticles(articleIds: string[]): Promise<{ de
   return { deletedIds, blockedIds };
 }
 
+/** Data Studio publishes create LanguageImport rows; do not treat them like disposable RSS batch imports. */
+function importIsFromDataStudio(data: LanguageStudioData, row: LanguageImport): boolean {
+  if (row.title.trimStart().startsWith("Data Studio ·")) return true;
+  return row.articleIds.some((articleId) => {
+    const article = data.articles[articleId];
+    return Boolean(article?.tags?.includes("data-studio"));
+  });
+}
+
 export async function cleanupStaleUnusedLanguageImports(maxAgeHours = 24): Promise<{ deletedArticleIds: string[]; deletedImportIds: string[] }> {
   const data = await readLanguageStudioData();
   const cutoff = Date.now() - maxAgeHours * 60 * 60 * 1000;
   const deletedArticleIds: string[] = [];
   const deletedImportIds: string[] = [];
   for (const [importId, row] of Object.entries(data.imports)) {
+    if (importIsFromDataStudio(data, row)) continue;
     const created = Date.parse(row.createdAt);
     if (!Number.isFinite(created) || created > cutoff) continue;
     const remainingArticleIds: string[] = [];

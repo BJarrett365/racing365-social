@@ -8,8 +8,31 @@ import { GovernancePanel } from "@/app/language-studio/GovernancePanels";
 import { QualityGuardrailsPanel } from "@/app/language-studio/QualityGuardrailsPanel";
 import { withAppPathPrefix } from "@/app/lib/app-base-path";
 import { stripArticleMetadataLines } from "@/app/lib/language-studio/article-pages";
+import {
+  buildF365MatchReportOpenAiPrompt,
+  buildF365MatchReportRunwayPrompt,
+  buildF365PreviewOpenAiPrompt,
+  buildF365PreviewRunwayPrompt,
+  f365PreviewVarsFromArticle,
+  f365RunwayArticleHook,
+  f365HeroVarsFromArticle,
+  F365_MATCH_REPORT_SPEC,
+  F365_PREVIEW_SPEC,
+} from "@/app/lib/language-studio/f365-text-to-image-prompts";
+import { RUNWAY_T2I_PROMPT_MAX, RUNWAY_T2I_RATIOS_NEWS_SHORTS } from "@/app/lib/runway-text-to-image-constants";
 import { mergeUniqueTagsFromCommaSeparated, uniqueTags } from "@/app/lib/language-studio/tags";
-import { LANGUAGE_LABELS, LANGUAGE_SPORT_CONTEXTS, type LanguageCode, type LanguageContentStyle, type LanguageProviderMode, type LanguageSourceParserType, type LanguageSportContext, type LanguageTranslation as StoredLanguageTranslation, type TranslationMode } from "@/app/lib/language-studio/types";
+import {
+  LANGUAGE_CONTENT_STYLES,
+  LANGUAGE_LABELS,
+  LANGUAGE_SPORT_CONTEXTS,
+  type LanguageCode,
+  type LanguageContentStyle,
+  type LanguageProviderMode,
+  type LanguageSourceParserType,
+  type LanguageSportContext,
+  type LanguageTranslation as StoredLanguageTranslation,
+  type TranslationMode,
+} from "@/app/lib/language-studio/types";
 
 type SocialEmbed = {
   id: string;
@@ -41,6 +64,7 @@ type Article = {
   status: string;
   tags: string[];
   sport?: LanguageSportContext;
+  category?: string;
   author?: string;
   publishDate?: string;
   modifiedDate?: string;
@@ -206,7 +230,11 @@ const dangerMiniButtonClass = "inline-flex items-center justify-center rounded-x
 const amberButtonClass = "inline-flex items-center justify-center rounded-xl border border-amber-500/50 bg-amber-500/15 px-3 py-2 text-xs font-bold text-amber-800 shadow-sm transition hover:border-amber-500 hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-60 dark:text-amber-100";
 const targetOptions = Object.entries(LANGUAGE_LABELS).filter(([code]) => code !== "en") as Array<[LanguageCode, string]>;
 const clientLanguageOptions = Object.entries(LANGUAGE_LABELS) as Array<[LanguageCode, string]>;
-const contentStyleOptions: LanguageContentStyle[] = ["News", "Transfer", "Opinion", "Preview", "Review", "Analysis", "Feature", "Live", "Tips"];
+function contentStyleFromArticleCategory(category: string | undefined): LanguageContentStyle | null {
+  if (!category?.trim()) return null;
+  const c = category.trim();
+  return (LANGUAGE_CONTENT_STYLES as readonly string[]).includes(c) ? (c as LanguageContentStyle) : null;
+}
 const sportContextOptions = LANGUAGE_SPORT_CONTEXTS;
 const socialPlatformLabels: Record<SocialPost["platform"], string> = {
   appAlerts: "App Alerts",
@@ -380,7 +408,7 @@ function normaliseArticle(article: Article): Article {
     standfirst: decodeHtmlEntities(article.standfirst),
     body: decodeHtmlEntities(article.body),
     author: article.author ? decodeHtmlEntities(article.author) : article.author,
-    tags: uniqueTags(article.tags.map(decodeHtmlEntities)),
+    tags: uniqueTags((article.tags ?? []).map(decodeHtmlEntities)),
     socialEmbeds: article.socialEmbeds?.map((embed) => ({
       ...embed,
       originalText: decodeHtmlEntities(embed.originalText),
@@ -431,9 +459,24 @@ async function readJsonResponse(res: Response): Promise<Record<string, unknown>>
   }
 }
 
+function isDateOnlyIso(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
+}
+
+/** Human-readable date/time for lists. Date-only values (YYYY-MM-DD) are shown without a clock time — parsing them as Date would use UTC midnight and duplicate times per timezone (e.g. all show 1:00). */
 function formatArticleDate(value?: string): string {
   if (!value) return "Not set";
-  const date = new Date(value);
+  const trimmed = value.trim();
+  if (isDateOnlyIso(trimmed)) {
+    const date = new Date(`${trimmed}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat(undefined, {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(date);
+  }
+  const date = new Date(trimmed);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat(undefined, {
     day: "2-digit",
@@ -442,6 +485,16 @@ function formatArticleDate(value?: string): string {
     hour: "numeric",
     minute: "2-digit",
   }).format(date);
+}
+
+/** Prefer a real instant for queues/lists: date-only `publishDate` (YYYY-MM-DD) parses as UTC midnight and collides in the UI; use `createdAt` when publish is calendar-only. */
+function articleDisplayInstant(article: Article, metaPublish?: string): string | undefined {
+  const pd = article.publishDate?.trim();
+  if (pd && !isDateOnlyIso(pd)) return pd;
+  if (article.createdAt?.trim()) return article.createdAt.trim();
+  if (article.updatedAt?.trim()) return article.updatedAt.trim();
+  if (pd) return pd;
+  return metaPublish?.trim() || undefined;
 }
 
 function todayInputValue(): string {
@@ -465,7 +518,9 @@ function monthValue(value?: string): string {
 
 function articleImageSrc(article?: Article): string {
   if (!article) return "";
-  if (article.imageLibraryRel) return `/api/file?rel=${encodeURIComponent(article.imageLibraryRel)}`;
+  if (article.imageLibraryRel) {
+    return withAppPathPrefix(`/api/file?rel=${encodeURIComponent(article.imageLibraryRel)}`);
+  }
   return article.imageUrl ?? "";
 }
 
@@ -566,10 +621,23 @@ export function LanguageStudioClient() {
   const [editorialGuidelines, setEditorialGuidelines] = useState("Preserve quotes exactly in meaning and quote boundaries. Do not add facts, claims, results or opinion. Keep names, teams, numbers, dates and locations unchanged.");
   const [imageChangeUrl, setImageChangeUrl] = useState("");
   const [imageGenerationPrompt, setImageGenerationPrompt] = useState("");
+  const [libraryRelAttach, setLibraryRelAttach] = useState("");
+  /** Runway Gen-4 text_to_image ratio — F365 heroes use 1280:720. */
+  const [runwayT2iRatio, setRunwayT2iRatio] = useState<string>("1080:1920");
+  const [textToImageProvider, setTextToImageProvider] = useState<"runway" | "openai">("runway");
+  /** Shown under Text to Image after a successful OpenAI generation (same session). */
+  const [lastOpenAiImagePreview, setLastOpenAiImagePreview] = useState<{
+    previewUrl: string;
+    libraryRel?: string;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [processingOverlay, setProcessingOverlay] = useState(false);
   const [busyCaption, setBusyCaption] = useState<string | null>(null);
   const [processingElapsedSec, setProcessingElapsedSec] = useState(0);
+  /** From `?articleId=` — applied once the article list contains that row (e.g. Data Studio → Send to Language Studio). */
+  const [deeplinkArticleId, setDeeplinkArticleId] = useState<string | null>(null);
+  /** Single extra refetch when landing with ?articleId= before that row appears (post-publish race). */
+  const deeplinkListRefetchDoneRef = useRef(false);
 
   useEffect(() => {
     if (!busy || !processingOverlay) {
@@ -614,6 +682,11 @@ export function LanguageStudioClient() {
     () => articles.find((article) => article.id === selectedArticleId) ?? articlesForActivePipeline[0] ?? articles[0],
     [articles, articlesForActivePipeline, selectedArticleId],
   );
+
+  useEffect(() => {
+    const inferred = contentStyleFromArticleCategory(selectedArticle?.category);
+    if (inferred) setContentStyle(inferred);
+  }, [selectedArticle?.id, selectedArticle?.category]);
   const translationArticleIds = articleSelectionMode === "all"
     ? articlesForActivePipeline.map((article) => article.id)
     : selectedArticleIds.length > 0
@@ -629,6 +702,9 @@ export function LanguageStudioClient() {
   const originalForTranslation = selectedTranslation
     ? articles.find((article) => article.id === selectedTranslation.articleId)
     : selectedArticle;
+  useEffect(() => {
+    setLastOpenAiImagePreview(null);
+  }, [originalForTranslation?.id]);
   const publishedOnDay = useMemo(() => {
     return translations.filter((row) => {
       if (row.status !== "approved" && row.status !== "exported") return false;
@@ -754,10 +830,50 @@ export function LanguageStudioClient() {
     void loadAll().catch((e) => setError(e instanceof Error ? e.message : "Failed to load Language Studio"));
   }, [loadAll]);
 
+  /** Refetch when returning from another tab (e.g. Data Studio publish) so lists are current without a full page reload. */
   useEffect(() => {
-    const tabParam = new URLSearchParams(window.location.search).get("tab");
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      void loadAll().catch((e) => setError(e instanceof Error ? e.message : "Failed to load Language Studio"));
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [loadAll]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get("tab");
     if (isLanguageStudioTab(tabParam)) setTab(tabParam);
+    const aid = params.get("articleId")?.trim();
+    if (aid) {
+      deeplinkListRefetchDoneRef.current = false;
+      setDeeplinkArticleId(aid);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!deeplinkArticleId || articles.length === 0) return;
+    const match = articles.find((article) => article.id === deeplinkArticleId);
+    if (!match) {
+      if (!deeplinkListRefetchDoneRef.current) {
+        deeplinkListRefetchDoneRef.current = true;
+        void loadAll().catch((e) => setError(e instanceof Error ? e.message : "Failed to refresh articles."));
+      }
+      return;
+    }
+    deeplinkListRefetchDoneRef.current = false;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("articleId");
+    const cleanHref = `${url.pathname}${url.search}${url.hash}`;
+    setPipelineSinceDate("");
+    setTab("Rewrite");
+    setSelectedArticleId(deeplinkArticleId);
+    setSelectedArticleIds([deeplinkArticleId]);
+    setArticleSelectionMode("selected");
+    if (match.sport) setSportContext(match.sport);
+    setDeeplinkArticleId(null);
+    window.history.replaceState({}, "", cleanHref);
+  }, [articles, deeplinkArticleId, loadAll]);
 
   useEffect(() => {
     if (selectedRewriteClientIds.length || activeClients.length === 0) return;
@@ -1173,6 +1289,7 @@ export function LanguageStudioClient() {
       if (!res.ok) throw new Error(data.error || "Image update failed");
       const updated = normaliseArticle(data.article as Article);
       setArticles((rows) => rows.map((row) => row.id === updated.id ? updated : row));
+      if (action === "delete") setLastOpenAiImagePreview(null);
       if (action === "change") setImageChangeUrl("");
       setMessage(action === "delete" ? "Article image removed." : "Article image changed and saved to Library where possible.");
     }, { reload: false });
@@ -1221,18 +1338,146 @@ export function LanguageStudioClient() {
     run(async () => {
       const article = originalForTranslation ?? selectedArticle;
       if (!article) throw new Error("Select an article first.");
+      const promptText =
+        imageGenerationPrompt.trim() ||
+        `Editorial sports news thumbnail image for: ${article.title}. Clean, premium, realistic.`;
+
+      if (textToImageProvider === "openai") {
+        const res = await fetch("/api/openai/text-to-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: promptText,
+            size: "1792x1024",
+            quality: "standard",
+          }),
+        });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          imageUrl?: string;
+          imageLibraryRel?: string;
+        };
+        if (!res.ok || !data.imageUrl) throw new Error(data.error || "OpenAI Text to Image failed");
+        setLastOpenAiImagePreview({
+          previewUrl: data.imageUrl,
+          libraryRel: data.imageLibraryRel?.trim() || undefined,
+        });
+        const attach = await fetch("/api/language/articles/image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            articleId: article.id,
+            action: "change",
+            imageUrl: data.imageUrl,
+            ...(data.imageLibraryRel?.trim() ? { imageLibraryRel: data.imageLibraryRel.trim() } : {}),
+          }),
+        });
+        const attachData = (await attach.json()) as { error?: string; article?: Article };
+        if (!attach.ok) throw new Error(attachData.error || "Image generated but could not attach to the article.");
+        const updated = normaliseArticle(attachData.article as Article);
+        setArticles((rows) => rows.map((row) => (row.id === updated.id ? updated : row)));
+        setImageChangeUrl("");
+        setMessage(
+          data.imageLibraryRel?.trim()
+            ? `OpenAI image saved to library (${data.imageLibraryRel.trim()}) and attached to the article.`
+            : "OpenAI image generated and attached to the source article (saved to Library when download succeeds).",
+        );
+        return;
+      }
+
+      if (promptText.length > RUNWAY_T2I_PROMPT_MAX) {
+        throw new Error(
+          `Runway allows at most ${RUNWAY_T2I_PROMPT_MAX} characters (this prompt is ${promptText.length}). Select Runway and re-apply the Football365 preset, or shorten the prompt — OpenAI uses a much longer brief.`,
+        );
+      }
       const res = await fetch("/api/runway/text-to-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          promptText: imageGenerationPrompt || `Editorial sports news thumbnail image for: ${article.title}. Clean, premium, realistic, no text overlays.`,
-          ratio: "1080:1920",
+          promptText,
+          ratio: runwayT2iRatio,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Text to Image failed");
-      setMessage(`Text to Image started. Runway task: ${data.taskId}`);
+      const data = (await res.json()) as { ok?: boolean; error?: string; taskId?: string };
+      if (!res.ok || data.ok === false) throw new Error(data.error || "Text to Image failed");
+      setMessage(`Runway Text to Image started (${runwayT2iRatio}). Task: ${data.taskId ?? "unknown"}`);
     }, { reload: false });
+
+  const attachArticleFromLibraryPath = () =>
+    run(async () => {
+      const article = originalForTranslation ?? selectedArticle;
+      if (!article) throw new Error("Select an article first.");
+      const rel = libraryRelAttach.trim();
+      if (!rel) throw new Error("Paste an Image Library relative path (images/library/…).");
+      const res = await fetch("/api/language/articles/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleId: article.id, action: "attach_library", imageLibraryRel: rel }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not attach library image.");
+      const updated = normaliseArticle(data.article as Article);
+      setArticles((rows) => rows.map((row) => (row.id === updated.id ? updated : row)));
+      setLibraryRelAttach("");
+      setMessage("Library image path attached to the source article.");
+    }, { reload: false });
+
+  const applyF365MatchReportPromptPreset = () => {
+    const a = originalForTranslation;
+    if (!a) {
+      setError("Select a review job so the source article is loaded.");
+      return;
+    }
+    const v = f365HeroVarsFromArticle({
+      title: a.title,
+      body: a.body,
+      standfirst: a.standfirst,
+      category: a.category,
+      tags: a.tags,
+    });
+    const articleSnip = { standfirst: a.standfirst, body: a.body };
+    setImageGenerationPrompt(
+      textToImageProvider === "openai"
+        ? buildF365MatchReportOpenAiPrompt(v, articleSnip)
+        : buildF365MatchReportRunwayPrompt(v, { narrativeHook: f365RunwayArticleHook(articleSnip) }),
+    );
+    setRunwayT2iRatio("1280:720");
+    setError(null);
+    setMessage(
+      textToImageProvider === "openai"
+        ? "Football365 match-report prompt filled for OpenAI with article facts (cyan #60CAEA, no yellow). Run Text to Image +."
+        : "Football365 match-report Runway prompt filled (16:9 + article hook). Run Text to Image +.",
+    );
+  };
+
+  const applyF365PreviewPromptPreset = () => {
+    const a = originalForTranslation;
+    if (!a) {
+      setError("Select a review job so the source article is loaded.");
+      return;
+    }
+    const pv = f365PreviewVarsFromArticle({
+      title: a.title,
+      body: a.body,
+      standfirst: a.standfirst,
+      category: a.category,
+      tags: a.tags,
+    });
+    const articleSnip = { standfirst: a.standfirst, body: a.body };
+    setImageGenerationPrompt(
+      textToImageProvider === "openai"
+        ? buildF365PreviewOpenAiPrompt(pv, articleSnip)
+        : buildF365PreviewRunwayPrompt(pv, { narrativeHook: f365RunwayArticleHook(articleSnip) }),
+    );
+    setRunwayT2iRatio("1280:720");
+    setError(null);
+    setMessage(
+      textToImageProvider === "openai"
+        ? "Football365 preview / thumbnail prompt filled for OpenAI with article context (#60CAEA, no yellow). Run Text to Image +."
+        : "Football365 preview Runway prompt filled (16:9 + article hook). Edit if needed, then Text to Image +.",
+    );
+  };
 
   const adminPanel = (
     <Panel title="Language Studio Admin" className="p-5">
@@ -1476,7 +1721,7 @@ export function LanguageStudioClient() {
             </div>
             {articlesForActivePipeline.length === 0 ? (
               <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-                No pipeline articles match this filter. Clear the date filter, import new items, or open{" "}
+                No pipeline articles match this filter. Clear the date filter (&quot;All dates&quot;), import new items, switch back from Data Studio so this page refetches, or open{" "}
                 <button type="button" className="font-semibold text-white underline" onClick={() => setTab("Published")}>Published</button>{" "}
                 to send a stored article back here.
               </p>
@@ -1514,7 +1759,7 @@ export function LanguageStudioClient() {
                 <label className="text-xs font-semibold uppercase text-slate-500">
                   Content style
                   <select className={inputClass} value={contentStyle} onChange={(e) => setContentStyle(e.target.value as LanguageContentStyle)}>
-                    {contentStyleOptions.map((style) => <option key={style} value={style}>{style}</option>)}
+                    {LANGUAGE_CONTENT_STYLES.map((style) => <option key={style} value={style}>{style}</option>)}
                   </select>
                 </label>
                 <label className="text-xs font-semibold uppercase text-slate-500">
@@ -1639,7 +1884,7 @@ export function LanguageStudioClient() {
             </div>
             {articlesForActivePipeline.length === 0 ? (
               <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-                No pipeline articles match this filter. Clear the date filter, import new items, or open{" "}
+                No pipeline articles match this filter. Clear the date filter (&quot;All dates&quot;), import new items, switch back from Data Studio so this page refetches, or open{" "}
                 <button type="button" className="font-semibold text-white underline" onClick={() => setTab("Published")}>Published</button>{" "}
                 to send a stored article back here.
               </p>
@@ -1677,7 +1922,7 @@ export function LanguageStudioClient() {
                 <label className="text-xs font-semibold uppercase text-slate-500">
                   Content style
                   <select className={inputClass} value={contentStyle} onChange={(e) => setContentStyle(e.target.value as LanguageContentStyle)}>
-                    {contentStyleOptions.map((style) => <option key={style} value={style}>{style}</option>)}
+                    {LANGUAGE_CONTENT_STYLES.map((style) => <option key={style} value={style}>{style}</option>)}
                   </select>
                 </label>
                 <label className="text-xs font-semibold uppercase text-slate-500">
@@ -1774,6 +2019,17 @@ export function LanguageStudioClient() {
             <h2 className="text-xl font-bold text-white">Review queue (manual)</h2>
             <p className="text-sm text-slate-400">
               Human approval for AI rewrites and translations before they are published to client feeds. Automations and crons send work here unless auto-approve is enabled.
+            </p>
+            <p className="rounded-lg border border-sky-500/25 bg-sky-500/10 p-3 text-sm text-slate-300">
+              <strong className="text-white">Data Studio and RSS imports</strong> save <strong className="text-white">source articles</strong> first. They appear under{" "}
+              <button type="button" className="font-semibold text-[#22c55e] underline decoration-[#22c55e]/50 hover:text-white" onClick={() => setTab("Rewrite")}>
+                Rewrite
+              </button>{" "}
+              or{" "}
+              <button type="button" className="font-semibold text-[#22c55e] underline decoration-[#22c55e]/50 hover:text-white" onClick={() => setTab("Translations")}>
+                Translations
+              </button>
+              . Run a rewrite or translation there — this queue then lists the <strong className="text-white">output job</strong> (draft / review_needed), not the original import row.
             </p>
             <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
             <TranslationList translations={translations} selectedId={selectedTranslation?.id ?? ""} onSelect={setSelectedTranslationId} />
@@ -1904,11 +2160,22 @@ export function LanguageStudioClient() {
               <div className="min-w-0 space-y-4 2xl:sticky 2xl:top-4 2xl:self-start">
                 <SourceImagePanel
                   article={originalForTranslation}
+                  lastOpenAiImagePreview={lastOpenAiImagePreview}
+                  onClearLastOpenAiImagePreview={() => setLastOpenAiImagePreview(null)}
                   imageChangeUrl={imageChangeUrl}
                   imageGenerationPrompt={imageGenerationPrompt}
+                  libraryRelAttach={libraryRelAttach}
+                  runwayT2iRatio={runwayT2iRatio}
                   busy={busy}
                   onImageChangeUrl={setImageChangeUrl}
                   onImageGenerationPrompt={setImageGenerationPrompt}
+                  onLibraryRelAttach={setLibraryRelAttach}
+                  onRunwayT2iRatioChange={setRunwayT2iRatio}
+                  textToImageProvider={textToImageProvider}
+                  onTextToImageProviderChange={setTextToImageProvider}
+                  onAttachLibraryPath={() => void attachArticleFromLibraryPath()}
+                  onApplyF365MatchReportPrompt={applyF365MatchReportPromptPreset}
+                  onApplyF365PreviewPrompt={applyF365PreviewPromptPreset}
                   onDelete={() => void updateArticleImage("delete")}
                   onChange={() => void updateArticleImage("change")}
                   onImageToVideo={() => void startImageToVideo()}
@@ -2044,7 +2311,7 @@ export function LanguageStudioClient() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-semibold text-white">{article.title || "Untitled"}</p>
                         <p className="mt-1 text-xs text-slate-500">
-                          {article.sourceBrand} · {article.status} · {formatArticleDate(article.publishDate || article.updatedAt || article.createdAt)}
+                          {article.sourceBrand} · {article.status} · {formatArticleDate(articleDisplayInstant(article))}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -2181,22 +2448,44 @@ function Stat({ title, value }: { title: string; value: number }) {
 
 function SourceImagePanel({
   article,
+  lastOpenAiImagePreview,
+  onClearLastOpenAiImagePreview,
   imageChangeUrl,
   imageGenerationPrompt,
+  libraryRelAttach,
+  runwayT2iRatio,
+  textToImageProvider,
   busy,
   onImageChangeUrl,
   onImageGenerationPrompt,
+  onLibraryRelAttach,
+  onRunwayT2iRatioChange,
+  onTextToImageProviderChange,
+  onAttachLibraryPath,
+  onApplyF365MatchReportPrompt,
+  onApplyF365PreviewPrompt,
   onDelete,
   onChange,
   onImageToVideo,
   onTextToImage,
 }: {
   article?: Article;
+  lastOpenAiImagePreview: { previewUrl: string; libraryRel?: string } | null;
+  onClearLastOpenAiImagePreview: () => void;
   imageChangeUrl: string;
   imageGenerationPrompt: string;
+  libraryRelAttach: string;
+  runwayT2iRatio: string;
+  textToImageProvider: "runway" | "openai";
   busy: boolean;
   onImageChangeUrl: (value: string) => void;
   onImageGenerationPrompt: (value: string) => void;
+  onLibraryRelAttach: (value: string) => void;
+  onRunwayT2iRatioChange: (value: string) => void;
+  onTextToImageProviderChange: (value: "runway" | "openai") => void;
+  onAttachLibraryPath: () => void;
+  onApplyF365MatchReportPrompt: () => void;
+  onApplyF365PreviewPrompt: () => void;
   onDelete: () => void;
   onChange: () => void;
   onImageToVideo: () => void;
@@ -2207,11 +2496,13 @@ function SourceImagePanel({
     <div className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-sm">
       <div>
         <p className="text-sm font-bold text-[color:var(--text-primary)]">Source Image</p>
-        <p className="mt-1 text-xs text-[color:var(--text-muted)]">Thumbnail and image tools for social/video output.</p>
+        <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+          Thumbnail for exports and Runway tools. Attach from your Media Library path or paste a remote URL.
+        </p>
       </div>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={article?.title ?? "Source image"} className="aspect-video w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] object-cover" />
+        <img src={src} alt={article?.title ?? "Source image"} className="aspect-video w-full max-h-72 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] object-contain shadow-sm" />
       ) : (
         <div className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--surface-muted)] text-xs text-[color:var(--text-muted)]">
           No source image
@@ -2219,10 +2510,40 @@ function SourceImagePanel({
       )}
       {article?.imageLibraryRel ? <p className="truncate text-xs font-semibold text-[color:var(--success)]">Library: {article.imageLibraryRel}</p> : null}
       {article?.imageUrl ? <p className="truncate text-xs text-[color:var(--text-muted)]">Remote: {article.imageUrl}</p> : null}
+
+      <div className="space-y-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
+        <p className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Image Library path</p>
+        <p className="text-xs text-[color:var(--text-secondary)]">
+          Paste the relative path shown in{" "}
+          <Link href={withAppPathPrefix("/library")} className="font-semibold text-[#22c55e] hover:underline">
+            Media Library
+          </Link>{" "}
+          (same value as <code className="text-[color:var(--text-muted)]">/api/file?rel=…</code>). Saves to the{" "}
+          <strong className="text-[color:var(--text-primary)]">source article</strong>.
+        </p>
+        <input
+          className={inputClass}
+          placeholder="images/library/your-folder/image.jpg"
+          value={libraryRelAttach}
+          onChange={(e) => onLibraryRelAttach(e.target.value)}
+        />
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={miniButtonClass} onClick={onAttachLibraryPath} disabled={busy || !libraryRelAttach.trim() || !article}>
+            Attach from Library path
+          </button>
+          <Link
+            href={withAppPathPrefix("/library")}
+            className="inline-flex items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text-secondary)] hover:bg-[color:var(--surface-hover)]"
+          >
+            Open Library
+          </Link>
+        </div>
+      </div>
+
       <div className="space-y-2">
         <input
           className={inputClass}
-          placeholder="Change image URL"
+          placeholder="Change image URL (https…)"
           value={imageChangeUrl}
           onChange={(e) => onImageChangeUrl(e.target.value)}
         />
@@ -2231,15 +2552,84 @@ function SourceImagePanel({
           <button type="button" className={dangerMiniButtonClass} onClick={onDelete} disabled={busy || !src}>Delete</button>
         </div>
       </div>
+
       <label className="block text-xs font-semibold uppercase text-[color:var(--text-muted)]">
-        Image generation prompt
+        Text-to-image provider
+        <select
+          className={inputClass}
+          value={textToImageProvider}
+          onChange={(e) => onTextToImageProviderChange(e.target.value as "runway" | "openai")}
+        >
+          <option value="runway">Runway Gen-4 (returns task id — finish in Runway)</option>
+          <option value="openai">OpenAI Images (gpt-image-1 by default — auto-attaches to source article)</option>
+        </select>
+      </label>
+
+      {textToImageProvider === "runway" ? (
+      <label className="block text-xs font-semibold uppercase text-[color:var(--text-muted)]">
+        Runway text-to-image ratio
+        <select
+          className={inputClass}
+          value={runwayT2iRatio}
+          onChange={(e) => onRunwayT2iRatioChange(e.target.value)}
+        >
+          {RUNWAY_T2I_RATIOS_NEWS_SHORTS.map((r) => (
+            <option key={r} value={r}>{r.replace(":", " × ")}</option>
+          ))}
+        </select>
+      </label>
+      ) : (
+        <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-2 text-xs text-[color:var(--text-secondary)]">
+          OpenAI uses the Images API with model from Admin /{" "}
+          <code className="text-[color:var(--text-muted)]">OPENAI_IMAGE_MODEL</code> (default{" "}
+          <strong className="text-[color:var(--text-primary)]">gpt-image-1</strong>).{" "}
+          <code className="text-[color:var(--text-muted)]">1792×1024</code> applies when the model supports it (
+          <strong className="text-[color:var(--text-primary)]">dall-e-3</strong>); gpt-image responses are persisted to the library.
+        </p>
+      )}
+
+      <div className="space-y-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
+        <p className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Football365 AI hero prompts</p>
+        <p className="text-xs text-[color:var(--text-secondary)]">
+          Inlines teams, score, headline, venue and competition from the <strong className="text-[color:var(--text-primary)]">source article</strong>. Brand cyan{" "}
+          <code className="text-[color:var(--text-muted)]">#60CAEA</code> — no yellow.{" "}
+          <strong className="text-[color:var(--text-primary)]">Match report</strong> preset: long article-grounded brief for OpenAI, compact for Runway (≤1000 chars).{" "}
+          <strong className="text-[color:var(--text-primary)]">Preview hero</strong> uses the same provider split (full preview / YouTube thumbnail brief vs compact Runway).{" "}
+          Pick provider above first, then apply preset. Uses{" "}
+          <code className="text-[color:var(--text-muted)]">1280×720</code> wording for Runway ratio preset.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={miniButtonClass} onClick={onApplyF365MatchReportPrompt} disabled={busy || !article}>
+            Match report hero
+          </button>
+          <button type="button" className={miniButtonClass} onClick={onApplyF365PreviewPrompt} disabled={busy || !article}>
+            Preview hero
+          </button>
+        </div>
+        <details className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2 text-xs text-[color:var(--text-secondary)]">
+          <summary className="cursor-pointer font-semibold text-[color:var(--text-primary)]">Full creative brief (reference)</summary>
+          <p className="mt-2 whitespace-pre-wrap leading-relaxed">{F365_MATCH_REPORT_SPEC}</p>
+          <p className="mt-3 whitespace-pre-wrap leading-relaxed">{F365_PREVIEW_SPEC}</p>
+        </details>
+      </div>
+
+      <label className="block text-xs font-semibold uppercase text-[color:var(--text-muted)]">
+        Image generation prompt (Runway text-to-image)
         <textarea
           className={textareaClass}
-          placeholder="Optional prompt for Image to Video / Text to Image"
+          placeholder="Optional prompt — use presets above or write your own"
           value={imageGenerationPrompt}
           onChange={(e) => onImageGenerationPrompt(e.target.value)}
         />
       </label>
+      {textToImageProvider === "runway" && imageGenerationPrompt.length > RUNWAY_T2I_PROMPT_MAX ? (
+        <p className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+          This prompt is <strong className="text-[color:var(--text-primary)]">{imageGenerationPrompt.length}</strong> characters;
+          Runway allows <strong className="text-[color:var(--text-primary)]">{RUNWAY_T2I_PROMPT_MAX}</strong>. Re-apply{" "}
+          <strong className="text-[color:var(--text-primary)]">Match report hero</strong> or{" "}
+          <strong className="text-[color:var(--text-primary)]">Preview hero</strong> with Runway selected, or switch to OpenAI.
+        </p>
+      ) : null}
       <div className="grid gap-2">
         <button type="button" className={miniButtonClass} onClick={onImageToVideo} disabled={busy || !src}>Image to Video +</button>
         <button type="button" className={miniButtonClass} onClick={onTextToImage} disabled={busy || !article}>Text to Image +</button>
@@ -2247,8 +2637,50 @@ function SourceImagePanel({
           Image to Image + Runway / OpenAI
         </button>
       </div>
+
+      {lastOpenAiImagePreview ? (
+        <div className="space-y-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-200">Last OpenAI image — preview</p>
+            <button
+              type="button"
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-1 text-[10px] font-semibold uppercase text-[color:var(--text-secondary)] hover:bg-[color:var(--surface-hover)]"
+              onClick={onClearLastOpenAiImagePreview}
+            >
+              Dismiss
+            </button>
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={
+              lastOpenAiImagePreview.libraryRel?.trim()
+                ? withAppPathPrefix(`/api/file?rel=${encodeURIComponent(lastOpenAiImagePreview.libraryRel.trim())}`)
+                : lastOpenAiImagePreview.previewUrl
+            }
+            alt=""
+            className="aspect-video w-full max-h-56 rounded-lg border border-[color:var(--border)] bg-black/40 object-contain"
+          />
+          {lastOpenAiImagePreview.libraryRel ? (
+            <p className="break-all font-mono text-[10px] text-[color:var(--text-muted)]">
+              Library:{" "}
+              <code className="text-[color:var(--text-secondary)]">{lastOpenAiImagePreview.libraryRel}</code>
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className={miniButtonClass}
+            onClick={() => void navigator.clipboard.writeText(lastOpenAiImagePreview.previewUrl)}
+          >
+            Copy image URL
+          </button>
+        </div>
+      ) : null}
+
       <p className="rounded-xl bg-[color:var(--surface-muted)] p-3 text-xs leading-5 text-[color:var(--text-secondary)]">
-        Image to Image is parked until the Runway/OpenAI image edit provider is connected.
+        <strong className="text-[color:var(--text-primary)]">Runway:</strong> requires{" "}
+        <code className="text-[color:var(--text-muted)]">RUNWAYML_API_SECRET</code>.{" "}
+        <strong className="text-[color:var(--text-primary)]">OpenAI:</strong> requires{" "}
+        <code className="text-[color:var(--text-muted)]">OPENAI_API_KEY</code> — generated image is fetched and attached like &quot;Change image URL&quot;.
       </p>
     </div>
   );
@@ -2296,12 +2728,22 @@ function ArticleList({
                 <button type="button" onClick={() => onSelect(article.id)} className="min-w-0 flex-1 text-left">
                   <p className="font-semibold text-white">{article.title}</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {article.sport ? <span className="font-semibold text-[#22c55e]">{article.sport}</span> : null}
-                    {article.sport ? " · " : ""}
+                    {article.sport ? (
+                      <>
+                        <span className="font-semibold text-[#22c55e]">{article.sport}</span>
+                        {" · "}
+                      </>
+                    ) : null}
+                    {article.category ? (
+                      <>
+                        <span className="font-semibold text-violet-300">{article.category}</span>
+                        {" · "}
+                      </>
+                    ) : null}
                     {article.sourceBrand} · {article.status} · body {article.body.length.toLocaleString()} chars · {article.imageLibraryRel ? "image saved" : article.imageUrl ? "image found" : "no image"}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {article.author || meta.author || "Unknown author"} · {formatArticleDate(article.publishDate || meta.publishDate)}
+                    {article.author || meta.author || "Unknown author"} · {formatArticleDate(articleDisplayInstant(article, meta.publishDate))}
                   </p>
                   {article.imageLibraryRel ? (
                     <p className="mt-1 truncate text-xs text-[#22c55e]">Library: {article.imageLibraryRel}</p>
@@ -2361,17 +2803,23 @@ function ArticlePreview({ title, article }: { title: string; article?: Article }
         <p className="text-sm font-bold text-white">{title}</p>
         <h3 className="mt-1 text-base font-black text-white">{article.title}</h3>
         <p className="mt-2 text-xs text-slate-500">
-          {article.author || meta.author || "Unknown author"} · {formatArticleDate(article.publishDate || meta.publishDate)} · body {article.body.length.toLocaleString()} chars
+          {article.author || meta.author || "Unknown author"} · {formatArticleDate(articleDisplayInstant(article, meta.publishDate))} · body {article.body.length.toLocaleString()} chars
         </p>
         <p className="mt-2 text-xs text-[#22c55e]">Click to expand source article</p>
       </summary>
       <div className="mt-4 space-y-3">
         <div className="grid gap-2 rounded-lg border border-[#1f2d26] bg-[#0a0e0c] p-3 text-xs text-slate-300 md:grid-cols-3">
           <div><p className="font-semibold uppercase tracking-wide text-slate-500">Author</p><p className="mt-1 text-white">{article.author || meta.author || "Not set"}</p></div>
-          <div><p className="font-semibold uppercase tracking-wide text-slate-500">Publish date</p><p className="mt-1 text-white">{formatArticleDate(article.publishDate || meta.publishDate)}</p></div>
+          <div>
+            <p className="font-semibold uppercase tracking-wide text-slate-500">Publish date</p>
+            <p className="mt-1 text-white">{formatArticleDate(article.publishDate || meta.publishDate)}</p>
+            {article.createdAt ? (
+              <p className="mt-1 text-slate-500">Imported {formatArticleDate(article.createdAt)}</p>
+            ) : null}
+          </div>
           <div><p className="font-semibold uppercase tracking-wide text-slate-500">Edit date</p><p className="mt-1 text-white">{formatArticleDate(article.modifiedDate)}</p></div>
         </div>
-        <p className="text-xs text-slate-500">Body length: {article.body.length.toLocaleString()} characters · Tags: {article.tags.join(", ") || "none"}</p>
+        <p className="text-xs text-slate-500">Body length: {article.body.length.toLocaleString()} characters · Tags: {(article.tags ?? []).join(", ") || "none"}</p>
         {article.imageLibraryRel ? <p className="truncate text-xs text-[#22c55e]">Image saved to Library: {article.imageLibraryRel}</p> : article.imageUrl ? <p className="truncate text-xs text-slate-500">Remote image: {article.imageUrl}</p> : <p className="text-xs text-slate-600">No article image found.</p>}
         <p className="text-sm text-slate-300">{article.standfirst}</p>
         {article.socialEmbeds?.length ? (

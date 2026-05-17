@@ -31,9 +31,14 @@ export async function POST(request: Request) {
   }
 
   const promptText = typeof body.promptText === "string" ? body.promptText.trim() : "";
-  if (!promptText || promptText.length > RUNWAY_T2I_PROMPT_MAX) {
+  if (!promptText) {
+    return NextResponse.json({ error: "promptText is required." }, { status: 400 });
+  }
+  if (promptText.length > RUNWAY_T2I_PROMPT_MAX) {
     return NextResponse.json(
-      { error: `promptText is required (max ${RUNWAY_T2I_PROMPT_MAX} characters).` },
+      {
+        error: `promptText exceeds Runway Gen-4 limit of ${RUNWAY_T2I_PROMPT_MAX} characters (got ${promptText.length}). With Runway selected, re-apply the Match report or Preview hero preset, or paste a shorter prompt — OpenAI presets are longer than Runway allows.`,
+      },
       { status: 400 },
     );
   }

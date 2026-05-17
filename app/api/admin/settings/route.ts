@@ -26,6 +26,8 @@ type Body = {
   ffmpegPath?: string;
   openaiTtsVoice?: string;
   openaiTtsModel?: string;
+  /** Images API model id (e.g. gpt-image-1). Env: OPENAI_IMAGE_MODEL */
+  openaiImageModel?: string;
   elevenlabsVoiceId?: string;
   elevenlabsModel?: string;
   clearElevenlabsKey?: boolean;
@@ -96,6 +98,7 @@ export async function GET() {
     ffmpegPath: s.ffmpegPath?.trim() || "",
     openaiTtsVoice: s.openaiTtsVoice?.trim() || "",
     openaiTtsModel: s.openaiTtsModel?.trim() || "",
+    openaiImageModel: s.openaiImageModel?.trim() || "",
     elevenlabsVoiceId: s.elevenlabsVoiceId?.trim() || "",
     elevenlabsModel: s.elevenlabsModel?.trim() || "",
     updatedAt: s.updatedAt || null,
@@ -153,6 +156,7 @@ export async function POST(request: Request) {
   if (body.ffmpegPath?.trim()) partial.ffmpegPath = body.ffmpegPath.trim();
   if (body.openaiTtsVoice?.trim()) partial.openaiTtsVoice = body.openaiTtsVoice.trim();
   if (body.openaiTtsModel?.trim()) partial.openaiTtsModel = body.openaiTtsModel.trim();
+  if (body.openaiImageModel?.trim()) partial.openaiImageModel = body.openaiImageModel.trim();
   if (body.elevenlabsVoiceId?.trim()) partial.elevenlabsVoiceId = body.elevenlabsVoiceId.trim();
   if (body.elevenlabsModel?.trim()) partial.elevenlabsModel = body.elevenlabsModel.trim();
 

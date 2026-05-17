@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { R365Button } from "@/app/components/R365Button";
 import {
+  LANGUAGE_CONTENT_STYLES,
   LANGUAGE_SPORT_CONTEXTS,
   type LanguageArticleAutomationAction,
   type LanguageCode,
@@ -274,7 +275,11 @@ export function ArticleAutomationsPanel() {
           <label className="text-xs font-semibold uppercase text-slate-500">
             Content style
             <select className={inputClass} value={draft.contentStyle ?? "Preview"} onChange={(e) => setDraft({ ...draft, contentStyle: e.target.value as LanguageContentStyle })}>
-              {["News", "Transfer", "Opinion", "Preview", "Review", "Analysis", "Feature", "Live", "Tips"].map((style) => <option key={style} value={style}>{style}</option>)}
+              {LANGUAGE_CONTENT_STYLES.map((style) => (
+                <option key={style} value={style}>
+                  {style}
+                </option>
+              ))}
             </select>
           </label>
           <label className="text-xs font-semibold uppercase text-slate-500">

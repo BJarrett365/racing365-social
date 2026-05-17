@@ -1,9 +1,11 @@
 /**
- * Start Next.js dev (default distDir `.next` from next.config unless NEXT_DIST_DIR is set).
+ * Start Next.js dev (default distDir `.next-dev` so stale/corrupt `.next` from other tools doesn’t break dev).
  *
- * Frees the dev port, then starts `next dev`. Turbopack is the default because webpack dev
- * intermittently writes manifests without the matching `.next/static` client assets on this
- * machine, which leaves the browser with unstyled HTML.
+ * Frees the dev port, then starts `next dev`. Default bundler is webpack: Turbopack (`--turbo`)
+ * has intermittently emitted broken server chunks (e.g. missing `[turbopack]_runtime.js`), which
+ * yields 500s on routes like `/admin`. Opt in with `USE_TURBO=1` or `npm run dev:turbo`.
+ * Webpack dev can still occasionally serve unstyled HTML if manifests and static assets drift;
+ * if that happens, run `npm run dev:restart` or try Turbopack.
  *
  * Also stops any process already listening on the dev port (macOS/Linux) so an old
  * broken Node server cannot keep serving after the build folder was removed.
@@ -29,7 +31,7 @@ try {
   console.error("[run-dev] Could not read package.json — run from the project root.", e);
   process.exit(1);
 }
-const distDir = (process.env.NEXT_DIST_DIR || ".next").trim() || ".next";
+const distDir = (process.env.NEXT_DIST_DIR || ".next-dev").trim() || ".next-dev";
 const nextDir = join(root, distDir);
 const devPort = process.env.PORT || "8081";
 /**
@@ -45,8 +47,8 @@ try {
   devHost = "0.0.0.0";
 }
 if (!devHost) devHost = "0.0.0.0";
-/** Use `USE_TURBO=0 npm run dev` only if you need to debug webpack-specific behavior. */
-const useTurbo = process.env.USE_TURBO !== "0";
+/** Turbopack: `USE_TURBO=1 npm run dev` or `npm run dev:turbo`. Default webpack is more stable here. */
+const useTurbo = process.env.USE_TURBO === "1";
 
 function pidsListeningOnTcpPort(port) {
   const p = String(port);
@@ -125,6 +127,12 @@ if (process.env.FORCE_CLEAN_DEV_DIST === "1" && existsSync(nextDir)) {
   console.error(`[run-dev] Removed ${distDir} (FORCE_CLEAN_DEV_DIST=1).`);
 }
 
+if (useTurbo && process.env.FORCE_CLEAN_DEV_DIST === "1") {
+  console.error(
+    "[run-dev] Turbopack + clean dist: wait until the terminal shows middleware compiled before loading the app, or use `npm run dev` / `npm run dev:restart` (webpack — fewer manifest races).\n",
+  );
+}
+
 const nextCli = join(root, "node_modules", "next", "dist", "bin", "next");
 const args = [nextCli, "dev", "-p", devPort, "-H", devHost];
 if (useTurbo) args.push("--turbo");
@@ -133,21 +141,29 @@ if (useTurbo) args.push("--turbo");
 const devEnv = { ...process.env };
 if (useTurbo) {
   devEnv.USE_TURBO = "1";
+} else {
+  // Webpack dev: pin off so `.env.local` cannot put the app in a mixed Turbopack/webpack state
+  // or leave `TURBOPACK=1` from the parent shell — both can yield missing `middleware-manifest.json`.
+  devEnv.USE_TURBO = "0";
+  delete devEnv.TURBOPACK;
+  delete devEnv.IS_TURBOPACK_TEST;
 }
 if (devEnv.WATCHPACK_POLLING === undefined || devEnv.WATCHPACK_POLLING === "") {
   devEnv.WATCHPACK_POLLING = "true";
 }
 
 console.error(
-  `[run-dev] Starting Next.js on port ${devPort} (host ${devHost}, dist ${distDir}).\n` +
+  `[run-dev] Bundler: ${useTurbo ? "Turbopack (USE_TURBO=1)" : "webpack (default; use npm run dev:turbo for Turbopack)"}.\n` +
+    `[run-dev] Starting Next.js on port ${devPort} (host ${devHost}, dist ${distDir}).\n` +
     `[run-dev] Open: http://127.0.0.1:${devPort}/  or  http://localhost:${devPort}/\n` +
     `[run-dev] Quick restart: npm run dev:restart\n` +
     `[run-dev] If the site is blank or 500: npm run dev:restart  (or dev:kill-port then dev)\n` +
     (!useTurbo && devEnv.WATCHPACK_POLLING === "true"
       ? `[run-dev] WATCHPACK_POLLING=true + next.config webpack poll (dev). Disable poll: NEXT_WEBPACK_POLL=0; disable both: WATCHPACK_POLLING=0\n`
       : "") +
-    `[run-dev] Language Studio import crons: set ENABLE_DEV_CRON_POLL=1 to poll this server like npm start; otherwise nothing calls /api/cron/language-imports until you refresh manually.\n` +
-    `[run-dev] Do not use npm start until you run npm run build.\n`,
+    `[run-dev] Language Studio import crons: set ENABLE_DEV_CRON_POLL=1 to poll this server like npm start; otherwise nothing calls /api/cron/language-imports until you refresh manually.\n` +    
+    `[run-dev] Do not use npm start until you run npm run build.\n` +
+    `[run-dev] If you see Internal Server Error in the browser, open /api/health — dev.* shows dist dir + middleware manifest state.\n`,
 );
 
 const devCronPollEnabled =
@@ -197,7 +213,7 @@ function pollDueCrons() {
 const child = spawn(process.execPath, args, {
   cwd: root,
   stdio: "inherit",
-  env: devEnv,
+  env: { ...devEnv, NEXT_DIST_DIR: distDir },
 });
 
 if (

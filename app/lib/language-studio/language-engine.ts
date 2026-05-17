@@ -61,6 +61,12 @@ const CONTENT_STYLE_GUIDANCE: Record<LanguageContentStyle, string> = {
   Transfer: "Transfer-focused. Lead with the club/player move, deal status and source strength. Include fee, contract, rival interest and timing only when present in the source. Avoid overstating rumours as confirmed.",
   Opinion: "Strong view and personality-led. Open with a clear line, build an argument, use evidence, then land a conclusion. Punchy tone.",
   Preview: "Set up what is about to happen. Cover stakes, team news, key battles and prediction. Analytical tone.",
+  "Match preview":
+    "Fixture preview before kick-off. Stakes, schedule, venue/competition, broadcast when known, team news both sides, odds/markets only from source, verdict — never invent line-ups or injuries.",
+  "Match report":
+    "Post-match report. Lead with result and narrative; chronological key moments (goals, cards, VAR, major incidents) from the source; quotes when supplied; table or qualification context when relevant. Sharp factual tone.",
+  "16 Conclusions":
+    "Sixteen numbered post-match conclusions (opinion-forward hooks grounded in source facts). Compound headline energy; each point a sharp takeaway paragraph; no invented incidents.",
   Review: "Report what happened. Result first, turning points, quotes, then what it means. Sharp and factual tone.",
   Analysis: "Explain the why. Tactical, data-led and insight-driven. Smart tone that teaches or breaks down the story.",
   Feature: "Longer, human and story-led. Narrative opening, wider angle and more colour. Rich tone.",

@@ -142,6 +142,11 @@ html.dark body::before {
   color: var(--text-primary) !important;
 }
 
+.app-nav-link:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--r365-gold) 85%, transparent);
+  outline-offset: 2px;
+}
+
 .app-shell-header {
   border-color: var(--border);
   background: color-mix(in srgb, var(--surface) 88%, transparent);

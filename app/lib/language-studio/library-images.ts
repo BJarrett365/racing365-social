@@ -1,10 +1,13 @@
 import fs from "fs/promises";
 import path from "path";
+import { randomUUID } from "crypto";
 import { normalizeContentIdForFilename } from "@/app/lib/editor-upload";
+import { absoluteUrlWithAppBasePath } from "@/app/lib/app-base-path";
 import { readLibraryBlobAsset, writeLibraryBlobAsset } from "@/app/lib/library-blob-assets";
 import { shouldUseNetlifyBlobStore } from "@/app/lib/netlify-blob-json";
 import { libraryBackgroundImagesDir, outputDir } from "@/app/lib/paths";
 import { upsertLibraryMetadata } from "@/app/lib/library-metadata";
+import { compactLibraryImageKeywords } from "@/app/lib/language-studio/f365-text-to-image-prompts";
 import { LANGUAGE_LABELS, type LanguageArticle, type LanguageTranslation } from "@/app/lib/language-studio/types";
 
 const IMAGE_EXT_BY_TYPE: Record<string, string> = {
@@ -16,6 +19,41 @@ const IMAGE_EXT_BY_TYPE: Record<string, string> = {
 };
 
 const MAX_LANGUAGE_IMAGE_BYTES = 12 * 1024 * 1024;
+
+const OPENAI_T2I_LIBRARY_METADATA_ID = "openai-text-to-image";
+
+/**
+ * Save raw bytes from OpenAI Images API under `images/library/openai-t2i/` and register for the Media Library.
+ * Returns stable relative path plus same-origin URL served via `/api/file`.
+ */
+export async function saveOpenAiTextToImageBytesToLibrary(
+  bytes: Buffer,
+  contentTypeHeader: string | undefined,
+  request: Request,
+): Promise<{ imageLibraryRel: string; imageUrl: string }> {
+  if (!bytes.length || bytes.length > MAX_LANGUAGE_IMAGE_BYTES) {
+    throw new Error("Image data empty or too large.");
+  }
+  const ct = contentTypeHeader?.split(";")[0]?.trim().toLowerCase() ?? "image/png";
+  const ext = IMAGE_EXT_BY_TYPE[ct] ?? ".png";
+  const mime = contentTypeForExtension(ext);
+  const rel = `images/library/openai-t2i/${Date.now()}-${randomUUID().slice(0, 8)}${ext}`;
+  if (shouldUseNetlifyBlobStore()) {
+    await writeLibraryBlobAsset(rel, bytes, mime);
+  } else {
+    const full = path.resolve(outputDir(), rel);
+    const rootNorm = path.normalize(outputDir() + path.sep);
+    if (!full.startsWith(rootNorm)) throw new Error("Invalid library path.");
+    await fs.mkdir(path.dirname(full), { recursive: true });
+    await fs.writeFile(full, bytes);
+  }
+  await upsertLibraryMetadata(OPENAI_T2I_LIBRARY_METADATA_ID, {
+    title: "OpenAI text-to-image",
+    keywords: ["openai", "text-to-image", "images-api", "library"],
+  });
+  const imageUrl = absoluteUrlWithAppBasePath(request, `/api/file?rel=${encodeURIComponent(rel)}`);
+  return { imageLibraryRel: rel, imageUrl };
+}
 
 function extensionFor(url: string, contentType: string): string {
   const fromType = IMAGE_EXT_BY_TYPE[contentType.split(";")[0]?.trim().toLowerCase() ?? ""];
@@ -73,13 +111,13 @@ export async function saveLanguageArticleImageToLibrary(article: LanguageArticle
   await upsertLibraryMetadata(contentId, {
     title: `Language Studio images — ${article.sourceBrand}`,
     sourceUrl: article.sourceUrl || article.canonicalUrl || imageUrl,
-    keywords: [
-      "language studio",
-      "article image",
-      article.sourceBrand,
-      article.title,
-      ...(article.tags ?? []),
-    ],
+    keywords: compactLibraryImageKeywords({
+      title: article.title,
+      body: article.body,
+      standfirst: article.standfirst,
+      category: article.category,
+      tags: article.tags,
+    }),
   });
 
   return rel;
@@ -142,16 +180,16 @@ export async function copyLanguageArticleImageForExport(
   await upsertLibraryMetadata(contentId, {
     title: `Language Studio images — ${LANGUAGE_LABELS[translation.targetLanguage]}`,
     sourceUrl: article.sourceUrl || article.canonicalUrl || article.imageUrl,
-    keywords: [
-      "language studio",
-      "article image",
-      "translated image",
-      `language:${translation.targetLanguage}`,
-      LANGUAGE_LABELS[translation.targetLanguage],
-      article.sourceBrand,
-      translation.title,
-      ...(translation.tags ?? []),
-    ],
+    keywords: compactLibraryImageKeywords(
+      {
+        title: translation.title,
+        body: translation.body,
+        standfirst: translation.standfirst,
+        category: article.category,
+        tags: translation.tags,
+      },
+      { appendToEvent: LANGUAGE_LABELS[translation.targetLanguage] },
+    ),
   });
 
   return rel;

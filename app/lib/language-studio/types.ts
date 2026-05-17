@@ -34,7 +34,23 @@ export type TranslationMode =
   | "seo-only"
   | "summary-only";
 
-export type LanguageContentStyle = "News" | "Transfer" | "Opinion" | "Preview" | "Review" | "Analysis" | "Feature" | "Live" | "Tips";
+/** Content style for rewrite / translate (Article dashboard sidebar). Includes Data Studio–aligned match workflows. */
+export const LANGUAGE_CONTENT_STYLES = [
+  "News",
+  "Transfer",
+  "Opinion",
+  "Preview",
+  "Match preview",
+  "Match report",
+  "16 Conclusions",
+  "Review",
+  "Analysis",
+  "Feature",
+  "Live",
+  "Tips",
+] as const;
+
+export type LanguageContentStyle = (typeof LANGUAGE_CONTENT_STYLES)[number];
 
 export type LanguageSportContext =
   | "Football"

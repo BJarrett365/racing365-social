@@ -70,6 +70,26 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Blob-backed library assets (e.g. Netlify) — avoid relying on local disk first.
+  if (rel.startsWith("images/library/")) {
+    const libBlob = await readLibraryBlobAsset(rel);
+    if (libBlob) {
+      const headers: Record<string, string> = {
+        "Content-Type": libBlob.contentType,
+        "Cache-Control": "public, max-age=60",
+      };
+      if (searchParams.get("download") === "1") {
+        const filename = path.basename(libBlob.rel).replace(/"/g, "");
+        headers["Content-Disposition"] = `attachment; filename="${filename}"`;
+      }
+      const body = libBlob.bytes.buffer.slice(
+        libBlob.bytes.byteOffset,
+        libBlob.bytes.byteOffset + libBlob.bytes.byteLength,
+      ) as ArrayBuffer;
+      return new NextResponse(body, { headers });
+    }
+  }
+
   try {
     const buf = await fs.readFile(full);
     const ext = path.extname(full).toLowerCase();

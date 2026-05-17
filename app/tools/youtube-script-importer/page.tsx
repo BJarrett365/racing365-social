@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
-import { LANGUAGE_SPORT_CONTEXTS, type LanguageContentStyle, type LanguageJournalistProfile, type LanguageSportContext } from "@/app/lib/language-studio/types";
+import { LANGUAGE_CONTENT_STYLES, LANGUAGE_SPORT_CONTEXTS, type LanguageContentStyle, type LanguageJournalistProfile, type LanguageSportContext } from "@/app/lib/language-studio/types";
 import type {
   ScriptOutputType,
   TranscriptResult,
@@ -26,7 +26,6 @@ const outputOptions: Array<{ type: ScriptOutputType; label: string; description:
 ];
 
 const languageOptions = ["British English", "Spanish", "Portuguese", "French", "German", "Italian", "Dutch", "Arabic", "Polish", "Turkish", "Romanian", "Greek", "Czech"];
-const contentStyleOptions: LanguageContentStyle[] = ["News", "Transfer", "Opinion", "Preview", "Review", "Analysis", "Feature", "Live", "Tips"];
 const sportContextOptions: LanguageSportContext[] = LANGUAGE_SPORT_CONTEXTS;
 
 function formatDuration(seconds?: number): string {
@@ -636,7 +635,7 @@ function ScriptOutputSelector({
               value={contentStyle}
               onChange={(e) => onContentStyleChange(e.target.value as LanguageContentStyle)}
             >
-              {contentStyleOptions.map((style) => (
+              {LANGUAGE_CONTENT_STYLES.map((style) => (
                 <option key={style} value={style}>{style}</option>
               ))}
             </select>

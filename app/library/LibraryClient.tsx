@@ -13,6 +13,7 @@ import {
   contentIdFromVoiceRecordingRel,
   type ManifestEntry,
 } from "@/app/lib/asset-manifest";
+import { withAppPathPrefix } from "@/app/lib/app-base-path";
 
 const BRAND_RULES: Array<{ id: string; label: string; patterns: RegExp[] }> = [
   { id: "football365", label: "Football365", patterns: [/football365/i] },
@@ -23,19 +24,19 @@ const BRAND_RULES: Array<{ id: string; label: string; patterns: RegExp[] }> = [
 ];
 
 function fileUrl(rel: string) {
-  return `/api/file?rel=${encodeURIComponent(rel)}`;
+  return withAppPathPrefix(`/api/file?rel=${encodeURIComponent(rel)}`);
 }
 
 function downloadUrl(rel: string) {
-  return `/api/file?rel=${encodeURIComponent(rel)}&download=1`;
+  return withAppPathPrefix(`/api/file?rel=${encodeURIComponent(rel)}&download=1`);
 }
 
 function newsShortsBackdropVideoHref(rel: string) {
-  return `/news-shorts?backdropVideo=${encodeURIComponent(rel)}`;
+  return `${withAppPathPrefix("/news-shorts")}?backdropVideo=${encodeURIComponent(rel)}`;
 }
 
 function newsShortsBackdropImageHref(rel: string) {
-  return `/news-shorts?backdropImage=${encodeURIComponent(rel)}`;
+  return `${withAppPathPrefix("/news-shorts")}?backdropImage=${encodeURIComponent(rel)}`;
 }
 
 function isDirectVideoRecordingRel(rel: string): boolean {

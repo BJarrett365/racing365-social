@@ -7,7 +7,7 @@ import {
   sortDesc,
   upsertArticleAutomation,
 } from "@/app/lib/language-studio/store";
-import { LANGUAGE_SPORT_CONTEXTS, type LanguageArticleAutomation, type LanguageArticleAutomationAction, type LanguageArticleAutomationOutputStatus, type LanguageCode, type LanguageContentStyle, type LanguageProviderMode, type LanguageSportContext, type TranslationMode } from "@/app/lib/language-studio/types";
+import { LANGUAGE_CONTENT_STYLES, LANGUAGE_SPORT_CONTEXTS, type LanguageArticleAutomation, type LanguageArticleAutomationAction, type LanguageArticleAutomationOutputStatus, type LanguageCode, type LanguageContentStyle, type LanguageProviderMode, type LanguageSportContext, type TranslationMode } from "@/app/lib/language-studio/types";
 
 type Body = Partial<LanguageArticleAutomation> & {
   adminToken?: string;
@@ -15,7 +15,7 @@ type Body = Partial<LanguageArticleAutomation> & {
 
 const actions: LanguageArticleAutomationAction[] = ["rewrite", "translate", "rewrite-translate"];
 const outputStatuses: LanguageArticleAutomationOutputStatus[] = ["review_needed", "draft"];
-const contentStyles: LanguageContentStyle[] = ["News", "Transfer", "Opinion", "Preview", "Review", "Analysis", "Feature", "Live", "Tips"];
+const contentStyles: LanguageContentStyle[] = [...LANGUAGE_CONTENT_STYLES];
 const sportContexts: LanguageSportContext[] = LANGUAGE_SPORT_CONTEXTS;
 const providerModes: LanguageProviderMode[] = ["openai", "deepl", "deepl-openai"];
 const translationModes: TranslationMode[] = ["translate-only", "translate-localise", "translate-rewrite", "headline-only", "seo-only", "summary-only"];

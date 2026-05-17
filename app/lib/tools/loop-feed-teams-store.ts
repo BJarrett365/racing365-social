@@ -1,9 +1,11 @@
 import fs from "fs/promises";
 import path from "path";
 import { assertAllowedLoopFeedUrl, toLoopTopicContentUrl } from "@/app/lib/data-studio/loop-feed";
-import { projectRoot } from "@/app/lib/paths";
+import { localJsonStorePath } from "@/app/lib/local-json-store-dir";
 
-const STORE_FILE = path.join(projectRoot(), "data", "local", "loop-feed-teams.json");
+function storeFile(): string {
+  return localJsonStorePath("loop-feed-teams.json");
+}
 
 export type LoopFeedTeamRow = {
   id: string;
@@ -40,22 +42,24 @@ function newTeamId(): string {
 }
 
 export async function readLoopFeedTeams(): Promise<LoopFeedTeamRow[]> {
+  const file = storeFile();
   try {
-    const raw = await fs.readFile(STORE_FILE, "utf-8");
+    const raw = await fs.readFile(file, "utf-8");
     const parsed = JSON.parse(raw) as LoopFeedTeamsFile;
     const rows = Array.isArray(parsed.teams) ? parsed.teams : [];
     return rows.filter((r) => r && typeof r.id === "string" && typeof r.topicUrl === "string");
   } catch {
-    await fs.mkdir(path.dirname(STORE_FILE), { recursive: true });
+    await fs.mkdir(path.dirname(file), { recursive: true });
     await writeLoopFeedTeams(DEFAULT_TEAMS);
     return [...DEFAULT_TEAMS];
   }
 }
 
 async function writeLoopFeedTeams(teams: LoopFeedTeamRow[]): Promise<void> {
-  await fs.mkdir(path.dirname(STORE_FILE), { recursive: true });
+  const file = storeFile();
+  await fs.mkdir(path.dirname(file), { recursive: true });
   const payload: LoopFeedTeamsFile = { teams };
-  await fs.writeFile(STORE_FILE, JSON.stringify(payload, null, 2), "utf-8");
+  await fs.writeFile(file, JSON.stringify(payload, null, 2), "utf-8");
 }
 
 export async function upsertLoopFeedTeam(

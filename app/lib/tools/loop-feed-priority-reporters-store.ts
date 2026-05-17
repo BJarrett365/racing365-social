@@ -2,9 +2,11 @@ import fs from "fs/promises";
 import path from "path";
 import type { SportVerticalId } from "@/app/lib/data-studio/types";
 import { assertAllowedLoopFeedUrl, toLoopTopicContentUrl } from "@/app/lib/data-studio/loop-feed";
-import { projectRoot } from "@/app/lib/paths";
+import { localJsonStorePath } from "@/app/lib/local-json-store-dir";
 
-const STORE_FILE = path.join(projectRoot(), "data", "local", "loop-feed-priority-reporters.json");
+function storeFile(): string {
+  return localJsonStorePath("loop-feed-priority-reporters.json");
+}
 
 export type LoopFeedPriorityReporterRow = {
   id: string;
@@ -35,8 +37,9 @@ export function normalizeReporterHandle(raw: string | undefined): string | undef
 }
 
 export async function readLoopFeedPriorityReporters(): Promise<LoopFeedPriorityReporterRow[]> {
+  const file = storeFile();
   try {
-    const raw = await fs.readFile(STORE_FILE, "utf-8");
+    const raw = await fs.readFile(file, "utf-8");
     const parsed = JSON.parse(raw) as LoopFeedPriorityReportersFile;
     const rows = Array.isArray(parsed.reporters) ? parsed.reporters : [];
     return rows.filter(
@@ -48,7 +51,7 @@ export async function readLoopFeedPriorityReporters(): Promise<LoopFeedPriorityR
         typeof r.updatedAt === "string",
     );
   } catch {
-    await fs.mkdir(path.dirname(STORE_FILE), { recursive: true });
+    await fs.mkdir(path.dirname(file), { recursive: true });
     await writeLoopFeedPriorityReporters([]);
     return [];
   }
@@ -63,9 +66,10 @@ export async function readLoopFeedPriorityReportersBySport(
 }
 
 async function writeLoopFeedPriorityReporters(reporters: LoopFeedPriorityReporterRow[]): Promise<void> {
-  await fs.mkdir(path.dirname(STORE_FILE), { recursive: true });
+  const file = storeFile();
+  await fs.mkdir(path.dirname(file), { recursive: true });
   const payload: LoopFeedPriorityReportersFile = { reporters };
-  await fs.writeFile(STORE_FILE, JSON.stringify(payload, null, 2), "utf-8");
+  await fs.writeFile(file, JSON.stringify(payload, null, 2), "utf-8");
 }
 
 export async function upsertLoopFeedPriorityReporter(

@@ -21,8 +21,13 @@ function cdata(s: string): string {
   return `<![CDATA[${s.replace(/]]>/g, "]]]]><![CDATA[>")}]]>`;
 }
 
-function looksLikeVideoUrl(url: string): boolean {
-  return /\.(mp4|webm|m3u8|mov)(\?|#|$)/i.test(url);
+/** Exported for crawl pipeline — keep in sync with {@link guessEnclosureMime}. */
+export function looksLikeVideoUrl(url: string): boolean {
+  return /\.(mp4|webm|m3u8|mov)(\?|#|$)/i.test(url.trim());
+}
+
+function looksLikeAudioUrl(url: string): boolean {
+  return /\.(mp3|m4a|aac|wav|ogg|opus|flac)(\?|#|$)/i.test(url.trim());
 }
 
 function looksLikeImageUrl(url: string): boolean {
@@ -52,8 +57,19 @@ function guessVideoMime(url: string): string {
   return "video/mp4";
 }
 
+function guessAudioMime(url: string): string {
+  const path = url.split("?")[0].toLowerCase();
+  if (path.endsWith(".m4a")) return "audio/mp4";
+  if (path.endsWith(".aac")) return "audio/aac";
+  if (path.endsWith(".wav")) return "audio/wav";
+  if (path.endsWith(".ogg") || path.endsWith(".opus")) return "audio/ogg";
+  if (path.endsWith(".flac")) return "audio/flac";
+  return "audio/mpeg";
+}
+
 function guessEnclosureMime(url: string): string {
   if (looksLikeVideoUrl(url)) return guessVideoMime(url);
+  if (looksLikeAudioUrl(url)) return guessAudioMime(url);
   if (looksLikeImageUrl(url)) return guessMimeFromImageUrl(url);
   return "application/octet-stream";
 }
@@ -98,15 +114,23 @@ export function buildRss2ChannelXml(opts: {
       const mediaUrl = opts.includeMediaEnclosure && (rawEnc || rawImg) ? rawEnc || rawImg : "";
       const emitEnclosure = Boolean(mediaUrl);
       const mime = emitEnclosure ? guessEnclosureMime(mediaUrl) : "";
+      const isVid = emitEnclosure && looksLikeVideoUrl(mediaUrl);
+      const isAud = emitEnclosure && looksLikeAudioUrl(mediaUrl);
       const emitMrssImage =
         emitEnclosure && looksLikeImageUrl(mediaUrl) && !looksLikeVideoUrl(mediaUrl);
+      const emitMrssVideo = opts.includeMediaEnclosure && isVid;
+      const emitMrssAudio = opts.includeMediaEnclosure && isAud;
 
       const enc = emitEnclosure
         ? `<enclosure url="${escapeText(mediaUrl)}" length="0" type="${escapeText(mime)}"/>`
         : "";
       const mrss = emitMrssImage
         ? `<media:content medium="image" url="${escapeText(mediaUrl)}" type="${escapeText(mime)}"/>`
-        : "";
+        : emitMrssVideo
+          ? `<media:content medium="video" url="${escapeText(mediaUrl)}" type="${escapeText(mime)}"/>`
+          : emitMrssAudio
+            ? `<media:content medium="audio" url="${escapeText(mediaUrl)}" type="${escapeText(mime)}"/>`
+            : "";
 
       const lines = [
         "<item>",

@@ -170,9 +170,10 @@ function scene(
 
 /** Match winner name to a placing row, else fall back to position 1 (for PNG + list UIs). */
 export function winnerSilksFromResult(result: Result): RunnerSilks | undefined {
-  const named = result.placings.find((p) => p.horse.trim() && p.horse === result.winner);
+  const placings = result.placings ?? [];
+  const named = placings.find((p) => p.horse.trim() && p.horse === result.winner);
   if (named?.silks && silksAreRenderable(named.silks)) return named.silks;
-  const first = result.placings.find((p) => p.position === 1);
+  const first = placings.find((p) => p.position === 1);
   if (first?.silks && silksAreRenderable(first.silks)) return first.silks;
   return undefined;
 }

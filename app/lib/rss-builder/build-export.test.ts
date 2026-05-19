@@ -160,4 +160,54 @@ describe("buildRss2ChannelXml", () => {
     expect(xml).toContain('type="application/xml"');
     expect(xml).toContain('href="https://example.com/out.xml?format=xml"');
   });
+
+  it("uses audio/mpeg for mp3 enclosures and emits MRSS medium=audio", () => {
+    const xml = buildRss2ChannelXml({
+      channelTitle: "T",
+      channelLink: "https://example.com/",
+      channelDescription: "D",
+      selfLink: "https://example.com/rss.xml",
+      includeImages: false,
+      includeMediaEnclosure: true,
+      includeThumbnailInDescription: false,
+      items: [
+        {
+          title: "Pod",
+          link: "https://example.com/p",
+          guid: "g:p",
+          pubDate: "Sat, 01 Jan 2022 00:00:00 GMT",
+          descriptionHtml: "<p>x</p>",
+          imageUrl: null,
+          enclosureUrl: "https://example.com/ep.mp3",
+        },
+      ],
+    });
+    expect(xml).toContain('type="audio/mpeg"');
+    expect(xml).toContain('medium="audio"');
+  });
+
+  it("emits MRSS medium=video for mp4 enclosures", () => {
+    const xml = buildRss2ChannelXml({
+      channelTitle: "T",
+      channelLink: "https://example.com/",
+      channelDescription: "D",
+      selfLink: "https://example.com/rss.xml",
+      includeImages: true,
+      includeMediaEnclosure: true,
+      includeThumbnailInDescription: false,
+      items: [
+        {
+          title: "Clip",
+          link: "https://example.com/v",
+          guid: "g:v",
+          pubDate: "Sat, 01 Jan 2022 00:00:00 GMT",
+          descriptionHtml: "<p>x</p>",
+          imageUrl: "https://example.com/thumb.jpg",
+          enclosureUrl: "https://example.com/clip.mp4",
+        },
+      ],
+    });
+    expect(xml).toContain('medium="video"');
+    expect(xml).toContain('type="video/mp4"');
+  });
 });

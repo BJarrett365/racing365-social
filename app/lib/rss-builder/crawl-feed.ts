@@ -14,6 +14,7 @@ import {
   resolveBodyToRssChannel,
   resolveBodyToRssChannelXmlOnly,
 } from "@/app/lib/rss-builder/html-listing";
+import { looksLikeVideoUrl } from "@/app/lib/rss-builder/build-export";
 import { itemKeyFromLinkAndGuid } from "@/app/lib/rss-builder/slug";
 import type { RssChannelItem, RssFeedRow, RssFilterConfig, RssItemStatus } from "@/app/lib/rss-builder/types";
 import { defaultFilterConfig } from "@/app/lib/rss-builder/types";
@@ -124,7 +125,10 @@ export async function runCrawlFeed(supabase: SupabaseClient, feedId: string): Pr
         descriptionHtml = truncateDescription(descriptionHtml, false, f.limit_description_length, f.description_max_chars);
       }
       const imageUrl = f.include_images ? it.imageUrl : "";
-      const enclosureUrl = f.include_media_enclosure ? it.enclosureUrl : "";
+      let enclosureUrl = f.include_media_enclosure ? it.enclosureUrl : "";
+      if (enclosureUrl?.trim() && !f.include_videos && looksLikeVideoUrl(enclosureUrl)) {
+        enclosureUrl = "";
+      }
       const itemKey = itemKeyFromLinkAndGuid(it.link, it.guid);
       const prevStatus = statusByKey.get(itemKey);
       const status: RssItemStatus =

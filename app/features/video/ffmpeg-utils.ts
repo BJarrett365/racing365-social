@@ -88,6 +88,21 @@ export function resetFfmpegBinaryCache() {
   cachedBin = null;
 }
 
+/**
+ * libx264 tuning for MP4 exports: faster than the default `medium` preset; `+faststart` moves the moov atom
+ * so players can begin playback sooner (better perceived load time).
+ */
+export const FFMPEG_LIBX264_MP4_ARGS = [
+  "-c:v",
+  "libx264",
+  "-preset",
+  "fast",
+  "-pix_fmt",
+  "yuv420p",
+  "-movflags",
+  "+faststart",
+] as const;
+
 const DURATION_RE = /Duration:\s*(\d+):(\d+):(\d+\.?\d*)/;
 
 /**

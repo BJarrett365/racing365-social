@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import { NextResponse } from "next/server";
-import { renderSceneToPng } from "@/app/features/render/scene-renderer";
+import { renderSceneToPng, withSharedPuppeteerBrowser } from "@/app/features/render/scene-renderer";
 import { getAudioProvider } from "@/app/features/audio";
 import { buildShortVideo } from "@/app/features/video/video-builder";
 import { assertVoiceRecordingRel, normalizeContentIdForFilename } from "@/app/lib/editor-upload";
@@ -79,15 +79,20 @@ export async function POST(req: Request) {
     }));
 
     const images: { sceneId: string; path: string }[] = [];
-    for (const scene of scenes) {
-      const imagePath = await renderSceneToPng({
-        contentId,
-        sceneId: scene.id,
-        templateId: scene.templateId,
-        data: scene.data,
-      });
-      images.push({ sceneId: scene.id, path: imagePath });
-    }
+    await withSharedPuppeteerBrowser(async (browser) => {
+      for (const scene of scenes) {
+        const imagePath = await renderSceneToPng(
+          {
+            contentId,
+            sceneId: scene.id,
+            templateId: scene.templateId,
+            data: scene.data,
+          },
+          { browser },
+        );
+        images.push({ sceneId: scene.id, path: imagePath });
+      }
+    });
 
     const scriptFromSlides = template.slides.map((s) => [s.headline, s.subline].filter(Boolean).join(". ")).join(". ");
     const script = scriptFromSlides.replace(/\s+/g, " ").trim();

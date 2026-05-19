@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { renderSceneToPng } from "@/app/features/render/scene-renderer";
+import { renderSceneToPng, withSharedPuppeteerBrowser } from "@/app/features/render/scene-renderer";
 import type { NewsShortTemplateData } from "@/app/features/news-shorts/types";
 import { mergeNewsShortStyleForBrand } from "@/app/features/news-shorts/news-shorts-brand-templates";
 import { newsShortSceneDataForSlide } from "@/app/lib/news-shorts-slide-render-data";
@@ -43,15 +43,20 @@ export async function POST(req: Request) {
     }));
 
     const images: { sceneId: string; path: string }[] = [];
-    for (const scene of scenes) {
-      const imagePath = await renderSceneToPng({
-        contentId,
-        sceneId: scene.id,
-        templateId: scene.templateId,
-        data: scene.data,
-      });
-      images.push({ sceneId: scene.id, path: imagePath });
-    }
+    await withSharedPuppeteerBrowser(async (browser) => {
+      for (const scene of scenes) {
+        const imagePath = await renderSceneToPng(
+          {
+            contentId,
+            sceneId: scene.id,
+            templateId: scene.templateId,
+            data: scene.data,
+          },
+          { browser },
+        );
+        images.push({ sceneId: scene.id, path: imagePath });
+      }
+    });
 
     return NextResponse.json({
       ok: true,

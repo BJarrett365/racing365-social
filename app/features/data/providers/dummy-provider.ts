@@ -28,8 +28,20 @@ export class DummyRacingDataProvider implements RacingDataProvider {
     return JSON.parse(raw) as T;
   }
 
+  /**
+   * Dummy seed JSON may be absent on serverless deploys (smaller artifact / path differences).
+   * Never throw — list pages must render with user templates + empty seed data.
+   */
+  private async readJsonOptional<T>(rel: string): Promise<T | null> {
+    try {
+      return await this.readJson<T>(rel);
+    } catch {
+      return null;
+    }
+  }
+
   async getNextOffBundles(): Promise<NextOffBundle[]> {
-    const rows = await this.readJson<RawNextOff[]>("data/dummy/next-off-tips.json");
+    const rows = (await this.readJsonOptional<RawNextOff[]>("data/dummy/next-off-tips.json")) ?? [];
     const dummy = rows.map((row) => ({
       ...row,
       tips: row.tips.map((t) => ({ ...t, race: row.race })),
@@ -43,17 +55,16 @@ export class DummyRacingDataProvider implements RacingDataProvider {
   }
 
   async getFastResults(): Promise<FastResultBundle[]> {
-    const dummy = await this.readJson<FastResultBundle[]>("data/dummy/fast-results.json");
+    const dummy = (await this.readJsonOptional<FastResultBundle[]>("data/dummy/fast-results.json")) ?? [];
     const u = await readUserTemplatesFile();
     const user = Object.values(u.fastResults);
     return [...user, ...dummy];
   }
 
   async getRacecardSnapshots(): Promise<RacecardSnapshot[]> {
-    const cards = await this.readJson<RacecardSnapshot[]>("data/dummy/racecards.json");
-    const ids = new Set(
-      await this.readJson<string[]>("data/dummy/racecard-snapshots.json"),
-    );
+    const cards = (await this.readJsonOptional<RacecardSnapshot[]>("data/dummy/racecards.json")) ?? [];
+    const idList = (await this.readJsonOptional<string[]>("data/dummy/racecard-snapshots.json")) ?? [];
+    const ids = new Set(idList);
     const dummyFiltered = cards.filter((c) => ids.has(c.id));
     const u = await readUserTemplatesFile();
     const user = Object.values(u.racecards);
@@ -61,7 +72,7 @@ export class DummyRacingDataProvider implements RacingDataProvider {
   }
 
   async getFootballLineups(): Promise<FootballLineupBundle[]> {
-    return this.readJson<FootballLineupBundle[]>("data/dummy/football-lineups.json");
+    return (await this.readJsonOptional<FootballLineupBundle[]>("data/dummy/football-lineups.json")) ?? [];
   }
 
   async getTeamtalkNewsBundles(): Promise<TeamtalkNewsBundle[]> {
@@ -116,7 +127,7 @@ export class DummyRacingDataProvider implements RacingDataProvider {
         tips: row.tips.map((t) => ({ ...t, race: row.race })),
       };
     }
-    const rows = await this.readJson<RawNextOff[]>("data/dummy/next-off-tips.json");
+    const rows = (await this.readJsonOptional<RawNextOff[]>("data/dummy/next-off-tips.json")) ?? [];
     const hit = rows.find((b) => b.id === id);
     if (!hit) return null;
     return {
@@ -128,14 +139,14 @@ export class DummyRacingDataProvider implements RacingDataProvider {
   async getFastResultById(id: string): Promise<FastResultBundle | null> {
     const u = await readUserTemplatesFile();
     if (u.fastResults[id]) return u.fastResults[id];
-    const all = await this.readJson<FastResultBundle[]>("data/dummy/fast-results.json");
+    const all = (await this.readJsonOptional<FastResultBundle[]>("data/dummy/fast-results.json")) ?? [];
     return all.find((b) => b.id === id) ?? null;
   }
 
   async getRacecardById(id: string): Promise<RacecardSnapshot | null> {
     const u = await readUserTemplatesFile();
     if (u.racecards[id]) return u.racecards[id];
-    const all = await this.readJson<RacecardSnapshot[]>("data/dummy/racecards.json");
+    const all = (await this.readJsonOptional<RacecardSnapshot[]>("data/dummy/racecards.json")) ?? [];
     return all.find((c) => c.id === id) ?? null;
   }
 

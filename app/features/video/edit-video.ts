@@ -8,7 +8,7 @@ import {
   editedVideoRelForContentId,
   videoBasenameMatchesContentId,
 } from "@/app/lib/video-output-paths";
-import { ffmpegBinary, probeMediaDurationSec } from "@/app/features/video/ffmpeg-utils";
+import { ffmpegBinary, probeMediaDurationSec, FFMPEG_LIBX264_MP4_ARGS } from "@/app/features/video/ffmpeg-utils";
 import { BRAND_ENCODER } from "@/app/lib/brand";
 
 function runFfmpeg(args: string[]): Promise<void> {
@@ -90,10 +90,7 @@ export async function trimVideoToEdited(params: TrimVideoParams): Promise<{
     outDurStr,
     "-r",
     "30",
-    "-c:v",
-    "libx264",
-    "-pix_fmt",
-    "yuv420p",
+    ...FFMPEG_LIBX264_MP4_ARGS,
     "-c:a",
     "aac",
     "-ar",

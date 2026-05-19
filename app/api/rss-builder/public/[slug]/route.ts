@@ -25,7 +25,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
 
   if (feed) {
     try {
-      const items = await loadExportItemsForFeed(supabase, feed.id as string);
+      const feedLimit = Math.min(500, Math.max(1, Math.floor(Number(feed.posts_per_feed) || 50)));
+      const items = await loadExportItemsForFeed(supabase, feed.id as string, { limit: feedLimit });
       const channelLink = (feed.source_url as string) || selfLinkFor("rss");
       if (format === "json") {
         const json = buildFeedJsonExport({ channelTitle: feed.name as string, channelLink, items });
@@ -54,7 +55,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   const { data: bundle } = await supabase.from("rss_bundles").select("*").eq("slug", slug).eq("export_token", token).maybeSingle();
   if (bundle) {
     try {
-      const items = await loadExportItemsForBundle(supabase, bundle.id as string);
+      const items = await loadExportItemsForBundle(supabase, bundle.id as string, { limit: 500 });
       const channelLink = selfLinkFor("rss");
       if (format === "json") {
         const json = buildFeedJsonExport({ channelTitle: bundle.name as string, channelLink, items });

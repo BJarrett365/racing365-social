@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { renderSceneToPng } from "@/app/features/render/scene-renderer";
+import { renderSceneToPng, withSharedPuppeteerBrowser } from "@/app/features/render/scene-renderer";
 import { coalesceGlobalBackgroundImageRel } from "@/app/lib/background-image-rel";
 import {
   assertCrossContentBackdropRel,
@@ -186,6 +186,7 @@ export async function POST(req: Request) {
       typeof byScene === "object" &&
       Object.keys(byScene).some((k) => typeof byScene[k] === "string" && byScene[k]!.startsWith("data:image/"));
 
+    return await withSharedPuppeteerBrowser(async (browser) => {
     const outDir = outputDir();
     const outputs: { sceneId: string; path: string; rel: string; underlayPath?: string; underlayRel?: string }[] = [];
     for (const s of body.scenes) {
@@ -224,30 +225,36 @@ export async function POST(req: Request) {
         ...(resolvedHeroImageUrl ? { heroImage: resolvedHeroImageUrl } : {}),
       };
 
-      const imagePath = await renderSceneToPng({
-        contentId: canonicalContentId,
-        sceneId: s.id,
-        templateId: s.templateId,
-        data: {
-          ...merged,
-          ...sceneBackdrop,
-          ...(body.editorSubtitleOverlayOnly ? { editorSubtitleOverlayOnly: true } : {}),
-        },
-      });
-
-      let underlayPath: string;
-      if (sceneComp !== undefined) {
-        underlayPath = await renderSceneToPng({
+      const imagePath = await renderSceneToPng(
+        {
           contentId: canonicalContentId,
           sceneId: s.id,
           templateId: s.templateId,
           data: {
             ...merged,
-            ...sceneBackdropUnderlay,
+            ...sceneBackdrop,
             ...(body.editorSubtitleOverlayOnly ? { editorSubtitleOverlayOnly: true } : {}),
           },
-          fileSuffix: "underlay",
-        });
+        },
+        { browser },
+      );
+
+      let underlayPath: string;
+      if (sceneComp !== undefined) {
+        underlayPath = await renderSceneToPng(
+          {
+            contentId: canonicalContentId,
+            sceneId: s.id,
+            templateId: s.templateId,
+            data: {
+              ...merged,
+              ...sceneBackdropUnderlay,
+              ...(body.editorSubtitleOverlayOnly ? { editorSubtitleOverlayOnly: true } : {}),
+            },
+            fileSuffix: "underlay",
+          },
+          { browser },
+        );
       } else {
         underlayPath = imagePath;
       }
@@ -259,6 +266,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ contentId: canonicalContentId, images: outputs });
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

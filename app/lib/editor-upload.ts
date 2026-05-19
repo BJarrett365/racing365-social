@@ -4,6 +4,8 @@ import { spawn } from "child_process";
 import { editorUploadDir, libraryBackgroundImagesDir, outputAudioDir, outputDir } from "@/app/lib/paths";
 import { isSafeContentId, normalizeContentIdForFilename } from "@/app/lib/editor-content-id";
 import { ffmpegBinary } from "@/app/features/video/ffmpeg-utils";
+import { shouldUseNetlifyBlobStore } from "@/app/lib/netlify-blob-json";
+import { readLibraryBlobAsset, writeLibraryBlobAsset } from "@/app/lib/library-blob-assets";
 
 export { isSafeContentId, normalizeContentIdForFilename };
 
@@ -14,6 +16,14 @@ function normalizedUploadAbs(rel: string): string {
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
 const MAX_VOICE_RECORD_BYTES = 50 * 1024 * 1024;
+
+function mimeForImageExt(ext: string): string {
+  const e = ext.toLowerCase();
+  if (e === ".png") return "image/png";
+  if (e === ".webp") return "image/webp";
+  if (e === ".gif") return "image/gif";
+  return "image/jpeg";
+}
 
 /**
  * Validates `rel` like `audio/{contentId}-voice-record.webm` and that it stays under `output/audio/`.
@@ -267,11 +277,17 @@ export async function saveEditorUploads(
     const sceneSafe = sid && /^[a-z0-9_-]+$/i.test(sid) ? sid : "";
     const name = sceneSafe ? `custom-bg-${sceneSafe}${ext}` : `custom-bg${ext}`;
     const libDir = libraryBackgroundImagesDir(contentId);
-    await fs.mkdir(libDir, { recursive: true });
     const abs = path.join(libDir, name);
     const buf = Buffer.from(await image.arrayBuffer());
-    await fs.writeFile(abs, buf);
     const rel = path.join("images", "library", contentId, name).split(path.sep).join("/");
+
+    if (shouldUseNetlifyBlobStore()) {
+      await writeLibraryBlobAsset(rel, buf, mimeForImageExt(ext));
+    } else {
+      await fs.mkdir(libDir, { recursive: true });
+      await fs.writeFile(abs, buf);
+    }
+
     if (sceneSafe) {
       out.backgroundImageRelBySceneId = { [sceneSafe]: rel };
     } else {
@@ -326,11 +342,17 @@ export async function saveRunwayImageBufferToLibraryBackground(
 
   const ext = extFromImageContentType(contentType);
   const dir = libraryBackgroundImagesDir(contentId);
-  await fs.mkdir(dir, { recursive: true });
   const name = `custom-bg${ext}`;
   const abs = path.join(dir, name);
-  await fs.writeFile(abs, buffer);
   const rel = path.join("images", "library", contentId, name).split(path.sep).join("/");
+
+  if (shouldUseNetlifyBlobStore()) {
+    await writeLibraryBlobAsset(rel, buffer, mimeForImageExt(ext));
+  } else {
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(abs, buffer);
+  }
+
   return { backgroundImageRel: rel };
 }
 
@@ -422,6 +444,14 @@ export async function resolveEditorBackdropDataUrl(
   if (!rel) return undefined;
   if (!isSafeContentId(contentId)) return undefined;
   assertCrossContentBackdropRel(rel);
+
+  if (rel.startsWith("images/library/") && shouldUseNetlifyBlobStore()) {
+    const blob = await readLibraryBlobAsset(rel);
+    if (blob) {
+      return `data:${blob.contentType};base64,${blob.bytes.toString("base64")}`;
+    }
+  }
+
   const abs = normalizedUploadAbs(rel);
   try {
     await fs.access(abs);

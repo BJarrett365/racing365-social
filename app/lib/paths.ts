@@ -1,10 +1,27 @@
+import { tmpdir } from "os";
 import path from "path";
 
 export function projectRoot() {
   return process.cwd();
 }
 
+/**
+ * Netlify / Vercel serverless: project root under `/var/task` is not writable — `mkdir output` fails with ENOENT.
+ * Use a per-invocation writable tree under the OS temp directory. Pair library uploads with
+ * {@link writeLibraryBlobAsset} so assets persist across instances.
+ */
+function useEphemeralServerOutputRoot(): boolean {
+  return (
+    process.env.NETLIFY === "true" ||
+    Boolean(process.env.NETLIFY_BLOBS_CONTEXT) ||
+    process.env.VERCEL === "1"
+  );
+}
+
 export function outputDir() {
+  if (useEphemeralServerOutputRoot()) {
+    return path.join(tmpdir(), "plexa-studio-output");
+  }
   return path.join(projectRoot(), "output");
 }
 

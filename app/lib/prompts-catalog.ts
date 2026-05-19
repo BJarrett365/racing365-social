@@ -252,7 +252,8 @@ Produce valid semantic HTML only (\`<h1>\` … \`<h3>\`, \`<p>\`, \`<strong>\`, 
 
 /**
  * Match report — post-event; can reuse stable preview context (venue, competition, broadcast hook)
- * where still accurate. Player/competitor ratings optional when feed supports it (BBC-style blocks).
+ * where still accurate. Player/competitor ratings are **required** when the editor enables them (see
+ * system append + user message) — always both teams when FIXTURE_JSON lists both squads.
  */
 export const MATCH_REPORT_PLANET_SPORT_PROMPT = `Match report · Planet Sport network
 
@@ -281,9 +282,9 @@ STRUCTURE (HTML — semantic headings for SEO):
    - **Reviews & controversy** — when commentary or incident blocks mention VAR, penalties reviewed, **goals ruled out** (e.g. offside/handball), overturned decisions or other major flashpoints: add bullets or short subsections that **summarise what the feed says happened** (official lines, check outcomes, on-field calls). Do not invent scandal or pundit takes not present in the input
    Other sports: map the same priority (scores, dismissals/sendings-off, referee/TMO or equivalent reviews) using feed terminology
 
-4) Player / competitor ratings (optional section) — only if the brief asks for them — introduce with \`<h2>\`:
-   - **Both teams** — give **home and away** (or equivalent sides) comparable coverage; never rate only one team when both line-ups exist in the feed. Use \`<h3>\` subheadings with **club/competitor names from the data** (e.g. “Home — [name]”, “Away — [name]”) or an HTML **\`<table>\`** split by team
-   - 1–10 plus one-line justification each; names must match official line-ups/substitutes from the feed; balanced, evidence-led tone
+4) **Player / competitor ratings** — when the editor brief enables them (system/user message will say so) this section is **mandatory**, introduced with \`<h2>Player ratings</h2>\` (or sport-appropriate label e.g. driver / player ratings):
+   - **Both teams** — you **must** rate **home and away** (or equivalent sides) with **matching depth** when both line-ups exist in **FIXTURE_JSON**. Never publish ratings for only one XI when the feed lists both. Use \`<h3>\` subheadings with **names from the data** or separate HTML **\`<table>\`** blocks per team
+   - **1–10** (or agreed scale) plus one-line justification per rated player; names must match official line-ups/substitutes from the feed; balanced, evidence-led tone; include substitutes who had material impact when the feed names them
 
 5) What next / context — \`<h2>\`; table impact, knockout progression, next fixture if supplied
 

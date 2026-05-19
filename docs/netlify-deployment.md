@@ -93,7 +93,7 @@ On Vercel, `vercel.json` includes an hourly schedule for this path. On Netlify, 
 
 Netlify serverless functions do not provide durable writable filesystem storage.
 
-Plexa uses Netlify Blobs for hosted auth users, admin settings, and Language Studio records, so these persist on Netlify without writing to `data/local`.
+Plexa uses Netlify Blobs for hosted auth users, admin settings, Language Studio records, **Loop Feed teams**, **priority reporters** (Tools → Loop Feed), and related JSON so these persist on Netlify without writing to `data/local`.
 
 Before production use, move the remaining generated media data to durable storage:
 

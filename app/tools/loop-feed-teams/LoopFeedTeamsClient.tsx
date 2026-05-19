@@ -145,7 +145,9 @@ export function LoopFeedTeamsClient() {
 
       <Panel title="Saved teams">
         {teams.length === 0 ? (
-          <p className="text-sm text-[color:var(--text-muted)]">No teams yet — add one above. Defaults are created on first API read if the store file was missing.</p>
+          <p className="text-sm text-[color:var(--text-muted)]">
+            No teams yet — add one above. On Netlify, teams persist via Blobs (shared across all requests); locally, starter clubs appear only when no saved store exists yet.
+          </p>
         ) : (
           <ul className="space-y-4">
             {teams.map((row) => (

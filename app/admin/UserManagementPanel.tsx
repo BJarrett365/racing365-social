@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
+import { plexaAuthApiUrl } from "@/app/lib/auth/client-api-url";
 import type { PlexaUserRole, PublicPlexaUser } from "@/app/lib/auth/types";
 
 const inputClass = "mt-1 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] px-3 py-2 text-sm text-white placeholder:text-slate-600";
@@ -27,7 +28,7 @@ export function UserManagementPanel() {
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
-    const res = await fetch("/api/auth/users");
+    const res = await fetch(plexaAuthApiUrl("/api/auth/users"));
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not load users");
     setUsers(data.users ?? []);
@@ -53,7 +54,7 @@ export function UserManagementPanel() {
 
   const createUser = () =>
     run(async () => {
-      const res = await fetch("/api/auth/users", {
+      const res = await fetch(plexaAuthApiUrl("/api/auth/users"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "create", name, email, role }),
@@ -68,7 +69,7 @@ export function UserManagementPanel() {
 
   const updateUser = (user: PublicPlexaUser, patch: Partial<Pick<PublicPlexaUser, "active" | "role" | "name">>) =>
     run(async () => {
-      const res = await fetch("/api/auth/users", {
+      const res = await fetch(plexaAuthApiUrl("/api/auth/users"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "update", id: user.id, ...patch }),
@@ -80,7 +81,7 @@ export function UserManagementPanel() {
 
   const resendVerification = (user: PublicPlexaUser) =>
     run(async () => {
-      const res = await fetch("/api/auth/users", {
+      const res = await fetch(plexaAuthApiUrl("/api/auth/users"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "resend-verification", id: user.id }),

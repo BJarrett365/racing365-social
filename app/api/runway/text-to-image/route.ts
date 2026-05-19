@@ -4,6 +4,7 @@ import { RUNWAY_API_BASE, RUNWAY_API_VERSION } from "@/app/lib/runway-api-consta
 import {
   RUNWAY_T2I_DEFAULT_TURBO_REFERENCE_URI,
   RUNWAY_T2I_PROMPT_MAX,
+  RUNWAY_T2I_RATIOS_GEN4_IMAGE,
   isAllowedRunwayT2iRatio,
 } from "@/app/lib/runway-text-to-image-constants";
 
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
   if (!isAllowedRunwayT2iRatio(ratioRaw)) {
     return NextResponse.json(
       {
-        error: `ratio must be one of: 1080:1920, 720:1280, 1920:1080, 1280:720.`,
+        error: `ratio must be one of: ${RUNWAY_T2I_RATIOS_GEN4_IMAGE.join(", ")}.`,
       },
       { status: 400 },
     );

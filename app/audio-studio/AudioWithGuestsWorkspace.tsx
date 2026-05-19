@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
+import { withAppPathPrefix } from "@/app/lib/app-base-path";
 
 type ApiState = {
   loading: boolean;
@@ -215,8 +216,8 @@ export function AudioWithGuestsWorkspace() {
   async function loadMeetingUsers() {
     try {
       const [meRes, usersRes] = await Promise.all([
-        fetch("/api/auth/me", { credentials: "include", cache: "no-store" }),
-        fetch("/api/audio/guests/users", { credentials: "include", cache: "no-store" }),
+        fetch(withAppPathPrefix("/api/auth/me"), { credentials: "include", cache: "no-store" }),
+        fetch(withAppPathPrefix("/api/audio/guests/users"), { credentials: "include", cache: "no-store" }),
       ]);
       const meData = await jsonOrThrow<{ user: RegisteredMeetingUser }>(meRes);
       setCurrentUser(meData.user);

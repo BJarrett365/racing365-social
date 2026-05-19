@@ -63,6 +63,32 @@ export async function readLibraryBlobAsset(rel: string): Promise<LibraryBlobAsse
   }
 }
 
+export async function deleteLibraryBlobAsset(rel: string): Promise<boolean> {
+  if (!shouldUseNetlifyBlobStore()) return false;
+  const key = normaliseRel(rel);
+  if (!key) return false;
+  try {
+    await getStore(BLOB_STORE_NAME).delete(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function getLibraryBlobAssetMtimeMs(rel: string): Promise<number> {
+  if (!shouldUseNetlifyBlobStore()) return 0;
+  const key = normaliseRel(rel);
+  if (!key) return 0;
+  try {
+    const metadata = await getStore(BLOB_STORE_NAME).getMetadata(key);
+    const updatedAt =
+      typeof metadata?.metadata?.updatedAt === "string" ? Date.parse(metadata.metadata.updatedAt) : NaN;
+    return Number.isFinite(updatedAt) ? updatedAt : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function listLibraryBlobAssetRels(): Promise<LibraryBlobAssetListItem[]> {
   if (!shouldUseNetlifyBlobStore()) return [];
   try {

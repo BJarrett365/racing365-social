@@ -3,8 +3,8 @@ import type { ContentFormat } from "@/types";
 /** Human labels in the editor / preview UI (internal scene ids unchanged). */
 export function sceneDisplayLabel(format: ContentFormat, sceneId: string): string {
   if (format === "fast-results") {
-    if (sceneId === "winner") return "Board 1";
-    if (sceneId === "placings") return "Board 2";
+    if (sceneId === "winner") return "Winner";
+    if (sceneId === "placings") return "Top four";
   }
   if (format === "teamtalk-news") {
     if (sceneId === "intro") return "intro";

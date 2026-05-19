@@ -2,7 +2,10 @@ import fs from "fs/promises";
 import path from "path";
 import { spawn } from "child_process";
 import { editorUploadDir, libraryBackgroundImagesDir, outputAudioDir, outputDir } from "@/app/lib/paths";
+import { isSafeContentId, normalizeContentIdForFilename } from "@/app/lib/editor-content-id";
 import { ffmpegBinary } from "@/app/features/video/ffmpeg-utils";
+
+export { isSafeContentId, normalizeContentIdForFilename };
 
 function normalizedUploadAbs(rel: string): string {
   return path.normalize(path.join(outputDir(), ...rel.split("/")));
@@ -11,23 +14,6 @@ function normalizedUploadAbs(rel: string): string {
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
 const MAX_VOICE_RECORD_BYTES = 50 * 1024 * 1024;
-
-export function isSafeContentId(contentId: string): boolean {
-  return Boolean(
-    contentId &&
-      !contentId.includes("..") &&
-      !contentId.includes("/") &&
-      !contentId.includes("\\"),
-  );
-}
-
-/** Same rules as `toContentId` in news-shorts build routes — filenames must match this id. */
-export function normalizeContentIdForFilename(input: string): string {
-  const raw = (input ?? "").trim();
-  if (!raw) return `news-${Date.now()}`;
-  const cleaned = raw.replace(/[^a-zA-Z0-9-_]/g, "").slice(0, 80);
-  return cleaned || `news-${Date.now()}`;
-}
 
 /**
  * Validates `rel` like `audio/{contentId}-voice-record.webm` and that it stays under `output/audio/`.

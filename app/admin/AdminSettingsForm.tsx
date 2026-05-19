@@ -8,6 +8,7 @@ type Status = {
   elevenlabs: { configured: boolean };
   openai: { configured: boolean };
   runwayml: { configured: boolean };
+  higgsfield: { configured: boolean };
   restream: { configured: boolean };
   mux: { configured: boolean };
   muxWebhook: { configured: boolean };
@@ -35,6 +36,9 @@ type Status = {
   openaiTtsVoice: string;
   openaiTtsModel: string;
   openaiImageModel: string;
+  higgsfieldApiKeyMasked?: string;
+  higgsfieldApiSecretMasked?: string;
+  higgsfieldImageEditEndpoint: string;
   elevenlabsVoiceId: string;
   elevenlabsModel: string;
   updatedAt: string | null;
@@ -102,6 +106,15 @@ export function AdminSettingsForm() {
   const [elevenlabsCheckMessage, setElevenlabsCheckMessage] = useState<string | null>(null);
   const [runwayCheckBusy, setRunwayCheckBusy] = useState(false);
   const [runwayCheckMessage, setRunwayCheckMessage] = useState<string | null>(null);
+  const [higgsfieldApiKey, setHiggsfieldApiKey] = useState("");
+  const [higgsfieldApiSecret, setHiggsfieldApiSecret] = useState("");
+  const [higgsfieldImageEditEndpoint, setHiggsfieldImageEditEndpoint] = useState("");
+  const [higgsfieldKeyDirty, setHiggsfieldKeyDirty] = useState(false);
+  const [higgsfieldSecretDirty, setHiggsfieldSecretDirty] = useState(false);
+  const [clearHiggsfieldKeys, setClearHiggsfieldKeys] = useState(false);
+  const [clearHiggsfieldImageEndpoint, setClearHiggsfieldImageEndpoint] = useState(false);
+  const [higgsfieldCheckBusy, setHiggsfieldCheckBusy] = useState(false);
+  const [higgsfieldCheckMessage, setHiggsfieldCheckMessage] = useState<string | null>(null);
   const [restreamCheckBusy, setRestreamCheckBusy] = useState(false);
   const [restreamCheckMessage, setRestreamCheckMessage] = useState<string | null>(null);
   const [muxCheckBusy, setMuxCheckBusy] = useState(false);
@@ -135,6 +148,7 @@ export function AdminSettingsForm() {
     setOpenaiTtsVoice(data.openaiTtsVoice || "");
     setOpenaiTtsModel(data.openaiTtsModel || "");
     setOpenaiImageModel(data.openaiImageModel || "");
+    setHiggsfieldImageEditEndpoint(data.higgsfieldImageEditEndpoint || "");
     setElevenlabsVoiceId(data.elevenlabsVoiceId || "");
     setElevenlabsModel(data.elevenlabsModel || "");
     setApifyYoutubeTranscriptActorId(data.apifyYoutubeTranscriptActorId || "apilabs/youtube-caption-transcription-scraper");
@@ -143,6 +157,8 @@ export function AdminSettingsForm() {
     setElevenlabsKeyDirty(false);
     setOpenaiKeyDirty(false);
     setRunwayKeyDirty(false);
+    setHiggsfieldKeyDirty(false);
+    setHiggsfieldSecretDirty(false);
     setRestreamIdDirty(false);
     setRestreamSecretDirty(false);
     setMuxIdDirty(false);
@@ -168,6 +184,8 @@ export function AdminSettingsForm() {
       const nextElevenlabs = elevenlabsApiKey.trim();
       const nextOpenAi = openaiApiKey.trim();
       const nextRunway = runwaymlApiKey.trim();
+      const nextHiggsfieldKey = higgsfieldApiKey.trim();
+      const nextHiggsfieldSecret = higgsfieldApiSecret.trim();
       const nextRestreamId = restreamClientId.trim();
       const nextRestreamSecret = restreamClientSecret.trim();
       const nextMuxId = muxTokenId.trim();
@@ -207,6 +225,9 @@ export function AdminSettingsForm() {
           openaiTtsVoice: openaiTtsVoice.trim() || undefined,
           openaiTtsModel: openaiTtsModel.trim() || undefined,
           openaiImageModel: openaiImageModel.trim() || undefined,
+          higgsfieldApiKey: higgsfieldKeyDirty ? nextHiggsfieldKey || undefined : undefined,
+          higgsfieldApiSecret: higgsfieldSecretDirty ? nextHiggsfieldSecret || undefined : undefined,
+          higgsfieldImageEditEndpoint: higgsfieldImageEditEndpoint.trim() || undefined,
           elevenlabsVoiceId: elevenlabsVoiceId.trim() || undefined,
           elevenlabsModel: elevenlabsModel.trim() || undefined,
           clearElevenlabsKey,
@@ -220,6 +241,8 @@ export function AdminSettingsForm() {
           clearApifyApiToken,
           clearSupabase,
           clearFfmpegPath,
+          clearHiggsfieldKeys,
+          clearHiggsfieldImageEndpoint,
         }),
       });
       const data = await res.json();
@@ -234,6 +257,16 @@ export function AdminSettingsForm() {
       }
       if (!clearRunwaymlKey && nextRunway && !refreshed.runwayml.configured) {
         throw new Error("Runway API secret save could not be verified.");
+      }
+      if (
+        !clearHiggsfieldKeys &&
+        higgsfieldKeyDirty &&
+        higgsfieldSecretDirty &&
+        nextHiggsfieldKey &&
+        nextHiggsfieldSecret &&
+        !refreshed.higgsfield?.configured
+      ) {
+        throw new Error("Higgsfield API key + secret save could not be verified.");
       }
       if (!clearDailyApiKey && nextDailyApiKey && !refreshed.daily?.configured) {
         throw new Error("Daily API key save could not be verified.");
@@ -253,6 +286,8 @@ export function AdminSettingsForm() {
       setElevenlabsApiKey("");
       setOpenaiApiKey("");
       setRunwaymlApiKey("");
+      setHiggsfieldApiKey("");
+      setHiggsfieldApiSecret("");
       setRestreamClientId("");
       setRestreamClientSecret("");
       setMuxTokenId("");
@@ -266,6 +301,8 @@ export function AdminSettingsForm() {
       setElevenlabsKeyDirty(false);
       setOpenaiKeyDirty(false);
       setRunwayKeyDirty(false);
+      setHiggsfieldKeyDirty(false);
+      setHiggsfieldSecretDirty(false);
       setRestreamIdDirty(false);
       setRestreamSecretDirty(false);
       setMuxIdDirty(false);
@@ -287,6 +324,8 @@ export function AdminSettingsForm() {
       setClearApifyApiToken(false);
       setClearSupabase(false);
       setClearFfmpegPath(false);
+      setClearHiggsfieldKeys(false);
+      setClearHiggsfieldImageEndpoint(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
     } finally {
@@ -393,6 +432,33 @@ export function AdminSettingsForm() {
       setError(e instanceof Error ? e.message : "Runway connection failed");
     } finally {
       setRunwayCheckBusy(false);
+    }
+  };
+
+  const testHiggsfieldConnection = async () => {
+    setHiggsfieldCheckBusy(true);
+    setHiggsfieldCheckMessage(null);
+    setError(null);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const tok = adminToken.trim();
+      if (tok) headers["x-admin-token"] = tok;
+      const res = await fetch("/api/admin/higgsfield-check", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          adminToken: tok || undefined,
+          higgsfieldApiKey: higgsfieldApiKey.trim() || undefined,
+          higgsfieldApiSecret: higgsfieldApiSecret.trim() || undefined,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; detail?: string; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error || "Higgsfield connection failed");
+      setHiggsfieldCheckMessage(data.detail ?? "Higgsfield credentials accepted.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Higgsfield connection failed");
+    } finally {
+      setHiggsfieldCheckBusy(false);
     }
   };
 
@@ -612,6 +678,12 @@ export function AdminSettingsForm() {
               Runway:{" "}
               <span className={status.runwayml.configured ? "text-[#22c55e]" : "text-slate-600"}>
                 {status.runwayml.configured ? "secret on file" : "not set"}
+              </span>
+            </li>
+            <li>
+              Higgsfield:{" "}
+              <span className={status.higgsfield.configured ? "text-[#22c55e]" : "text-slate-600"}>
+                {status.higgsfield.configured ? "key + secret on file" : "not set"}
               </span>
             </li>
             <li>
@@ -973,6 +1045,126 @@ export function AdminSettingsForm() {
               </div>
               {runwayCheckMessage && (
                 <p className="mt-2 text-xs normal-case text-[#22c55e]">{runwayCheckMessage}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[#1f2d26] bg-black/20 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-white">Higgsfield</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  AI image edit (Tools → AI Image Editor). Uses{" "}
+                  <code className="text-slate-500">HF_CREDENTIALS</code> or separate HF keys.
+                </p>
+              </div>
+              <span
+                className={`rounded-full border px-2 py-0.5 text-xs font-bold ${status?.higgsfield.configured ? "border-[#22c55e]/30 bg-[#22c55e]/10 text-[#22c55e]" : "border-slate-700 bg-slate-900/40 text-slate-500"}`}
+              >
+                {status?.higgsfield.configured ? "Keys on file" : "Not set"}
+              </span>
+            </div>
+            <label className="block text-xs font-semibold uppercase text-slate-500">
+              HF_API_KEY
+              <input
+                type="password"
+                className={inputClass}
+                value={
+                  clearHiggsfieldKeys
+                    ? ""
+                    : higgsfieldApiKey ||
+                      (higgsfieldKeyDirty ? "" : (status?.higgsfieldApiKeyMasked ?? ""))
+                }
+                onChange={(e) => {
+                  setHiggsfieldKeyDirty(true);
+                  setHiggsfieldApiKey(e.target.value);
+                }}
+                placeholder={
+                  status?.higgsfield.configured
+                    ? "Leave blank to keep existing, or paste new key id"
+                    : "Key id from Higgsfield Cloud"
+                }
+                autoComplete="off"
+              />
+            </label>
+            <label className="mt-2 block text-xs font-semibold uppercase text-slate-500">
+              HF_API_SECRET
+              <input
+                type="password"
+                className={inputClass}
+                value={
+                  clearHiggsfieldKeys
+                    ? ""
+                    : higgsfieldApiSecret ||
+                      (higgsfieldSecretDirty ? "" : (status?.higgsfieldApiSecretMasked ?? ""))
+                }
+                onChange={(e) => {
+                  setHiggsfieldSecretDirty(true);
+                  setHiggsfieldApiSecret(e.target.value);
+                }}
+                placeholder={
+                  status?.higgsfield.configured
+                    ? "Leave blank to keep existing, or paste new secret"
+                    : "API secret"
+                }
+                autoComplete="off"
+              />
+            </label>
+            <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+              <input
+                type="checkbox"
+                checked={clearHiggsfieldKeys}
+                onChange={(e) => setClearHiggsfieldKeys(e.target.checked)}
+              />
+              Remove stored Higgsfield key + secret
+            </label>
+            <label className="mt-3 block text-xs font-semibold uppercase text-slate-500">
+              HIGGSFIELD_IMAGE_EDIT_ENDPOINT (optional)
+              <input
+                type="text"
+                className={inputClass}
+                value={higgsfieldImageEditEndpoint}
+                onChange={(e) => setHiggsfieldImageEditEndpoint(e.target.value)}
+                placeholder="flux-pro/kontext/max/text-to-image"
+                autoComplete="off"
+              />
+            </label>
+            <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+              <input
+                type="checkbox"
+                checked={clearHiggsfieldImageEndpoint}
+                onChange={(e) => setClearHiggsfieldImageEndpoint(e.target.checked)}
+              />
+              Clear stored endpoint override (defaults apply)
+            </label>
+            <div className="mt-3 rounded-lg border border-[#1f2d26] bg-[#0a0e0c] p-3">
+              <p className="text-[11px] normal-case text-slate-400">
+                Create credentials at{" "}
+                <a className="text-[#22c55e] hover:underline" href="https://cloud.higgsfield.ai/" target="_blank" rel="noreferrer noopener">
+                  cloud.higgsfield.ai
+                </a>
+                . Source images must be reachable over HTTPS (production URL or tunnel); localhost URLs will not work
+                for remote fetch.
+              </p>
+              <p className="mt-2 text-[11px] normal-case text-slate-500">
+                &quot;Test&quot; calls status for a fake job id: <strong className="text-slate-400">404 means your keys worked</strong> (no job,
+                no charge). Only 401/403 mean invalid credentials.
+              </p>
+              <a
+                className="mt-2 inline-flex text-[11px] font-semibold normal-case text-[#22c55e] hover:underline"
+                href="https://docs.higgsfield.ai/"
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                Higgsfield API docs →
+              </a>
+              <div className="mt-3">
+                <R365Button variant="ghost" onClick={() => void testHiggsfieldConnection()} disabled={higgsfieldCheckBusy}>
+                  {higgsfieldCheckBusy ? "Testing Higgsfield…" : "Test Higgsfield credentials"}
+                </R365Button>
+              </div>
+              {higgsfieldCheckMessage && (
+                <p className="mt-2 text-xs normal-case text-[#22c55e]">{higgsfieldCheckMessage}</p>
               )}
             </div>
           </div>

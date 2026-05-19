@@ -276,15 +276,6 @@ const templateUiCss = (h: number) => `
     padding: ${h > 1600 ? 44 : 36}px ${h > 1600 ? 40 : 32}px;
     box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   }
-  .fast-winner-panel .kicker {
-    font-size: ${h > 1600 ? 48 : 38}px;
-    line-height: 1.15;
-    margin-bottom: ${h > 1600 ? 22 : 18}px;
-    color: #ffffff;
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
   .fast-winner-panel h1 {
     margin-bottom: 14px;
     justify-content: center;
@@ -397,14 +388,6 @@ const templateUiCss = (h: number) => `
     max-width: ${h > 1600 ? 920 : 780}px;
     margin: 0 auto;
     text-align: center;
-  }
-  .fast-placings-stack .kicker {
-    font-size: ${h > 1600 ? 48 : 38}px;
-    line-height: 1.15;
-    margin-bottom: ${h > 1600 ? 20 : 16}px;
-    color: #ffffff;
-    font-weight: 800;
-    letter-spacing: 0.12em;
   }
   .fast-placings-stack .card {
     border-radius: 20px;
@@ -3149,7 +3132,6 @@ export function renderHtmlTemplate(templateId: string, data: Data): string {
         "fast-winner",
         `<div class="fast-scene-shell">
         <div class="fast-winner-panel">
-        <div class="kicker" style="${esc(tplAnimInlineStyle(anim?.sceneKicker))}">Board 1</div>
         <div class="fast-board-list-card">
           <div class="fast-board-row">
             <div class="fast-board-left">
@@ -3187,7 +3169,7 @@ export function renderHtmlTemplate(templateId: string, data: Data): string {
       return wrap(
         "fast-placings",
         `<div class="fast-scene-shell">
-        <div class="fast-placings-stack"><div class="kicker" style="${esc(tplAnimInlineStyle(anim?.sceneKicker))}">Board 2</div><div class="card" style="${esc(tplAnimInlineStyle(anim?.card))}">${rows}</div></div>
+        <div class="fast-placings-stack"><div class="card" style="${esc(tplAnimInlineStyle(anim?.card))}">${rows}</div></div>
         </div>`,
         w,
         h,

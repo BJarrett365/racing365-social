@@ -63,13 +63,19 @@ function matchCopyBasePrompt(mode: MatchCopyMode): string {
   }
 }
 
-function userClosingLine(mode: MatchCopyMode): string {
+function userClosingLine(mode: MatchCopyMode, includePlayerRatings?: boolean): string {
   const htmlTail = " as **HTML** only (see OUTPUT FORMAT in system). British English.";
   if (mode === "preview") return `Produce a complete match preview${htmlTail}`;
   if (mode === "sixteen_conclusions") {
     return `Produce a complete Football365-style **16 Conclusions** article${htmlTail} Include **exactly sixteen** numbered conclusion headings (\`<h3>\`), **1** through **16**, each with supporting \`<p>\` paragraphs, following the **16 Conclusions** system prompt.`;
   }
-  return `Produce a complete match report${htmlTail}`;
+  let line = `Produce a complete match report${htmlTail}`;
+  if (includePlayerRatings !== false) {
+    line += `
+
+MANDATORY — PLAYER RATINGS FOR **BOTH** TEAMS: After Key moments, include \`<h2>Player ratings</h2>\` with **home and away** covered to the **same standard** whenever **FIXTURE_JSON** lists both squads (starters and notable subs from the feed). Use \`<h3>\` per team or two HTML \`<table>\` blocks; numeric scores (e.g. 1–10) plus a short justification per player. Do **not** omit the away side (or home) when both line-ups are present.`;
+  }
+  return line;
 }
 
 async function openAiChatMarkdown(systemPrompt: string, userPrompt: string): Promise<string> {
@@ -183,11 +189,11 @@ STANDFIRST / DEK — LOOP_FEED includes standout angles (see digest header): lea
 EDITOR OVERRIDE:
 - Do not include a numeric player-ratings table or 1–10 scores.
 - You may still name standout performers in prose if supported by the feed.`;
-  } else if (opts.mode === "report") {
+  } else if (opts.mode === "report" && opts.includePlayerRatings !== false) {
     system += `
 
-EDITOR REMINDER:
-- Numeric ratings (when produced): cover **both** sides — home and away — with matching depth whenever both line-ups exist in FIXTURE_JSON. Present ratings as an HTML **\`<table>\`** or structured **\`<h3>\`** blocks per team — never raw Markdown tables.`;
+EDITOR REMINDER — PLAYER RATINGS:
+- This article **must** include a **Player ratings** section for **both** teams when FIXTURE_JSON contains both teams’ line-ups (or squad lists). Same structure and depth for home and away (tables or \`<h3>\` per team). Omit ratings for a side **only** if that side has no named players in the feed; never invent players or scores.`;
   }
 
   if (opts.journalistNotes?.trim()) {
@@ -246,7 +252,7 @@ LOOP_FEED_JSON (match-day curated social — **supplementary**; attribution + ou
 ${loopBlock || "(none)"}`
       : "";
 
-  const closing = userClosingLine(opts.mode);
+  const closing = userClosingLine(opts.mode, opts.includePlayerRatings);
   const user =
     loopBlocksWhenPostsFirst
       ? `${loopBlocksWhenPostsFirst}

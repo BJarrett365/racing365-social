@@ -55,6 +55,13 @@ const studioTools: ToolCard[] = [
     status: "Live",
   },
   {
+    name: "Image Editor",
+    description:
+      "Canvas-first editing in the browser: brightness, contrast, saturation, rotate, flip, crop, export PNG — optional Higgsfield AI assist below the fold.",
+    href: "/tools/image-editor",
+    status: "Live",
+  },
+  {
     name: "YouTube Video Download",
     description: "Download permitted YouTube source videos for owned or licensed workflows.",
     href: "/tools",
@@ -82,12 +89,6 @@ const studioTools: ToolCard[] = [
     name: "Quote Clip Finder",
     description: "Find quote-led clips with suggested captions and timestamps.",
     href: "/tools/youtube-script-importer",
-    status: "Coming soon",
-  },
-  {
-    name: "Image Generator",
-    description: "Generate images for editorial and social workflows.",
-    href: "/tools",
     status: "Coming soon",
   },
   {

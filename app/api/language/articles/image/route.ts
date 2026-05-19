@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
+import { absoluteUrlWithAppBasePath } from "@/app/lib/app-base-path";
 import { readLibraryBlobAsset } from "@/app/lib/library-blob-assets";
 import { saveLanguageArticleImageToLibrary } from "@/app/lib/language-studio/library-images";
 import { readLanguageStudioData, writeLanguageStudioData } from "@/app/lib/language-studio/store";
@@ -140,7 +141,7 @@ export async function POST(req: Request) {
       );
     }
     article.imageLibraryRel = rel;
-    article.imageUrl = undefined;
+    article.imageUrl = absoluteUrlWithAppBasePath(req, `/api/file?rel=${encodeURIComponent(rel)}`);
     article.updatedAt = now;
     data.articles[article.id] = article;
     await writeLanguageStudioData(data);

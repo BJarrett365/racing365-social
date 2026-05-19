@@ -12,6 +12,10 @@ import type {
 } from "@/app/lib/parseRacecardUrl";
 import {
   normalizePlanetSportGetRace,
+  oddsFromPlanetSportRunner,
+  planetSportRunnersByTab,
+  resolvedSilkUrlForParsedRunner,
+  silkUrlFromPlanetSportRunner,
   validateRacecardTemplateForImport,
 } from "@/app/lib/parseRacecardUrl";
 
@@ -22,13 +26,9 @@ function scratchedRow(r: PlanetSportRunnerRow): boolean {
   return s === "Y" || s === "TRUE";
 }
 
+/** Use shared PlanetSport row mapper (SP / StartingPrice for GetResults, WinOdds for pre-race). */
 function oddsFromRow(r: PlanetSportRunnerRow): string {
-  const direct =
-    String(r.WinOdds ?? "").trim() ||
-    String(r.FixOdds ?? "").trim() ||
-    String(r.MorningLine ?? "").trim() ||
-    String(r.SP ?? "").trim();
-  return direct || "—";
+  return oddsFromPlanetSportRunner(r);
 }
 
 function silkFromUrl(url?: string): RunnerSilks | undefined {
@@ -69,10 +69,12 @@ export function buildNextOffBundleDraftFromPlanetSport(
     const h = r.horseName.trim();
     if (h && !names.includes(h)) names.push(h);
   }
+  const byTab = planetSportRunnersByTab(api);
   const tips: Tip[] = names.slice(0, 3).map((horseName, i) => {
     const pr =
       preview.runners.find((x) => x.horseName === horseName) ?? preview.runners[Math.min(i, preview.runners.length - 1)]!;
-    const silks: RunnerSilks | undefined = pr.silkUrl ? { imageUrl: pr.silkUrl, provider: "import" } : undefined;
+    const silkUrl = resolvedSilkUrlForParsedRunner(pr, api, byTab);
+    const silks: RunnerSilks | undefined = silkFromUrl(silkUrl);
     return {
       horse: pr.horseName,
       odds: pr.odds && pr.odds !== "—" ? pr.odds : "—",
@@ -92,7 +94,16 @@ function officialPlace(r: PlanetSportRunnerRow): number | null {
     return null;
   };
   const o = r as Record<string, unknown>;
-  for (const key of ["OfficialPlace", "Place", "RacePlace", "FinishingPosition", "FP", "FinishPos"] as const) {
+  for (const key of [
+    "OfficialPlace",
+    "Place",
+    "RacePlace",
+    "FinishingPosition",
+    "FP",
+    "FinishPos",
+    "WFP",
+    "wfp",
+  ] as const) {
     const n = tryNum(o[key]);
     if (n != null) return n;
   }
@@ -102,6 +113,7 @@ function officialPlace(r: PlanetSportRunnerRow): number | null {
 /** When the API has no finishing order, order placings from Selections tab order then remaining runners. */
 function fallbackPlacingsFromPreview(preview: RacecardTemplatePreview): Placing[] {
   const api = preview.rawSource as PlanetSportRacePayload | undefined;
+  const byTab = planetSportRunnersByTab(api);
   const selections = String(api?.Selections ?? "");
   const byNum = new Map<string, ParsedRacecardRunner>();
   for (const pr of preview.runners) {
@@ -117,7 +129,7 @@ function fallbackPlacingsFromPreview(preview: RacecardTemplatePreview): Placing[
       position: placings.length + 1,
       horse: pr.horseName,
       sp: pr.odds && pr.odds !== "—" ? pr.odds : "—",
-      silks: pr.silkUrl ? { imageUrl: pr.silkUrl, provider: "import" } : undefined,
+      silks: silkFromUrl(resolvedSilkUrlForParsedRunner(pr, api, byTab)),
     });
     if (placings.length >= 4) break;
   }
@@ -128,7 +140,7 @@ function fallbackPlacingsFromPreview(preview: RacecardTemplatePreview): Placing[
       position: placings.length + 1,
       horse: pr.horseName,
       sp: pr.odds && pr.odds !== "—" ? pr.odds : "—",
-      silks: pr.silkUrl ? { imageUrl: pr.silkUrl, provider: "import" } : undefined,
+      silks: silkFromUrl(resolvedSilkUrlForParsedRunner(pr, api, byTab)),
     });
   }
   while (placings.length < 4) {
@@ -153,7 +165,7 @@ function placingsFromPlanetSport(api: PlanetSportRacePayload, preview: RacecardT
         position: p,
         horse: horse || "—",
         sp: oddsFromRow(r),
-        silks: silkFromUrl(String(r.Silk ?? "").trim() || undefined),
+        silks: silkFromUrl(silkUrlFromPlanetSportRunner(r, api)),
       };
     });
   }

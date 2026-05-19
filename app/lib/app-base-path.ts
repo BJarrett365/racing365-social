@@ -13,6 +13,11 @@ export function withAppPathPrefix(path: string): string {
   return `${APP_PATH_PREFIX}${p}`;
 }
 
+/** Browser `fetch` URL for same-origin API routes (respects {@link APP_PATH_PREFIX}). */
+export function studioApiPath(path: string): string {
+  return withAppPathPrefix(path);
+}
+
 /** Strip the app prefix so route logic can use root-relative paths like /api/... */
 export function stripAppPathPrefix(pathname: string): string {
   if (!APP_PATH_PREFIX) return pathname;

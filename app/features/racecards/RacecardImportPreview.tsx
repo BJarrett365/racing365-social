@@ -1,9 +1,15 @@
 "use client";
 
+import { useMemo } from "react";
 import { RaceSilkPreview } from "@/app/components/RaceSilkPreview";
 import { R365Button } from "@/app/components/R365Button";
+import {
+  planetSportRunnersByTab,
+  resolvedSilkUrlForParsedRunner,
+  type PlanetSportRacePayload,
+  type RacecardTemplatePreview,
+} from "@/app/lib/parseRacecardUrl";
 import { defaultSilksForIndex } from "@/app/lib/silk-presets";
-import type { RacecardTemplatePreview } from "@/app/lib/parseRacecardUrl";
 
 type Props = {
   preview: RacecardTemplatePreview;
@@ -23,6 +29,8 @@ export function RacecardImportPreview({
   onCancel,
 }: Props) {
   const show = preview.runners.slice(0, 5);
+  const api = preview.rawSource as PlanetSportRacePayload | undefined;
+  const byTab = useMemo(() => planetSportRunnersByTab(api), [api]);
 
   return (
     <div className="space-y-4">
@@ -51,14 +59,16 @@ export function RacecardImportPreview({
           </>
         ) : null}
         <ul className="mt-4 space-y-2 text-sm">
-          {show.map((r, i) => (
+          {show.map((r, i) => {
+            const silkUrl = resolvedSilkUrlForParsedRunner(r, api, byTab);
+            return (
             <li
               key={r.id}
               className="flex items-center justify-between gap-3 text-slate-300"
             >
               <span className="flex min-w-0 items-center gap-2.5">
                 <RaceSilkPreview
-                  silks={r.silkUrl ? { imageUrl: r.silkUrl } : defaultSilksForIndex(i)}
+                  silks={silkUrl ? { imageUrl: silkUrl } : defaultSilksForIndex(i)}
                   heightPx={28}
                 />
                 <span className="truncate">
@@ -67,7 +77,8 @@ export function RacecardImportPreview({
               </span>
               <span className="shrink-0 font-bold text-[#22c55e]">{r.odds ?? "—"}</span>
             </li>
-          ))}
+            );
+          })}
         </ul>
         {preview.runners.length > 5 ? (
           <p className="mt-2 text-xs text-slate-500">+ {preview.runners.length - 5} more in editor…</p>

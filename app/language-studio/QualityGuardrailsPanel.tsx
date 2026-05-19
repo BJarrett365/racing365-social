@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { LanguageQualityCheck, LanguageQualityCheckIssue, LanguageTranslation } from "@/app/lib/language-studio/types";
+import { studioApiPath, withAppPathPrefix } from "@/app/lib/app-base-path";
 
 type Me = { user?: { role: string; email: string } };
 type PendingFix = {
@@ -53,7 +54,7 @@ export function QualityGuardrailsPanel({
       onBlockedChange(false);
       return;
     }
-    const res = await fetch(`/api/language/quality-checks?translationId=${encodeURIComponent(translationId)}`);
+    const res = await fetch(studioApiPath(`/api/language/quality-checks?translationId=${encodeURIComponent(translationId)}`));
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Quality check failed");
     setCheck(data.qualityCheck);
@@ -63,7 +64,7 @@ export function QualityGuardrailsPanel({
   }, [onBlockedChange, translationId]);
 
   useEffect(() => {
-    void fetch("/api/auth/me").then((res) => (res.ok ? res.json() : null)).then(setMe).catch(() => setMe(null));
+    void fetch(withAppPathPrefix("/api/auth/me")).then((res) => (res.ok ? res.json() : null)).then(setMe).catch(() => setMe(null));
   }, []);
 
   useEffect(() => {
@@ -77,7 +78,7 @@ export function QualityGuardrailsPanel({
   const updateIssue = async (issueId: string | undefined, action: "ignore" | "ignore-all" | "escalate" | "escalate-all") => {
     if (!check) return;
     if (action === "escalate" || action === "escalate-all") setFixing(true);
-    const res = await fetch("/api/language/quality-checks", {
+    const res = await fetch(studioApiPath("/api/language/quality-checks"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ checkId: check.id, issueId, action, preview: action === "escalate" || action === "escalate-all" }),
@@ -105,7 +106,7 @@ export function QualityGuardrailsPanel({
   const applyPendingFix = async () => {
     if (!check || !pendingFix) return;
     setFixing(true);
-    const res = await fetch("/api/language/quality-checks", {
+    const res = await fetch(studioApiPath("/api/language/quality-checks"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -129,7 +130,7 @@ export function QualityGuardrailsPanel({
 
   const restoreSuppressedIssueType = async (issueType: LanguageQualityCheckIssue["type"]) => {
     setFixing(true);
-    const res = await fetch("/api/language/quality-checks", {
+    const res = await fetch(studioApiPath("/api/language/quality-checks"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "restore-issue-type", issueType }),
@@ -142,7 +143,7 @@ export function QualityGuardrailsPanel({
 
   const clearAllSuppressedIssueTypes = async () => {
     setFixing(true);
-    const res = await fetch("/api/language/quality-checks", {
+    const res = await fetch(studioApiPath("/api/language/quality-checks"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "clear-all-suppressed-issue-types" }),

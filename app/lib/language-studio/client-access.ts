@@ -124,6 +124,7 @@ export function publicTranslationRow(article: LanguageArticle, translation: Lang
     slug: translation.slug,
     approvedAt: translation.approvedAt,
     updatedAt: translation.updatedAt,
+    socialPosts: translation.socialPosts ?? [],
   };
 }
 
@@ -170,6 +171,20 @@ export function buildClientFeedXml(rows: Array<{ article: LanguageArticle; trans
         metaDescription: { __cdata: translation.metaDescription },
         slug: translation.slug,
         tags: { tag: translation.tags },
+        socialPosts: {
+          post: (translation.socialPosts ?? []).map((post) => ({
+            platform: post.platform,
+            headline: { __cdata: post.headline ?? "" },
+            text: { __cdata: post.text },
+            callToAction: { __cdata: post.callToAction ?? "" },
+            hashtags: { tag: post.hashtags ?? [] },
+            imageLibraryRel: post.imageLibraryRel ?? "",
+            imageUrl: post.imageUrl ?? "",
+            videoLibraryRel: post.videoLibraryRel ?? "",
+            videoUrl: post.videoUrl ?? "",
+            videoLayout: post.videoLayout ?? "",
+          })),
+        },
         approvedAt: translation.approvedAt ?? "",
         updatedAt: translation.updatedAt,
       })),

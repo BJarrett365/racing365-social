@@ -1,5 +1,10 @@
 /**
- * Start Next.js dev (default distDir `.next-dev` so stale/corrupt `.next` from other tools doesn’t break dev).
+ * Start Next.js dev (default distDir `.next`).
+ *
+ * **Do not default to `.next-dev` here:** with webpack + custom distDir, this app has been observed
+ * to compile `/login` while **never emitting or serving** `/_next/static/chunks/*` (all 404 → fully
+ * unstyled pages). Override with `NEXT_DIST_DIR=.next-dev` only if you understand that risk; prefer
+ * `npm run clean` if `.next` is stale from another tool.
  *
  * Frees the dev port, then starts `next dev`. Default bundler is webpack: Turbopack (`--turbo`)
  * has intermittently emitted broken server chunks (e.g. missing `[turbopack]_runtime.js`), which
@@ -31,7 +36,7 @@ try {
   console.error("[run-dev] Could not read package.json — run from the project root.", e);
   process.exit(1);
 }
-const distDir = (process.env.NEXT_DIST_DIR || ".next-dev").trim() || ".next-dev";
+const distDir = (process.env.NEXT_DIST_DIR || ".next").trim() || ".next";
 const nextDir = join(root, distDir);
 const devPort = process.env.PORT || "8081";
 /**

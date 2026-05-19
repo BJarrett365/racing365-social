@@ -2,6 +2,11 @@ import fs from "fs/promises";
 import path from "path";
 import { assertAllowedLoopFeedUrl, toLoopTopicContentUrl } from "@/app/lib/data-studio/loop-feed";
 import { localJsonStorePath } from "@/app/lib/local-json-store-dir";
+import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
+
+/** Matches Language Studio pattern — durable JSON on Netlify without writable `/var/task` or fragmented `/tmp`. */
+const BLOB_STORE_NAME = "plexa-loop-feed-teams";
+const BLOB_KEY = "teams.json";
 
 function storeFile(): string {
   return localJsonStorePath("loop-feed-teams.json");
@@ -41,25 +46,47 @@ function newTeamId(): string {
   return `lteam-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function normalizeTeams(parsed: LoopFeedTeamsFile | null): LoopFeedTeamRow[] {
+  const rows = Array.isArray(parsed?.teams) ? parsed!.teams : [];
+  return rows.filter((r) => r && typeof r.id === "string" && typeof r.topicUrl === "string");
+}
+
+async function persistTeams(teams: LoopFeedTeamRow[]): Promise<void> {
+  const payload: LoopFeedTeamsFile = { teams };
+  if (shouldUseNetlifyBlobStore()) {
+    await writeJsonBlob(BLOB_STORE_NAME, BLOB_KEY, payload);
+    return;
+  }
+  const file = storeFile();
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, JSON.stringify(payload, null, 2), "utf-8");
+}
+
 export async function readLoopFeedTeams(): Promise<LoopFeedTeamRow[]> {
+  if (shouldUseNetlifyBlobStore()) {
+    const data = await readJsonBlob<LoopFeedTeamsFile>(BLOB_STORE_NAME, BLOB_KEY);
+    const rows = normalizeTeams(data);
+    if (rows.length > 0 || (data && Array.isArray(data.teams))) {
+      return rows;
+    }
+    await persistTeams(DEFAULT_TEAMS);
+    return [...DEFAULT_TEAMS];
+  }
+
   const file = storeFile();
   try {
     const raw = await fs.readFile(file, "utf-8");
     const parsed = JSON.parse(raw) as LoopFeedTeamsFile;
-    const rows = Array.isArray(parsed.teams) ? parsed.teams : [];
-    return rows.filter((r) => r && typeof r.id === "string" && typeof r.topicUrl === "string");
+    return normalizeTeams(parsed);
   } catch {
     await fs.mkdir(path.dirname(file), { recursive: true });
-    await writeLoopFeedTeams(DEFAULT_TEAMS);
+    await persistTeams(DEFAULT_TEAMS);
     return [...DEFAULT_TEAMS];
   }
 }
 
 async function writeLoopFeedTeams(teams: LoopFeedTeamRow[]): Promise<void> {
-  const file = storeFile();
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  const payload: LoopFeedTeamsFile = { teams };
-  await fs.writeFile(file, JSON.stringify(payload, null, 2), "utf-8");
+  await persistTeams(teams);
 }
 
 export async function upsertLoopFeedTeam(

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
@@ -22,9 +21,30 @@ import {
   F365_PREVIEW_SPEC,
   type ArticleHeroSource,
 } from "@/app/lib/language-studio/f365-text-to-image-prompts";
-import { RUNWAY_T2I_PROMPT_MAX, RUNWAY_T2I_RATIOS_NEWS_SHORTS } from "@/app/lib/runway-text-to-image-constants";
+import { RUNWAY_T2I_PROMPT_MAX, RUNWAY_T2I_RATIOS_NEWS_SHORTS, formatRunwayT2iRatioLabel } from "@/app/lib/runway-text-to-image-constants";
 import { LANGUAGE_SPORT_CONTEXTS, type LanguageSportContext } from "@/app/lib/language-studio/types";
-import { withAppPathPrefix } from "@/app/lib/app-base-path";
+import { studioApiPath, withAppPathPrefix } from "@/app/lib/app-base-path";
+import { isSafeContentId, normalizeContentIdForFilename } from "@/app/lib/editor-content-id";
+
+function formatClientError(e: unknown): string {
+  if (e instanceof Error && e.message.trim()) return e.message;
+  if (typeof e === "string" && e.trim()) return e;
+  if (e && typeof e === "object" && "message" in e && typeof (e as { message: unknown }).message === "string") {
+    const m = (e as { message: string }).message.trim();
+    if (m) return m;
+  }
+  return "Publish failed";
+}
+
+/** Content id for saving Runway stills under images/library/{id}/ — safe for import-task API. */
+function runwayImportContentId(publishArticleId: string | null | undefined): string {
+  const raw = publishArticleId?.trim();
+  if (raw) {
+    const n = normalizeContentIdForFilename(raw);
+    if (isSafeContentId(n) && n.length > 0) return n;
+  }
+  return `ds-runway-${Date.now().toString(36)}`;
+}
 
 function articleSportForVertical(vertical: SportVerticalId): LanguageSportContext | null {
   switch (vertical) {
@@ -67,7 +87,6 @@ export type FixtureFetchPanelProps = {
 };
 
 export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFetchPanelProps) {
-  const router = useRouter();
   const [sportId, setSportId] = useState("1");
   const [matchId, setMatchId] = useState("");
   const [presetLabel, setPresetLabel] = useState("");
@@ -92,7 +111,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
   const [publishOkId, setPublishOkId] = useState<string | null>(null);
 
   /** Text-to-image from WP HTML draft (same Football365 prompts as Language Studio). */
-  const [dataT2iProvider, setDataT2iProvider] = useState<"runway" | "openai">("openai");
+  const [dataT2iProvider, setDataT2iProvider] = useState<"runway" | "openai" | "higgsfield">("openai");
   const [dataT2iPrompt, setDataT2iPrompt] = useState("");
   const [dataT2iRatio, setDataT2iRatio] = useState("1280:720");
   const [dataT2iBusy, setDataT2iBusy] = useState(false);
@@ -121,9 +140,9 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
     void (async () => {
       try {
         const [govRes, brandRes, loopRes] = await Promise.all([
-          fetch("/api/language/governance"),
-          fetch("/api/language/source-brands"),
-          fetch("/api/tools/loop-feed-teams"),
+          fetch(studioApiPath("/api/language/governance")),
+          fetch(studioApiPath("/api/language/source-brands")),
+          fetch(studioApiPath("/api/tools/loop-feed-teams")),
         ]);
         const gov = govRes.ok ? ((await govRes.json()) as { journalistProfiles?: GovernanceJournalist[] }) : {};
         const sb = brandRes.ok ? ((await brandRes.json()) as { sourceBrands?: SourceBrandRow[] }) : {};
@@ -259,7 +278,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
     setKeyPaths([]);
     try {
       const qs = new URLSearchParams({ sport_id: sid, match_id: mid });
-      const res = await fetch(`/api/data-studio/fixture?${qs.toString()}`, { method: "GET" });
+      const res = await fetch(`${studioApiPath("/api/data-studio/fixture")}?${qs.toString()}`, { method: "GET" });
       const body = (await res.json()) as {
         ok?: boolean;
         error?: string;
@@ -366,7 +385,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
     const au = loopAwayUrl.trim();
     if (hu) sides.push({ sideLabel: loopHomeLabel.trim() || "Home", url: hu });
     if (au) sides.push({ sideLabel: loopAwayLabel.trim() || "Away", url: au });
-    const res = await fetch("/api/data-studio/loop-feed", {
+    const res = await fetch(studioApiPath("/api/data-studio/loop-feed"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ contextDate: loopContextDate, sides }),
@@ -415,7 +434,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
           setLoopFetchError(null);
         }
 
-        const res = await fetch("/api/data-studio/match-copy", {
+        const res = await fetch(studioApiPath("/api/data-studio/match-copy"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -473,7 +492,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
     setPublishError(null);
     setPublishOkId(null);
     try {
-      const res = await fetch("/api/data-studio/language-publish", {
+      const res = await fetch(studioApiPath("/api/data-studio/language-publish"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -486,17 +505,20 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
           match_id: matchId.trim() || undefined,
         }),
       });
-      const body = (await res.json()) as { ok?: boolean; error?: string; articleId?: string };
+      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; articleId?: string };
       if (!res.ok || body.ok === false) {
         setPublishError(body.error || `Publish failed (${res.status})`);
         return;
       }
       if (body.articleId) {
         setPublishOkId(body.articleId);
-        router.push(`/language-studio?tab=Rewrite&articleId=${encodeURIComponent(body.articleId)}`);
+        /** Full navigation avoids intermittent client-transition runtime errors (e.g. `[object Event]` overlay) after publish. */
+        const href = `/language-studio?tab=Rewrite&articleId=${encodeURIComponent(body.articleId)}`;
+        window.location.assign(withAppPathPrefix(href));
       }
     } catch (e) {
-      setPublishError(e instanceof Error ? e.message : "Publish failed");
+      console.error(e);
+      setPublishError(formatClientError(e));
     } finally {
       setPublishLoading(false);
     }
@@ -508,7 +530,6 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
     journalistProfileId,
     sportId,
     matchId,
-    router,
   ]);
 
   const applyDataF365MatchReportPrompt = useCallback(() => {
@@ -516,7 +537,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
     const v = f365HeroVarsFromArticle(draftArticleHeroSource);
     const snip = { standfirst: draftArticleHeroSource.standfirst, body: draftArticleHeroSource.body };
     setDataT2iPrompt(
-      dataT2iProvider === "openai"
+      dataT2iProvider === "openai" || dataT2iProvider === "higgsfield"
         ? buildF365MatchReportOpenAiPrompt(v, snip)
         : buildF365MatchReportRunwayPrompt(v, { narrativeHook: f365RunwayArticleHook(snip) }),
     );
@@ -525,7 +546,9 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
     setDataT2iMessage(
       dataT2iProvider === "openai"
         ? "Match-report prompt filled from draft (OpenAI long brief)."
-        : "Match-report Runway prompt filled from draft (compact + hook).",
+        : dataT2iProvider === "higgsfield"
+          ? "Match-report prompt filled from draft (Higgsfield — OpenAI-style long brief)."
+          : "Match-report Runway prompt filled from draft (compact + hook).",
     );
   }, [draftArticleHeroSource, dataT2iProvider]);
 
@@ -534,7 +557,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
     const pv = f365PreviewVarsFromArticle(draftArticleHeroSource);
     const snip = { standfirst: draftArticleHeroSource.standfirst, body: draftArticleHeroSource.body };
     setDataT2iPrompt(
-      dataT2iProvider === "openai"
+      dataT2iProvider === "openai" || dataT2iProvider === "higgsfield"
         ? buildF365PreviewOpenAiPrompt(pv, snip)
         : buildF365PreviewRunwayPrompt(pv, { narrativeHook: f365RunwayArticleHook(snip) }),
     );
@@ -543,7 +566,9 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
     setDataT2iMessage(
       dataT2iProvider === "openai"
         ? "Preview / thumbnail prompt filled from draft (OpenAI long brief)."
-        : "Preview Runway prompt filled from draft.",
+        : dataT2iProvider === "higgsfield"
+          ? "Preview / thumbnail prompt filled from draft (Higgsfield — OpenAI-style long brief)."
+          : "Preview Runway prompt filled from draft.",
     );
   }, [draftArticleHeroSource, dataT2iProvider]);
 
@@ -563,9 +588,11 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
     setDataT2iBusy(true);
     setDataT2iError(null);
     setDataT2iMessage(null);
+    setDataT2iImageUrl(null);
+    setDataT2iImageLibraryRel(null);
     try {
       if (dataT2iProvider === "openai") {
-        const res = await fetch("/api/openai/text-to-image", {
+        const res = await fetch(studioApiPath("/api/openai/text-to-image"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -580,17 +607,39 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
         setDataT2iImageLibraryRel(data.imageLibraryRel?.trim() ? data.imageLibraryRel.trim() : null);
         setDataT2iMessage(
           publishOkId
-            ? "Image ready — attach to the saved article below or copy the URL."
-            : "Image ready — copy URL, or use Send to Language Studio then attach from here.",
+            ? "OpenAI image ready — attach to the saved article below or copy the URL."
+            : "OpenAI image ready — copy URL, or use Send to Article Studio then attach from here.",
         );
         return;
       }
+
+      if (dataT2iProvider === "higgsfield") {
+        const res = await fetch(studioApiPath("/api/higgsfield/text-to-image"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: promptText,
+            aspectRatio: "16:9",
+          }),
+        });
+        const data = (await res.json()) as { error?: string; imageUrl?: string; imageLibraryRel?: string; ok?: boolean };
+        if (!res.ok || !data.imageUrl) throw new Error(data.error || "Higgsfield image generation failed.");
+        setDataT2iImageUrl(data.imageUrl);
+        setDataT2iImageLibraryRel(data.imageLibraryRel?.trim() ? data.imageLibraryRel.trim() : null);
+        setDataT2iMessage(
+          publishOkId
+            ? "Higgsfield image ready — attach to the saved article below or copy the URL."
+            : "Higgsfield image ready — copy URL, or use Send to Article Studio then attach from here.",
+        );
+        return;
+      }
+
       if (promptText.length > RUNWAY_T2I_PROMPT_MAX) {
         throw new Error(
-          `Runway allows at most ${RUNWAY_T2I_PROMPT_MAX} characters (this prompt is ${promptText.length}). Choose Runway above and click Match report hero or Preview hero again for a compact prompt — or switch to OpenAI for the long Football365 brief.`,
+          `Runway allows at most ${RUNWAY_T2I_PROMPT_MAX} characters (this prompt is ${promptText.length}). Choose Runway above and click Match report hero or Preview hero again for a compact prompt — or switch to OpenAI or Higgsfield for the long Football365 brief.`,
         );
       }
-      const res = await fetch("/api/runway/text-to-image", {
+      const startRes = await fetch(studioApiPath("/api/runway/text-to-image"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -598,9 +647,52 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
           ratio: dataT2iRatio,
         }),
       });
-      const data = (await res.json()) as { error?: string; taskId?: string };
-      if (!res.ok) throw new Error(data.error || "Runway Text to Image failed.");
-      setDataT2iMessage(`Runway started (${dataT2iRatio}). Task id: ${data.taskId ?? "unknown"} — complete in Runway.`);
+      const startData = (await startRes.json()) as { error?: string; taskId?: string };
+      if (!startRes.ok) throw new Error(startData.error || "Runway Text to Image failed.");
+      const taskId = typeof startData.taskId === "string" ? startData.taskId.trim() : "";
+      if (!taskId) throw new Error("Runway did not return a task id.");
+
+      const contentId = runwayImportContentId(publishOkId);
+      setDataT2iMessage(`Runway started (${dataT2iRatio}). Task: ${taskId} — waiting for image…`);
+
+      const maxAttempts = 45;
+      const delayMs = 3000;
+      let lastNote = "";
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await new Promise((r) => setTimeout(r, delayMs));
+        const impRes = await fetch(studioApiPath("/api/runway/import-task"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contentId, taskId, assetKind: "image" }),
+        });
+        const impData = (await impRes.json()) as {
+          ok?: boolean;
+          error?: string;
+          backgroundImageRel?: string;
+          status?: string;
+          message?: string;
+        };
+        if (impRes.ok && typeof impData.backgroundImageRel === "string" && impData.backgroundImageRel.trim()) {
+          const rel = impData.backgroundImageRel.trim();
+          setDataT2iImageUrl(withAppPathPrefix(`/api/file?rel=${encodeURIComponent(rel)}`));
+          setDataT2iImageLibraryRel(rel);
+          setDataT2iMessage(`Runway image ready (task ${taskId}) — thumbnail below. Saved under images/library/${contentId}/.`);
+          return;
+        }
+        if (impRes.status === 409) {
+          const st = typeof impData.status === "string" ? impData.status : "processing";
+          lastNote = st;
+          setDataT2iMessage(`Runway processing… (${st}). Task: ${taskId}`);
+          continue;
+        }
+        throw new Error(impData.error || `Runway import failed (${impRes.status}).`);
+      }
+      const approxMin = Math.round((maxAttempts * delayMs) / 6000) / 10;
+      throw new Error(
+        lastNote
+          ? `Runway task did not finish within ~${approxMin} min (last status: ${lastNote}).`
+          : `Runway task did not finish within ~${approxMin} min.`,
+      );
     } catch (e) {
       setDataT2iError(e instanceof Error ? e.message : "Text to image failed.");
     } finally {
@@ -616,7 +708,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
     setDataT2iAttachBusy(true);
     setDataT2iError(null);
     try {
-      const res = await fetch("/api/language/articles/image", {
+      const res = await fetch(studioApiPath("/api/language/articles/image"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -628,7 +720,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Could not attach image to article.");
-      setDataT2iMessage("Image attached to this draft’s saved article. Open Language Studio → Review Queue for Source Image.");
+      setDataT2iMessage("Image attached to this draft’s saved article. Open Article Studio → Review Queue for Source Image.");
     } catch (e) {
       setDataT2iError(e instanceof Error ? e.message : "Attach failed.");
     } finally {
@@ -965,7 +1057,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
               </span>
             </label>
             <label className="flex flex-col gap-1 text-xs font-semibold text-[color:var(--text-muted)]">
-              Source brand (Language Studio)
+              Source brand (Article Studio)
               {sourceBrands.length > 0 ? (
                 <select
                   value={sourceBrand}
@@ -1086,7 +1178,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
                   onClick={() => void publishToLanguageStudio()}
                   disabled={!draftMarkdown.trim() || publishLoading || aiLoading}
                 >
-                  {publishLoading ? "Saving…" : "Send to Language Studio"}
+                  {publishLoading ? "Saving…" : "Send to Article Studio"}
                 </R365Button>
                 <Link
                   href={
@@ -1101,7 +1193,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
               </div>
               {!publishOkId ? (
                 <p className="text-xs text-[color:var(--text-muted)]">
-                  <strong className="text-[color:var(--text-secondary)]">Send to Language Studio</strong> saves this draft as an imported article and opens Rewrite with it selected (needs source brand above).
+                  <strong className="text-[color:var(--text-secondary)]">Send to Article Studio</strong> saves this draft as an imported article and opens Rewrite with it selected (needs source brand above).
                 </p>
               ) : null}
               {publishError ? (
@@ -1114,7 +1206,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
                     href={`/language-studio?tab=Rewrite&articleId=${encodeURIComponent(publishOkId)}`}
                     className="font-semibold text-[#22c55e] hover:underline"
                   >
-                    Language Studio → Rewrite
+                    Article Studio → Rewrite
                   </Link>
                   . Run <strong className="text-[color:var(--text-primary)]">Rewrite</strong> or{" "}
                   <strong className="text-[color:var(--text-primary)]">Translate</strong> from there;{" "}
@@ -1128,7 +1220,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
                     <p className="text-xs font-bold uppercase tracking-wide text-sky-200">Text to image — Football365 prompts</p>
                     <p className="mt-1 text-xs leading-5 text-[color:var(--text-secondary)]">
                       Builds the same Runway / OpenAI prompts as Language Studio from this draft&apos;s title and HTML body.
-                      Generate an image here, then attach it after <strong className="text-[color:var(--text-primary)]">Send to Language Studio</strong> using the button below (or copy the URL).
+                      Generate an image here, then attach it after <strong className="text-[color:var(--text-primary)]">Send to Article Studio</strong> using the button below (or copy the URL).
                     </p>
                     {dataStudioVertical !== "football" ? (
                       <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-100">
@@ -1140,11 +1232,12 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
                     Provider
                     <select
                       value={dataT2iProvider}
-                      onChange={(e) => setDataT2iProvider(e.target.value as "runway" | "openai")}
+                      onChange={(e) => setDataT2iProvider(e.target.value as "runway" | "openai" | "higgsfield")}
                       className="mt-1 w-full max-w-md rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--text-primary)]"
                     >
                       <option value="openai">OpenAI Images (default gpt-image-1 — saved to library)</option>
-                      <option value="runway">Runway Gen-4 (task id — finish in Runway)</option>
+                      <option value="runway">Runway Gen-4 (poll + save + thumbnail)</option>
+                      <option value="higgsfield">Higgsfield (prompt-only — Seedream v4 by default)</option>
                     </select>
                   </label>
                   {dataT2iProvider === "runway" ? (
@@ -1157,16 +1250,23 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
                       >
                         {RUNWAY_T2I_RATIOS_NEWS_SHORTS.map((r) => (
                           <option key={r} value={r}>
-                            {r.replace(":", " × ")}
+                            {formatRunwayT2iRatioLabel(r)}
                           </option>
                         ))}
                       </select>
                     </label>
-                  ) : (
+                  ) : dataT2iProvider === "openai" ? (
                     <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-2 text-xs text-[color:var(--text-secondary)]">
                       Model defaults to <strong className="text-[color:var(--text-primary)]">gpt-image-1</strong> (set{" "}
                       <code className="text-[color:var(--text-muted)]">OPENAI_IMAGE_MODEL</code> or Admin → OpenAI image model).
                       Outputs are saved under <code className="text-[color:var(--text-muted)]">images/library/openai-t2i/</code>.
+                    </p>
+                  ) : (
+                    <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-2 text-xs text-[color:var(--text-secondary)]">
+                      Uses Higgsfield <strong className="text-[color:var(--text-primary)]">prompt-only</strong> generation (default path{" "}
+                      <code className="text-[color:var(--text-muted)]">bytedance/seedream/v4/text-to-image</code>). Set{" "}
+                      <code className="text-[color:var(--text-muted)]">HIGGSFIELD_TEXT_TO_IMAGE_ENDPOINT</code> to another platform path if needed.
+                      Requires HF credentials (Admin → Higgsfield). Images save next to other Higgsfield outputs in the library.
                     </p>
                   )}
                   <div className="flex flex-wrap gap-2">
@@ -1197,7 +1297,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
                     <p className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
                       Prompt is {dataT2iPrompt.length} characters; Runway allows {RUNWAY_T2I_PROMPT_MAX}. Select Runway and re-apply{" "}
                       <strong className="text-[color:var(--text-primary)]">Match report hero</strong> or{" "}
-                      <strong className="text-[color:var(--text-primary)]">Preview hero</strong>, or use OpenAI for the long brief.
+                      <strong className="text-[color:var(--text-primary)]">Preview hero</strong>, or use OpenAI / Higgsfield for the long brief.
                     </p>
                   ) : null}
                   {dataT2iError ? (
@@ -1208,7 +1308,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
                   ) : null}
                   {dataT2iImageUrl ? (
                     <div className="space-y-2 rounded-lg border border-[color:var(--border)] bg-black/30 p-3">
-                      <p className="text-xs font-semibold text-[color:var(--text-primary)]">Last OpenAI image — thumbnail preview</p>
+                      <p className="text-xs font-semibold text-[color:var(--text-primary)]">Generated image — thumbnail preview</p>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={

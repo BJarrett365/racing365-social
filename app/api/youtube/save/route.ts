@@ -5,7 +5,7 @@ import {
   writeLanguageStudioData,
   deleteLanguageArticles,
 } from "@/app/lib/language-studio/store";
-import type { LanguageArticle, LanguageImport } from "@/app/lib/language-studio/types";
+import type { LanguageArticle, LanguageImport, LanguageTranslation } from "@/app/lib/language-studio/types";
 import { deleteYouTubeScriptImports, listYouTubeScriptImports, saveYouTubeScriptImport } from "@/app/lib/youtube-script/storage";
 import type {
   TranscriptResult,
@@ -71,6 +71,54 @@ function articleBodyWithSource(transcript: TranscriptResult, generatedBody?: str
   ].join("\n");
 }
 
+/**
+ * Review Queue lists `LanguageTranslation` rows (draft / review_needed), not raw source articles.
+ * Match Article Studio `youtube-transcripts/review` so YouTube tool saves appear there too.
+ */
+function upsertYouTubeReviewQueueTranslation(
+  data: Awaited<ReturnType<typeof readLanguageStudioData>>,
+  article: LanguageArticle,
+  meta: YouTubeVideoMeta,
+  now: string,
+): void {
+  const existingReview = Object.values(data.translations).find(
+    (translation) =>
+      translation.articleId === article.id &&
+      translation.translationMode === "rewrite-only" &&
+      translation.status !== "approved" &&
+      translation.status !== "exported",
+  );
+  const id = existingReview?.id ?? newLanguageId("lreview");
+  const review: LanguageTranslation = {
+    id,
+    articleId: article.id,
+    targetLanguage: article.sourceLanguage,
+    providerMode: "openai",
+    translationMode: "rewrite-only",
+    title: article.title,
+    standfirst: article.standfirst,
+    body: article.body,
+    socialPosts: article.socialPosts,
+    seoTitle: article.seoTitle,
+    metaDescription: article.metaDescription,
+    tags: article.tags,
+    slug: article.slug,
+    status: "review_needed",
+    editorNotes: [
+      "Imported from Planet Sport Studio YouTube Transcript Generator.",
+      `YouTube URL: ${meta.url}`,
+      meta.thumbnailUrl ? `Thumbnail: ${meta.thumbnailUrl}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    createdAt: existingReview?.createdAt ?? now,
+    updatedAt: now,
+  };
+  data.translations[id] = review;
+  article.status = "review_needed";
+  article.updatedAt = now;
+}
+
 async function createLanguageArticleFromYouTubeOutput(
   meta: YouTubeVideoMeta,
   transcript: TranscriptResult,
@@ -98,6 +146,12 @@ async function createLanguageArticleFromYouTubeOutput(
     sourceBrand.includes("Leeds United") ? "Leeds United" : "",
     sourceBrand.includes("Leeds United") || /football|leeds/i.test(`${meta.title} ${sourceBrand}`) ? "Football" : "",
   ].filter(Boolean);
+  /** Fresh save resets finished source statuses so the article stays in the active pipeline; Review Queue uses a linked translation (see below). */
+  const publishDate =
+    typeof meta.publishedAt === "string" && meta.publishedAt.trim() && !Number.isNaN(Date.parse(meta.publishedAt.trim()))
+      ? meta.publishedAt.trim()
+      : now;
+
   const article: LanguageArticle = {
     id: articleId,
     importId,
@@ -107,7 +161,7 @@ async function createLanguageArticleFromYouTubeOutput(
     canonicalUrl: meta.url,
     sourceArticleId,
     author: sourceBrand,
-    publishDate: meta.publishedAt,
+    publishDate,
     category: tags.includes("Football") ? "Football" : "YouTube",
     tags,
     imageUrl: meta.thumbnailUrl,
@@ -117,7 +171,7 @@ async function createLanguageArticleFromYouTubeOutput(
     seoTitle: articleParts.title,
     metaDescription: metaDescriptionFrom(articleParts.standfirst, articleParts.body),
     slug: slugify(articleParts.title),
-    status: existing?.status ?? "imported",
+    status: "imported",
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
@@ -132,6 +186,7 @@ async function createLanguageArticleFromYouTubeOutput(
   };
   data.imports[importId] = languageImport;
   data.articles[article.id] = article;
+  upsertYouTubeReviewQueueTranslation(data, article, meta, now);
   await writeLanguageStudioData(data);
   return article;
 }

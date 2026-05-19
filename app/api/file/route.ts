@@ -100,7 +100,9 @@ export async function GET(req: Request) {
           ? "image/jpeg"
           : ext === ".mp4"
             ? "video/mp4"
-            : ext === ".webm"
+            : ext === ".mov"
+              ? "video/quicktime"
+              : ext === ".webm"
               ? rel.split(path.sep).join("/").startsWith("audio/")
                 ? "audio/webm"
                 : "video/webm"

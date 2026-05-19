@@ -28,6 +28,10 @@ type Body = {
   openaiTtsModel?: string;
   /** Images API model id (e.g. gpt-image-1). Env: OPENAI_IMAGE_MODEL */
   openaiImageModel?: string;
+  higgsfieldApiKey?: string;
+  higgsfieldApiSecret?: string;
+  /** Path under platform.higgsfield.ai — env HIGGSFIELD_IMAGE_EDIT_ENDPOINT */
+  higgsfieldImageEditEndpoint?: string;
   elevenlabsVoiceId?: string;
   elevenlabsModel?: string;
   clearElevenlabsKey?: boolean;
@@ -41,6 +45,8 @@ type Body = {
   clearLivepeerKey?: boolean;
   clearApifyApiToken?: boolean;
   clearSupabase?: boolean;
+  clearHiggsfieldKeys?: boolean;
+  clearHiggsfieldImageEndpoint?: boolean;
   supabaseUrl?: string;
   supabaseServiceRoleKey?: string;
 };
@@ -58,6 +64,7 @@ export async function GET() {
   const muxOk = Boolean(s.muxTokenId?.trim() && s.muxTokenSecret?.trim());
   const muxWebhookOk = Boolean(s.muxWebhookSigningSecret?.trim());
   const supabaseOk = Boolean(s.supabaseUrl?.trim() && s.supabaseServiceRoleKey?.trim());
+  const higgsfieldOk = Boolean(s.higgsfieldApiKey?.trim() && s.higgsfieldApiSecret?.trim());
   const supabaseUrlHost = (() => {
     const raw = (s.supabaseUrl ?? "").trim();
     if (!raw) return "";
@@ -78,6 +85,7 @@ export async function GET() {
     livepeer: { configured: mask(s.livepeerApiKey) },
     apify: { configured: mask(s.apifyApiToken) },
     supabase: { configured: supabaseOk },
+    higgsfield: { configured: higgsfieldOk },
     supabaseUrlHost,
     elevenlabsApiKeyMasked: maskPreview(s.elevenlabsApiKey),
     openaiApiKeyMasked: maskPreview(s.openaiApiKey),
@@ -99,6 +107,9 @@ export async function GET() {
     openaiTtsVoice: s.openaiTtsVoice?.trim() || "",
     openaiTtsModel: s.openaiTtsModel?.trim() || "",
     openaiImageModel: s.openaiImageModel?.trim() || "",
+    higgsfieldApiKeyMasked: maskPreview(s.higgsfieldApiKey),
+    higgsfieldApiSecretMasked: maskPreview(s.higgsfieldApiSecret),
+    higgsfieldImageEditEndpoint: s.higgsfieldImageEditEndpoint?.trim() || "",
     elevenlabsVoiceId: s.elevenlabsVoiceId?.trim() || "",
     elevenlabsModel: s.elevenlabsModel?.trim() || "",
     updatedAt: s.updatedAt || null,
@@ -135,6 +146,8 @@ export async function POST(request: Request) {
   if (body.clearLivepeerKey) clearKeys.push("livepeerApiKey");
   if (body.clearApifyApiToken) clearKeys.push("apifyApiToken");
   if (body.clearSupabase) clearKeys.push("supabaseUrl", "supabaseServiceRoleKey");
+  if (body.clearHiggsfieldKeys) clearKeys.push("higgsfieldApiKey", "higgsfieldApiSecret");
+  if (body.clearHiggsfieldImageEndpoint) clearKeys.push("higgsfieldImageEditEndpoint");
 
   const partial: Partial<AdminStoredSettings> = {};
   if (body.elevenlabsApiKey?.trim()) partial.elevenlabsApiKey = body.elevenlabsApiKey.trim();
@@ -157,6 +170,9 @@ export async function POST(request: Request) {
   if (body.openaiTtsVoice?.trim()) partial.openaiTtsVoice = body.openaiTtsVoice.trim();
   if (body.openaiTtsModel?.trim()) partial.openaiTtsModel = body.openaiTtsModel.trim();
   if (body.openaiImageModel?.trim()) partial.openaiImageModel = body.openaiImageModel.trim();
+  if (body.higgsfieldApiKey?.trim()) partial.higgsfieldApiKey = body.higgsfieldApiKey.trim();
+  if (body.higgsfieldApiSecret?.trim()) partial.higgsfieldApiSecret = body.higgsfieldApiSecret.trim();
+  if (body.higgsfieldImageEditEndpoint?.trim()) partial.higgsfieldImageEditEndpoint = body.higgsfieldImageEditEndpoint.trim();
   if (body.elevenlabsVoiceId?.trim()) partial.elevenlabsVoiceId = body.elevenlabsVoiceId.trim();
   if (body.elevenlabsModel?.trim()) partial.elevenlabsModel = body.elevenlabsModel.trim();
 

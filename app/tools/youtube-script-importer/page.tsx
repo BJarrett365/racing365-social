@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
+import { studioApiPath, withAppPathPrefix } from "@/app/lib/app-base-path";
 import { LANGUAGE_CONTENT_STYLES, LANGUAGE_SPORT_CONTEXTS, type LanguageContentStyle, type LanguageJournalistProfile, type LanguageSportContext } from "@/app/lib/language-studio/types";
 import type {
   ScriptOutputType,
@@ -76,7 +78,37 @@ function downloadText(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
-async function postJson<T>(url: string, body: unknown): Promise<T> {
+function copyToClipboard(text: string): void {
+  void navigator.clipboard.writeText(text).catch(() => {
+    /* ignore — permissions / non-secure context */
+  });
+}
+
+/** Same look as {@link R365Button} `variant="ghost"` without nesting interactive elements inside `Link` (invalid HTML, breaks React). */
+function GhostStudioLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center justify-center rounded-xl border px-4 py-2.5 text-sm font-semibold text-[color:var(--text-secondary)] transition-[background-color,color,border-color,box-shadow,opacity,transform] duration-200 hover:bg-[var(--surface-hover)] hover:text-[color:var(--text-primary)] active:translate-y-px active:bg-[var(--surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]"
+      style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function formatCaughtError(e: unknown): string {
+  if (e instanceof Error && e.message.trim()) return e.message;
+  if (typeof e === "string" && e.trim()) return e;
+  if (e && typeof e === "object" && "message" in e && typeof (e as { message: unknown }).message === "string") {
+    const m = (e as { message: string }).message.trim();
+    if (m) return m;
+  }
+  return "Something went wrong";
+}
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const url = path.startsWith("/") ? studioApiPath(path) : path;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -137,7 +169,7 @@ export default function YouTubeScriptImporterPage() {
 
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/language/governance")
+    void fetch(studioApiPath("/api/language/governance"))
       .then((res) => res.ok ? res.json() : null)
       .then((data: { journalistProfiles?: LanguageJournalistProfile[] } | null) => {
         if (!cancelled && Array.isArray(data?.journalistProfiles)) setJournalistProfiles(data.journalistProfiles);
@@ -173,7 +205,8 @@ export default function YouTubeScriptImporterPage() {
     try {
       await fn();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      console.error(e);
+      setError(formatCaughtError(e));
     } finally {
       setBusy(false);
     }
@@ -280,12 +313,21 @@ export default function YouTubeScriptImporterPage() {
       if (!meta) throw new Error("Load a YouTube video first.");
       const currentTranscript = transcript ?? makeManualTranscript(manualTranscript);
       if (!currentTranscript.fullText.trim()) throw new Error("Add transcript text first.");
-      await postJson<{ import: { id: string }; languageArticle?: { id: string; title: string } }>("/api/youtube/save", {
+      const data = await postJson<{ import: { id: string }; languageArticle?: { id: string; title: string } }>("/api/youtube/save", {
         meta,
         transcript: currentTranscript,
         outputs,
         createArticle: true,
       });
+      const aid = data.languageArticle?.id?.trim();
+      if (aid) {
+        window.location.assign(
+          withAppPathPrefix(
+            `/language-studio?tab=${encodeURIComponent("Review Queue")}&articleId=${encodeURIComponent(aid)}`,
+          ),
+        );
+        return;
+      }
       setMessage("Saved to Planet Sport Studio and added to Language Studio for Rewrite and Translations.");
     });
 
@@ -307,6 +349,15 @@ export default function YouTubeScriptImporterPage() {
         createArticle: shouldCreateArticle,
         articleOutputId: currentOutput.id,
       });
+      const aid = data.languageArticle?.id?.trim();
+      if (aid) {
+        window.location.assign(
+          withAppPathPrefix(
+            `/language-studio?tab=${encodeURIComponent("Review Queue")}&articleId=${encodeURIComponent(aid)}`,
+          ),
+        );
+        return;
+      }
       setOutputs(nextOutputs);
       setTranscript(currentTranscript);
       setManualTranscript(currentTranscript.fullText);
@@ -325,9 +376,7 @@ export default function YouTubeScriptImporterPage() {
   return (
     <div className="space-y-8">
       <div className="flex justify-end">
-        <Link href="/tools">
-          <R365Button variant="ghost">Back to Tools</R365Button>
-        </Link>
+        <GhostStudioLink href="/tools">Back to Tools</GhostStudioLink>
       </div>
 
       <section className="relative overflow-hidden rounded-3xl border border-[#2d214a] bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.25),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(34,197,94,0.15),transparent_32%),#0b1020] px-6 py-10 shadow-2xl md:px-10 md:py-14">
@@ -378,7 +427,7 @@ export default function YouTubeScriptImporterPage() {
             onTranscriptChange={updateTranscriptText}
             disabled={!transcriptText.trim()}
             onImport={importManualTranscript}
-            onCopy={() => void navigator.clipboard.writeText(transcriptText)}
+            onCopy={() => copyToClipboard(transcriptText)}
             onDownloadTxt={() => downloadText(`${meta?.videoId ?? "youtube-transcript"}.txt`, transcriptText)}
             onDownloadSrt={() => {
               const body = outputs.find((output) => output.type === "subtitles")?.content ?? transcriptText;
@@ -752,7 +801,7 @@ function GeneratedOutputPanel({
           <R365Button
             variant="ghost"
             disabled={!selectedOutput?.content}
-            onClick={() => selectedOutput ? void navigator.clipboard.writeText(selectedOutput.content) : undefined}
+            onClick={() => (selectedOutput ? copyToClipboard(selectedOutput.content) : undefined)}
           >
             Copy output
           </R365Button>
@@ -769,12 +818,8 @@ function GeneratedOutputPanel({
           >
             {selectedOutput?.type === "article" ? "Save article to Planet Sport Studio" : "Save output to Planet Sport Studio"}
           </R365Button>
-          <Link href="/language-studio">
-            <R365Button variant="ghost">Open Language Studio</R365Button>
-          </Link>
-          <Link href="/article-studio">
-            <R365Button variant="ghost">Open Article Studio</R365Button>
-          </Link>
+          <GhostStudioLink href="/language-studio">Open Language Studio</GhostStudioLink>
+          <GhostStudioLink href="/article-studio">Open Article Studio</GhostStudioLink>
         </div>
       </div>
     </Panel>

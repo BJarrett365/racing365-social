@@ -39,6 +39,15 @@ export type AdminStoredSettings = {
   languageOpenaiModel?: string;
   /** Default model for `/api/openai/text-to-image` (e.g. gpt-image-1, dall-e-2). Override with OPENAI_IMAGE_MODEL env. */
   openaiImageModel?: string;
+  /** Higgsfield Cloud API key id (maps HF_API_KEY when stored in admin). */
+  higgsfieldApiKey?: string;
+  /** Higgsfield Cloud API secret (maps HF_API_SECRET when stored in admin). */
+  higgsfieldApiSecret?: string;
+  /**
+   * Model path under platform.higgsfield.ai (e.g. flux-pro/kontext/max/text-to-image).
+   * Override with HIGGSFIELD_IMAGE_EDIT_ENDPOINT env.
+   */
+  higgsfieldImageEditEndpoint?: string;
   updatedAt?: string;
 };
 
@@ -157,6 +166,9 @@ function secretFileKey(envName: string): keyof AdminStoredSettings | undefined {
     SUPABASE_URL: "supabaseUrl",
     SUPABASE_SERVICE_ROLE_KEY: "supabaseServiceRoleKey",
     OPENAI_IMAGE_MODEL: "openaiImageModel",
+    HF_API_KEY: "higgsfieldApiKey",
+    HF_API_SECRET: "higgsfieldApiSecret",
+    HIGGSFIELD_IMAGE_EDIT_ENDPOINT: "higgsfieldImageEditEndpoint",
   };
   return map[envName];
 }

@@ -81,6 +81,7 @@ import { buildRacecardRunwayI2vFields } from "@/app/lib/racecard-runway-i2v-fiel
 import { buildEditorRunwayI2vFields } from "@/app/lib/editor-runway-i2v-fields";
 import { firstRunwayTaskOutputUrl } from "@/app/lib/runway-task-output";
 import { RunwayImageToVideoPanel } from "@/app/features/runway/RunwayImageToVideoPanel";
+import { withAppPathPrefix } from "@/app/lib/app-base-path";
 
 type EditorType =
   | "next-off"
@@ -114,7 +115,8 @@ function defaultVoicePresetForEditorType(t: EditorType): VoicePreset {
 
 function fileUrl(rel: string, cacheBust?: number) {
   const q = `rel=${encodeURIComponent(rel)}`;
-  return cacheBust != null ? `/api/file?${q}&_=${cacheBust}` : `/api/file?${q}`;
+  const path = cacheBust != null ? `/api/file?${q}&_=${cacheBust}` : `/api/file?${q}`;
+  return withAppPathPrefix(path);
 }
 
 function toOutputRel(absPath: string) {
@@ -3288,9 +3290,9 @@ export function EditorWorkspace({
               {format === "fast-results" ? (
                 <>
                   <span className="font-mono text-slate-500">intro</span>,{" "}
-                  <span className="text-slate-400">Board 1</span>{" "}
+                  <span className="text-slate-400">Winner</span>{" "}
                   (<span className="font-mono text-slate-500">winner</span>),{" "}
-                  <span className="text-slate-400">Board 2</span>{" "}
+                  <span className="text-slate-400">Top four</span>{" "}
                   (<span className="font-mono text-slate-500">placings</span>),{" "}
                   <span className="font-mono text-slate-500">outro</span>
                 </>
@@ -3572,6 +3574,7 @@ export function EditorWorkspace({
                     src={fileUrl(backgroundVideoFrameRel, previewNonce)}
                     alt=""
                     fill
+                    unoptimized
                     sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover"
                   />
@@ -3579,6 +3582,7 @@ export function EditorWorkspace({
                     src={fileUrl(previewRel, previewNonce)}
                     alt="Scene preview"
                     fill
+                    unoptimized
                     sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-contain"
                   />
@@ -3589,6 +3593,7 @@ export function EditorWorkspace({
                 alt="Scene preview"
                 width={1080}
                 height={1920}
+                unoptimized
                 className="h-full w-full object-contain"
               />
               )}

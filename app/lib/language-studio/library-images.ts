@@ -21,6 +21,23 @@ const IMAGE_EXT_BY_TYPE: Record<string, string> = {
 const MAX_LANGUAGE_IMAGE_BYTES = 12 * 1024 * 1024;
 
 const OPENAI_T2I_LIBRARY_METADATA_ID = "openai-text-to-image";
+const HIGGSFIELD_EDIT_LIBRARY_METADATA_ID = "higgsfield-image-edit";
+const LANGUAGE_STUDIO_MANUAL_UPLOAD_METADATA_ID = "language-studio-upload";
+const LANGUAGE_STUDIO_SOCIAL_MEDIA_METADATA_ID = "language-studio-social";
+
+const MAX_SOCIAL_VIDEO_BYTES = 95 * 1024 * 1024;
+
+const VIDEO_EXT_BY_TYPE: Record<string, string> = {
+  "video/mp4": ".mp4",
+  "video/webm": ".webm",
+  "video/quicktime": ".mov",
+};
+
+function videoContentTypeForExtension(ext: string): string {
+  if (ext === ".webm") return "video/webm";
+  if (ext === ".mov") return "video/quicktime";
+  return "video/mp4";
+}
 
 /**
  * Save raw bytes from OpenAI Images API under `images/library/openai-t2i/` and register for the Media Library.
@@ -50,6 +67,163 @@ export async function saveOpenAiTextToImageBytesToLibrary(
   await upsertLibraryMetadata(OPENAI_T2I_LIBRARY_METADATA_ID, {
     title: "OpenAI text-to-image",
     keywords: ["openai", "text-to-image", "images-api", "library"],
+  });
+  const imageUrl = absoluteUrlWithAppBasePath(request, `/api/file?rel=${encodeURIComponent(rel)}`);
+  return { imageLibraryRel: rel, imageUrl };
+}
+
+/**
+ * Save a user-uploaded file from Language Studio under `images/library/language-studio-upload/`.
+ */
+export async function saveLanguageStudioManualUploadBytesToLibrary(
+  bytes: Buffer,
+  contentTypeHeader: string | undefined,
+  request: Request,
+): Promise<{ imageLibraryRel: string; imageUrl: string }> {
+  if (!bytes.length || bytes.length > MAX_LANGUAGE_IMAGE_BYTES) {
+    throw new Error("Image data empty or too large.");
+  }
+  const ct = contentTypeHeader?.split(";")[0]?.trim().toLowerCase() ?? "image/png";
+  const ext = IMAGE_EXT_BY_TYPE[ct] ?? ".png";
+  const mime = contentTypeForExtension(ext);
+  const rel = `images/library/language-studio-upload/${Date.now()}-${randomUUID().slice(0, 8)}${ext}`;
+  if (shouldUseNetlifyBlobStore()) {
+    await writeLibraryBlobAsset(rel, bytes, mime);
+  } else {
+    const full = path.resolve(outputDir(), rel);
+    const rootNorm = path.normalize(outputDir() + path.sep);
+    if (!full.startsWith(rootNorm)) throw new Error("Invalid library path.");
+    await fs.mkdir(path.dirname(full), { recursive: true });
+    await fs.writeFile(full, bytes);
+  }
+  await upsertLibraryMetadata(LANGUAGE_STUDIO_MANUAL_UPLOAD_METADATA_ID, {
+    title: "Language Studio uploads",
+    keywords: ["language-studio", "upload", "manual", "library"],
+  });
+  const imageUrl = absoluteUrlWithAppBasePath(request, `/api/file?rel=${encodeURIComponent(rel)}`);
+  return { imageLibraryRel: rel, imageUrl };
+}
+
+/**
+ * Social card image uploads — stored under `images/library/language-studio-social/image/`.
+ */
+export async function saveLanguageStudioSocialImageBytesToLibrary(
+  bytes: Buffer,
+  contentTypeHeader: string | undefined,
+  request: Request,
+): Promise<{ imageLibraryRel: string; imageUrl: string }> {
+  if (!bytes.length || bytes.length > MAX_LANGUAGE_IMAGE_BYTES) {
+    throw new Error("Image data empty or too large.");
+  }
+  const ct = contentTypeHeader?.split(";")[0]?.trim().toLowerCase() ?? "image/png";
+  const ext = IMAGE_EXT_BY_TYPE[ct] ?? ".png";
+  const mime = contentTypeForExtension(ext);
+  const rel = `images/library/language-studio-social/image/${Date.now()}-${randomUUID().slice(0, 8)}${ext}`;
+  if (shouldUseNetlifyBlobStore()) {
+    await writeLibraryBlobAsset(rel, bytes, mime);
+  } else {
+    const full = path.resolve(outputDir(), rel);
+    const rootNorm = path.normalize(outputDir() + path.sep);
+    if (!full.startsWith(rootNorm)) throw new Error("Invalid library path.");
+    await fs.mkdir(path.dirname(full), { recursive: true });
+    await fs.writeFile(full, bytes);
+  }
+  await upsertLibraryMetadata(LANGUAGE_STUDIO_SOCIAL_MEDIA_METADATA_ID, {
+    title: "Language Studio social media",
+    keywords: ["language-studio", "social", "image", "video", "library"],
+  });
+  const imageUrl = absoluteUrlWithAppBasePath(request, `/api/file?rel=${encodeURIComponent(rel)}`);
+  return { imageLibraryRel: rel, imageUrl };
+}
+
+/**
+ * Social card video uploads — stored under `images/library/language-studio-social/video/`.
+ */
+export async function saveLanguageStudioSocialVideoBytesToLibrary(
+  bytes: Buffer,
+  contentTypeHeader: string | undefined,
+  request: Request,
+): Promise<{ videoLibraryRel: string; videoUrl: string }> {
+  if (!bytes.length || bytes.length > MAX_SOCIAL_VIDEO_BYTES) {
+    throw new Error("Video data empty or too large.");
+  }
+  const ct = contentTypeHeader?.split(";")[0]?.trim().toLowerCase() ?? "video/mp4";
+  const ext = VIDEO_EXT_BY_TYPE[ct] ?? ".mp4";
+  const mime = videoContentTypeForExtension(ext);
+  const rel = `images/library/language-studio-social/video/${Date.now()}-${randomUUID().slice(0, 8)}${ext}`;
+  if (shouldUseNetlifyBlobStore()) {
+    await writeLibraryBlobAsset(rel, bytes, mime);
+  } else {
+    const full = path.resolve(outputDir(), rel);
+    const rootNorm = path.normalize(outputDir() + path.sep);
+    if (!full.startsWith(rootNorm)) throw new Error("Invalid library path.");
+    await fs.mkdir(path.dirname(full), { recursive: true });
+    await fs.writeFile(full, bytes);
+  }
+  await upsertLibraryMetadata(LANGUAGE_STUDIO_SOCIAL_MEDIA_METADATA_ID, {
+    title: "Language Studio social media",
+    keywords: ["language-studio", "social", "image", "video", "library"],
+  });
+  const videoUrl = absoluteUrlWithAppBasePath(request, `/api/file?rel=${encodeURIComponent(rel)}`);
+  return { videoLibraryRel: rel, videoUrl };
+}
+
+/**
+ * Same-origin URL for Higgsfield (and similar APIs) to fetch a source image via HTTPS GET.
+ * Writes under `images/library/higgsfield-edit/incoming/`.
+ */
+export async function saveHiggsfieldSourceImageBytesForPublicUrl(
+  bytes: Buffer,
+  contentTypeHeader: string | undefined,
+  request: Request,
+): Promise<{ imageLibraryRel: string; imageUrl: string }> {
+  if (!bytes.length || bytes.length > MAX_LANGUAGE_IMAGE_BYTES) {
+    throw new Error("Image data empty or too large.");
+  }
+  const ct = contentTypeHeader?.split(";")[0]?.trim().toLowerCase() ?? "image/png";
+  const ext = IMAGE_EXT_BY_TYPE[ct] ?? ".png";
+  const mime = contentTypeForExtension(ext);
+  const rel = `images/library/higgsfield-edit/incoming/${Date.now()}-${randomUUID().slice(0, 8)}${ext}`;
+  if (shouldUseNetlifyBlobStore()) {
+    await writeLibraryBlobAsset(rel, bytes, mime);
+  } else {
+    const full = path.resolve(outputDir(), rel);
+    const rootNorm = path.normalize(outputDir() + path.sep);
+    if (!full.startsWith(rootNorm)) throw new Error("Invalid library path.");
+    await fs.mkdir(path.dirname(full), { recursive: true });
+    await fs.writeFile(full, bytes);
+  }
+  const imageUrl = absoluteUrlWithAppBasePath(request, `/api/file?rel=${encodeURIComponent(rel)}`);
+  return { imageLibraryRel: rel, imageUrl };
+}
+
+/**
+ * Persist an edited image returned from Higgsfield under `images/library/higgsfield-edit/` for the Media Library.
+ */
+export async function saveHiggsfieldEditImageBytesToLibrary(
+  bytes: Buffer,
+  contentTypeHeader: string | undefined,
+  request: Request,
+): Promise<{ imageLibraryRel: string; imageUrl: string }> {
+  if (!bytes.length || bytes.length > MAX_LANGUAGE_IMAGE_BYTES) {
+    throw new Error("Image data empty or too large.");
+  }
+  const ct = contentTypeHeader?.split(";")[0]?.trim().toLowerCase() ?? "image/png";
+  const ext = IMAGE_EXT_BY_TYPE[ct] ?? ".png";
+  const mime = contentTypeForExtension(ext);
+  const rel = `images/library/higgsfield-edit/${Date.now()}-${randomUUID().slice(0, 8)}${ext}`;
+  if (shouldUseNetlifyBlobStore()) {
+    await writeLibraryBlobAsset(rel, bytes, mime);
+  } else {
+    const full = path.resolve(outputDir(), rel);
+    const rootNorm = path.normalize(outputDir() + path.sep);
+    if (!full.startsWith(rootNorm)) throw new Error("Invalid library path.");
+    await fs.mkdir(path.dirname(full), { recursive: true });
+    await fs.writeFile(full, bytes);
+  }
+  await upsertLibraryMetadata(HIGGSFIELD_EDIT_LIBRARY_METADATA_ID, {
+    title: "Higgsfield image edit",
+    keywords: ["higgsfield", "image-edit", "library"],
   });
   const imageUrl = absoluteUrlWithAppBasePath(request, `/api/file?rel=${encodeURIComponent(rel)}`);
   return { imageLibraryRel: rel, imageUrl };

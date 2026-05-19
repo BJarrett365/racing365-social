@@ -3,6 +3,10 @@ import path from "path";
 import type { SportVerticalId } from "@/app/lib/data-studio/types";
 import { assertAllowedLoopFeedUrl, toLoopTopicContentUrl } from "@/app/lib/data-studio/loop-feed";
 import { localJsonStorePath } from "@/app/lib/local-json-store-dir";
+import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
+
+const BLOB_STORE_NAME = "plexa-loop-feed-reporters";
+const BLOB_KEY = "reporters.json";
 
 function storeFile(): string {
   return localJsonStorePath("loop-feed-priority-reporters.json");
@@ -36,23 +40,47 @@ export function normalizeReporterHandle(raw: string | undefined): string | undef
   return t.replace(/^@+/, "").replace(/\s+/g, "") || undefined;
 }
 
+function normalizeReporters(parsed: LoopFeedPriorityReportersFile | null): LoopFeedPriorityReporterRow[] {
+  const rows = Array.isArray(parsed?.reporters) ? parsed!.reporters : [];
+  return rows.filter(
+    (r) =>
+      r &&
+      typeof r.id === "string" &&
+      typeof r.name === "string" &&
+      typeof r.sportKey === "string" &&
+      typeof r.updatedAt === "string",
+  );
+}
+
+async function persistReporters(reporters: LoopFeedPriorityReporterRow[]): Promise<void> {
+  const payload: LoopFeedPriorityReportersFile = { reporters };
+  if (shouldUseNetlifyBlobStore()) {
+    await writeJsonBlob(BLOB_STORE_NAME, BLOB_KEY, payload);
+    return;
+  }
+  const file = storeFile();
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, JSON.stringify(payload, null, 2), "utf-8");
+}
+
 export async function readLoopFeedPriorityReporters(): Promise<LoopFeedPriorityReporterRow[]> {
+  if (shouldUseNetlifyBlobStore()) {
+    const data = await readJsonBlob<LoopFeedPriorityReportersFile>(BLOB_STORE_NAME, BLOB_KEY);
+    if (data && Array.isArray(data.reporters)) {
+      return normalizeReporters(data);
+    }
+    await persistReporters([]);
+    return [];
+  }
+
   const file = storeFile();
   try {
     const raw = await fs.readFile(file, "utf-8");
     const parsed = JSON.parse(raw) as LoopFeedPriorityReportersFile;
-    const rows = Array.isArray(parsed.reporters) ? parsed.reporters : [];
-    return rows.filter(
-      (r) =>
-        r &&
-        typeof r.id === "string" &&
-        typeof r.name === "string" &&
-        typeof r.sportKey === "string" &&
-        typeof r.updatedAt === "string",
-    );
+    return normalizeReporters(parsed);
   } catch {
     await fs.mkdir(path.dirname(file), { recursive: true });
-    await writeLoopFeedPriorityReporters([]);
+    await persistReporters([]);
     return [];
   }
 }
@@ -66,10 +94,7 @@ export async function readLoopFeedPriorityReportersBySport(
 }
 
 async function writeLoopFeedPriorityReporters(reporters: LoopFeedPriorityReporterRow[]): Promise<void> {
-  const file = storeFile();
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  const payload: LoopFeedPriorityReportersFile = { reporters };
-  await fs.writeFile(file, JSON.stringify(payload, null, 2), "utf-8");
+  await persistReporters(reporters);
 }
 
 export async function upsertLoopFeedPriorityReporter(

@@ -17,6 +17,8 @@ import {
   type LanguageSocialEmbed,
   type LanguageSocialPlatform,
   type LanguageSocialPost,
+  type LanguageSocialVideoLayout,
+  LANGUAGE_SOCIAL_PLATFORM_ORDER,
   type LanguageSportContext,
   type LanguageSportRule,
   type LanguageQualityCheckIssue,
@@ -54,7 +56,6 @@ type QualityFixResult = TranslationFields & {
   learnedRule: string;
 };
 const SOCIAL_EMBED_PROVIDERS = ["x", "instagram", "youtube", "tiktok", "facebook", "threads", "unknown"] as const;
-const SOCIAL_POST_PLATFORMS: LanguageSocialPlatform[] = ["appAlerts", "facebook", "x", "instagram", "youtube", "tiktok", "whatsapp", "telegram"];
 
 const CONTENT_STYLE_GUIDANCE: Record<LanguageContentStyle, string> = {
   News: "Fast, clean and fact-led. Short intro, big fact first, quotes early, context after. Neutral tone. Best for transfers, team news, injury updates and sackings.",
@@ -98,9 +99,19 @@ function socialEmbedProvider(value: unknown): LanguageSocialEmbed["provider"] {
 }
 
 function socialPostPlatform(value: unknown): LanguageSocialPlatform | null {
-  return typeof value === "string" && SOCIAL_POST_PLATFORMS.includes(value as LanguageSocialPlatform)
-    ? value as LanguageSocialPlatform
+  return typeof value === "string" && LANGUAGE_SOCIAL_PLATFORM_ORDER.includes(value as LanguageSocialPlatform)
+    ? (value as LanguageSocialPlatform)
     : null;
+}
+
+function optionalTrimmedString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const t = value.trim();
+  return t || undefined;
+}
+
+function socialVideoLayoutFromUnknown(value: unknown): LanguageSocialVideoLayout | undefined {
+  return value === "shorts" || value === "landscape" ? value : undefined;
 }
 
 function slugify(input: string): string {
@@ -241,13 +252,28 @@ async function callOpenAiJson(prompt: string): Promise<TranslationFields> {
         .map((post): LanguageSocialPost | null => {
           const platform = socialPostPlatform((post as { platform?: unknown }).platform);
           if (!platform) return null;
-          const rec = post as { text?: unknown; headline?: unknown; hashtags?: unknown; callToAction?: unknown };
+          const rec = post as {
+            text?: unknown;
+            headline?: unknown;
+            hashtags?: unknown;
+            callToAction?: unknown;
+            imageLibraryRel?: unknown;
+            imageUrl?: unknown;
+            videoLibraryRel?: unknown;
+            videoUrl?: unknown;
+            videoLayout?: unknown;
+          };
           return {
             platform,
             text: String(rec.text ?? ""),
-            headline: rec.headline ? String(rec.headline) : undefined,
+            headline: optionalTrimmedString(rec.headline),
             hashtags: Array.isArray(rec.hashtags) ? rec.hashtags.map(String).filter(Boolean) : [],
-            callToAction: rec.callToAction ? String(rec.callToAction) : undefined,
+            callToAction: optionalTrimmedString(rec.callToAction),
+            imageLibraryRel: optionalTrimmedString(rec.imageLibraryRel),
+            imageUrl: optionalTrimmedString(rec.imageUrl),
+            videoLibraryRel: optionalTrimmedString(rec.videoLibraryRel),
+            videoUrl: optionalTrimmedString(rec.videoUrl),
+            videoLayout: socialVideoLayoutFromUnknown(rec.videoLayout),
           };
         })
         .filter((post): post is LanguageSocialPost => Boolean(post))
@@ -548,7 +574,29 @@ export async function fixQualityIssues(input: {
     tags: fields.tags.map((tag) => applyGlossary(tag, input.glossary ?? [], input.translation.targetLanguage)),
     slug: fields.slug || slugify(fields.title),
     socialEmbeds: mergeSocialEmbeds(input.article.socialEmbeds, fields.socialEmbeds),
+    socialPosts: mergeSocialPostsPreserveAttachedMedia(fields.socialPosts, input.translation.socialPosts),
   };
+}
+
+/** When AI revises social copy, keep editor-attached image/video unless the model returned new values for those keys. */
+export function mergeSocialPostsPreserveAttachedMedia(
+  next: LanguageSocialPost[] | undefined,
+  previous: LanguageSocialPost[] | undefined,
+): LanguageSocialPost[] {
+  const prevBy = new Map((previous ?? []).map((p) => [p.platform, p]));
+  const posts = Array.isArray(next) ? next : [];
+  return posts.map((post) => {
+    const prev = prevBy.get(post.platform);
+    if (!prev) return post;
+    return {
+      ...post,
+      imageLibraryRel: post.imageLibraryRel ?? prev.imageLibraryRel,
+      imageUrl: post.imageUrl ?? prev.imageUrl,
+      videoLibraryRel: post.videoLibraryRel ?? prev.videoLibraryRel,
+      videoUrl: post.videoUrl ?? prev.videoUrl,
+      videoLayout: post.videoLayout ?? prev.videoLayout,
+    };
+  });
 }
 
 export async function generateSocialPosts(input: {
@@ -583,17 +631,42 @@ export async function generateSocialPosts(input: {
     "Keep title/body/SEO fields equivalent to the supplied translation; the important output is socialPosts.",
   ].join("\n");
   const fields = await callOpenAiJson(prompt);
-  return SOCIAL_POST_PLATFORMS.map((platform) => {
-    const existing = fields.socialPosts?.find((post) => post.platform === platform);
+  return LANGUAGE_SOCIAL_PLATFORM_ORDER.map((platform) => {
+    const raw = Array.isArray(fields.socialPosts)
+      ? fields.socialPosts.find((post) => socialPostPlatform((post as { platform?: unknown }).platform) === platform)
+      : undefined;
+    const existing = raw
+      ? {
+          headline: optionalTrimmedString((raw as { headline?: unknown }).headline),
+          text: optionalTrimmedString((raw as { text?: unknown }).text),
+          hashtags: Array.isArray((raw as { hashtags?: unknown }).hashtags)
+            ? (raw as { hashtags: unknown[] }).hashtags.map(String).filter(Boolean)
+            : undefined,
+          callToAction: optionalTrimmedString((raw as { callToAction?: unknown }).callToAction),
+          imageLibraryRel: optionalTrimmedString((raw as { imageLibraryRel?: unknown }).imageLibraryRel),
+          imageUrl: optionalTrimmedString((raw as { imageUrl?: unknown }).imageUrl),
+          videoLibraryRel: optionalTrimmedString((raw as { videoLibraryRel?: unknown }).videoLibraryRel),
+          videoUrl: optionalTrimmedString((raw as { videoUrl?: unknown }).videoUrl),
+          videoLayout: socialVideoLayoutFromUnknown((raw as { videoLayout?: unknown }).videoLayout),
+        }
+      : undefined;
+    const prev = input.translation.socialPosts?.find((post) => post.platform === platform);
     const fallbackText = [input.translation.title, input.translation.standfirst || input.translation.metaDescription]
       .filter(Boolean)
       .join("\n\n");
+    const defaultHashtags = input.translation.tags.slice(0, 5).map((tag) => (tag.startsWith("#") ? tag : `#${tag.replace(/\s+/g, "")}`));
     return {
       platform,
-      headline: existing?.headline?.trim() || input.translation.title,
-      text: existing?.text?.trim() || fallbackText,
-      hashtags: existing?.hashtags?.length ? existing.hashtags : input.translation.tags.slice(0, 5).map((tag) => tag.startsWith("#") ? tag : `#${tag.replace(/\s+/g, "")}`),
-      callToAction: existing?.callToAction?.trim() || "Read more",
+      headline: existing?.headline?.trim() || prev?.headline?.trim() || input.translation.title,
+      text: (existing?.text?.trim() || prev?.text?.trim() || fallbackText) ?? "",
+      hashtags:
+        existing?.hashtags?.length ? existing.hashtags : prev?.hashtags?.length ? prev.hashtags : defaultHashtags,
+      callToAction: existing?.callToAction?.trim() || prev?.callToAction?.trim() || "Read more",
+      imageLibraryRel: prev?.imageLibraryRel ?? existing?.imageLibraryRel,
+      imageUrl: prev?.imageUrl ?? existing?.imageUrl,
+      videoLibraryRel: prev?.videoLibraryRel ?? existing?.videoLibraryRel,
+      videoUrl: prev?.videoUrl ?? existing?.videoUrl,
+      videoLayout: prev?.videoLayout ?? existing?.videoLayout,
     };
   });
 }

@@ -327,7 +327,7 @@ export function buildFastResultsScenes(bundle: FastResultBundle): SceneSpec[] {
       width: SHORTS_W,
       height: SHORTS_H,
     }),
-    scene("placings", "fast-placings", 3.2, "Board 2", {
+    scene("placings", "fast-placings", 3.2, top4.map((p) => `${p.position}. ${p.horse}`).join(" · ") || "Top four", {
       placings: top4,
       course: race.course,
       animPlacings: sa?.placings,

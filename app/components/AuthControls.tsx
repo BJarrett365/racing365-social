@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { plexaAuthApiUrl } from "@/app/lib/auth/client-api-url";
 
 type Me = {
   user?: {
@@ -16,14 +17,14 @@ export function AuthControls() {
   const [me, setMe] = useState<Me | null>(null);
 
   useEffect(() => {
-    void fetch("/api/auth/me", { credentials: "include" })
+    void fetch(plexaAuthApiUrl("/api/auth/me"), { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => setMe(data))
       .catch(() => setMe(null));
   }, []);
 
   const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    await fetch(plexaAuthApiUrl("/api/auth/logout"), { method: "POST", credentials: "include" });
     router.replace("/login");
     router.refresh();
   };

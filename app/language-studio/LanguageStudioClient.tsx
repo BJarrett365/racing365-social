@@ -6,7 +6,8 @@ import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
 import { GovernancePanel } from "@/app/language-studio/GovernancePanels";
 import { QualityGuardrailsPanel } from "@/app/language-studio/QualityGuardrailsPanel";
-import { withAppPathPrefix } from "@/app/lib/app-base-path";
+import { studioApiPath, withAppPathPrefix } from "@/app/lib/app-base-path";
+import { isSafeContentId, normalizeContentIdForFilename } from "@/app/lib/editor-content-id";
 import { stripArticleMetadataLines } from "@/app/lib/language-studio/article-pages";
 import {
   buildF365MatchReportOpenAiPrompt,
@@ -19,11 +20,12 @@ import {
   F365_MATCH_REPORT_SPEC,
   F365_PREVIEW_SPEC,
 } from "@/app/lib/language-studio/f365-text-to-image-prompts";
-import { RUNWAY_T2I_PROMPT_MAX, RUNWAY_T2I_RATIOS_NEWS_SHORTS } from "@/app/lib/runway-text-to-image-constants";
+import { RUNWAY_T2I_PROMPT_MAX, RUNWAY_T2I_RATIOS_NEWS_SHORTS, formatRunwayT2iRatioLabel } from "@/app/lib/runway-text-to-image-constants";
 import { mergeUniqueTagsFromCommaSeparated, uniqueTags } from "@/app/lib/language-studio/tags";
 import {
   LANGUAGE_CONTENT_STYLES,
   LANGUAGE_LABELS,
+  LANGUAGE_SOCIAL_PLATFORM_ORDER,
   LANGUAGE_SPORT_CONTEXTS,
   type LanguageCode,
   type LanguageContentStyle,
@@ -53,6 +55,12 @@ type SocialPost = {
   headline?: string;
   hashtags?: string[];
   callToAction?: string;
+  imageLibraryRel?: string;
+  imageUrl?: string;
+  videoLibraryRel?: string;
+  videoUrl?: string;
+  /** Shorts / vertical vs landscape — applies when a video (or vertical-first platform) is used. */
+  videoLayout?: "shorts" | "landscape";
 };
 
 type Article = {
@@ -80,6 +88,8 @@ type Translation = {
   articleId: string;
   clientIds?: string[];
   targetLanguage: LanguageCode;
+  /** Present when loaded from API (rewrite vs translate). */
+  translationMode?: TranslationMode;
   title: string;
   standfirst: string;
   body: string;
@@ -228,6 +238,17 @@ const textareaClass = `${inputClass} min-h-28 font-mono text-xs`;
 const miniButtonClass = "inline-flex items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-bold text-[color:var(--text-secondary)] shadow-sm transition hover:border-[color:var(--accent)] hover:bg-[color:var(--surface-hover)] hover:text-[color:var(--text-primary)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-muted)] disabled:text-[color:var(--text-muted)] disabled:opacity-70";
 const dangerMiniButtonClass = "inline-flex items-center justify-center rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-700 shadow-sm transition hover:border-red-500 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-200";
 const amberButtonClass = "inline-flex items-center justify-center rounded-xl border border-amber-500/50 bg-amber-500/15 px-3 py-2 text-xs font-bold text-amber-800 shadow-sm transition hover:border-amber-500 hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-60 dark:text-amber-100";
+/** Primary action in social cards (upload) */
+const socialPrimaryMiniButtonClass =
+  "inline-flex items-center justify-center rounded-xl border border-[color:var(--accent)]/50 bg-[color:var(--accent-soft)] px-3 py-2 text-xs font-bold text-[color:var(--text-primary)] shadow-sm transition hover:border-[color:var(--accent)] hover:bg-[color:var(--accent)]/15 disabled:cursor-not-allowed disabled:opacity-60";
+const socialOutputPanelClass =
+  "rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-sm";
+const socialPlatformCardClass =
+  "overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)]/85 shadow-sm ring-1 ring-[color:var(--border)]/50";
+const socialFieldLabelClass =
+  "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-muted)]";
+const socialSubsectionClass =
+  "rounded-xl border border-[color:var(--border)]/90 bg-[color:var(--surface)] p-3 shadow-sm";
 const targetOptions = Object.entries(LANGUAGE_LABELS).filter(([code]) => code !== "en") as Array<[LanguageCode, string]>;
 const clientLanguageOptions = Object.entries(LANGUAGE_LABELS) as Array<[LanguageCode, string]>;
 function contentStyleFromArticleCategory(category: string | undefined): LanguageContentStyle | null {
@@ -246,7 +267,70 @@ const socialPlatformLabels: Record<SocialPost["platform"], string> = {
   whatsapp: "WhatsApp",
   telegram: "Telegram",
 };
-const socialPlatformOrder = Object.keys(socialPlatformLabels) as SocialPost["platform"][];
+const socialPlatformOrder = LANGUAGE_SOCIAL_PLATFORM_ORDER;
+
+/** Brand accents for collapsible headers / preview shell (approximate platform colours). */
+const SOCIAL_PLATFORM_THEME: Record<
+  SocialPost["platform"],
+  { border: string; expandedHeader: string; collapsedTitle: string; previewRing: string }
+> = {
+  appAlerts: {
+    border: "border-l-emerald-500",
+    expandedHeader: "bg-emerald-600 text-white",
+    collapsedTitle: "text-emerald-600 dark:text-emerald-300",
+    previewRing: "ring-emerald-500/25",
+  },
+  facebook: {
+    border: "border-l-[#1877F2]",
+    expandedHeader: "bg-[#1877F2] text-white",
+    collapsedTitle: "text-[#1877F2]",
+    previewRing: "ring-[#1877F2]/30",
+  },
+  x: {
+    border: "border-l-neutral-900 dark:border-l-neutral-100",
+    expandedHeader: "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900",
+    collapsedTitle: "text-neutral-800 dark:text-neutral-200",
+    previewRing: "ring-neutral-400/30",
+  },
+  instagram: {
+    border: "border-l-fuchsia-600",
+    expandedHeader: "bg-gradient-to-r from-[#f58529] via-[#dd2a7b] to-[#8134af] text-white",
+    collapsedTitle: "text-fuchsia-600 dark:text-fuchsia-400",
+    previewRing: "ring-fuchsia-500/30",
+  },
+  youtube: {
+    border: "border-l-[#FF0000]",
+    expandedHeader: "bg-[#FF0000] text-white",
+    collapsedTitle: "text-[#FF0000]",
+    previewRing: "ring-red-500/35",
+  },
+  tiktok: {
+    border: "border-l-cyan-400",
+    expandedHeader: "bg-black text-white ring-1 ring-cyan-400/40",
+    collapsedTitle: "text-cyan-500 dark:text-cyan-300",
+    previewRing: "ring-cyan-400/35",
+  },
+  whatsapp: {
+    border: "border-l-[#25D366]",
+    expandedHeader: "bg-[#25D366] text-white",
+    collapsedTitle: "text-[#25D366]",
+    previewRing: "ring-[#25D366]/35",
+  },
+  telegram: {
+    border: "border-l-[#0088cc]",
+    expandedHeader: "bg-[#0088cc] text-white",
+    collapsedTitle: "text-[#0088cc]",
+    previewRing: "ring-[#0088cc]/35",
+  },
+};
+
+function truncateForPreview(text: string, maxChars: number): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  if (t.length <= maxChars) return t;
+  return `${t.slice(0, Math.max(0, maxChars - 1))}…`;
+}
+
 const clientDocs = [
   { slug: "client-access", title: "Client Access Guide", description: "How to create clients, issue keys, revoke access and review logs." },
   { slug: "client-api", title: "Client API Reference", description: "XML and JSON endpoint examples, authentication and payload fields." },
@@ -524,6 +608,35 @@ function articleImageSrc(article?: Article): string {
   return article.imageUrl ?? "";
 }
 
+function socialPostImageSrc(post: SocialPost): string {
+  const rel = post.imageLibraryRel?.trim();
+  if (rel) {
+    return withAppPathPrefix(`/api/file?rel=${encodeURIComponent(rel)}`);
+  }
+  return post.imageUrl?.trim() ?? "";
+}
+
+function socialPostVideoSrc(post: SocialPost): string {
+  const rel = post.videoLibraryRel?.trim();
+  if (rel) {
+    return withAppPathPrefix(`/api/file?rel=${encodeURIComponent(rel)}`);
+  }
+  return post.videoUrl?.trim() ?? "";
+}
+
+function defaultVideoLayoutForPlatform(platform: SocialPost["platform"]): "shorts" | "landscape" {
+  if (platform === "tiktok" || platform === "youtube" || platform === "instagram") return "shorts";
+  return "landscape";
+}
+
+function socialPostHasImage(post: SocialPost): boolean {
+  return Boolean(post.imageLibraryRel?.trim() || post.imageUrl?.trim());
+}
+
+function socialPostHasVideo(post: SocialPost): boolean {
+  return Boolean(post.videoLibraryRel?.trim() || post.videoUrl?.trim());
+}
+
 function socialPostsForEditor(translation: Translation): SocialPost[] {
   return socialPlatformOrder.map((platform) => {
     const existing = translation.socialPosts?.find((post) => post.platform === platform);
@@ -535,6 +648,131 @@ function socialPostsForEditor(translation: Translation): SocialPost[] {
       callToAction: "",
     };
   });
+}
+
+function mapSocialPostsForPlatform(
+  translation: Translation,
+  platform: SocialPost["platform"],
+  patch: Partial<Omit<SocialPost, "platform">>,
+): SocialPost[] {
+  return socialPostsForEditor(translation).map((row) => (row.platform === platform ? { ...row, ...patch } : row));
+}
+
+function SocialPublishPreviewAside({
+  translation,
+  sourceArticle,
+  previewPlatform,
+  onPreviewPlatformChange,
+}: {
+  translation: Translation;
+  sourceArticle?: Article;
+  previewPlatform: SocialPost["platform"];
+  onPreviewPlatformChange: (p: SocialPost["platform"]) => void;
+}) {
+  const posts = socialPostsForEditor(translation);
+  const previewPost = posts.find((p) => p.platform === previewPlatform) ?? posts[0];
+  const theme = SOCIAL_PLATFORM_THEME[previewPlatform];
+  const heroSrc = articleImageSrc(sourceArticle);
+  const socialImg = previewPost ? socialPostImageSrc(previewPost) : "";
+  const hasVid = previewPost ? socialPostHasVideo(previewPost) : false;
+  const layoutLabel =
+    previewPost?.videoLayout === "shorts" || (!previewPost?.videoLayout && defaultVideoLayoutForPlatform(previewPlatform) === "shorts")
+      ? "9:16 vertical"
+      : "16:9 landscape";
+
+  return (
+    <aside className="sticky top-4 order-first flex flex-col gap-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)]/60 p-4 shadow-sm lg:order-none lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Pre-publish preview</p>
+        <p className="mt-1 text-[11px] leading-snug text-[color:var(--text-muted)]">
+          Approximate layout only — check spacing and crops in each native app before scheduling.
+        </p>
+      </div>
+
+      <label className="block">
+        <span className={socialFieldLabelClass}>Preview channel</span>
+        <select
+          className={inputClass}
+          value={previewPlatform}
+          onChange={(e) => onPreviewPlatformChange(e.target.value as SocialPost["platform"])}
+        >
+          {socialPlatformOrder.map((p) => (
+            <option key={p} value={p}>{socialPlatformLabels[p]}</option>
+          ))}
+        </select>
+      </label>
+
+      <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-sm">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Article (feed / CMS)</p>
+        <p className="mt-2 text-sm font-bold leading-snug text-[color:var(--text-primary)]">{translation.title || "Untitled"}</p>
+        {translation.standfirst ? (
+          <p className="mt-1 text-xs leading-relaxed text-[color:var(--text-secondary)]">{truncateForPreview(translation.standfirst, 220)}</p>
+        ) : null}
+        {heroSrc ? (
+          <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)]">
+            {/* eslint-disable-next-line @next/next/no-img-element -- dynamic `/api/file` or remote URL */}
+            <img src={heroSrc} alt="" className="aspect-[16/9] w-full object-cover" />
+          </div>
+        ) : (
+          <p className="mt-2 text-[11px] text-[color:var(--text-muted)]">No hero image on source article.</p>
+        )}
+        {translation.slug ? (
+          <p className="mt-2 font-mono text-[10px] text-[color:var(--text-muted)]">/{translation.slug}</p>
+        ) : null}
+      </div>
+
+      <div
+        className={`overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm ring-2 ring-inset ${theme.previewRing}`}
+      >
+        <div className={`px-3 py-2 text-xs font-bold ${theme.expandedHeader}`}>{socialPlatformLabels[previewPlatform]}</div>
+        <div className="space-y-2 p-3">
+          <div className="flex items-start gap-2">
+            <div
+              className="mt-0.5 size-9 shrink-0 rounded-full bg-[color:var(--surface-muted)] ring-1 ring-[color:var(--border)]"
+              aria-hidden
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold text-[color:var(--text-primary)]">{sourceArticle?.sourceBrand ?? "Publisher"}</p>
+              <p className="text-[10px] text-[color:var(--text-muted)]">Draft preview — not posted</p>
+            </div>
+          </div>
+          {previewPost?.headline ? (
+            <p className="text-sm font-semibold leading-snug text-[color:var(--text-primary)]">{previewPost.headline}</p>
+          ) : null}
+          <p className="whitespace-pre-wrap text-xs leading-relaxed text-[color:var(--text-secondary)]">
+            {truncateForPreview(previewPost?.text ?? "", 420)}
+          </p>
+          {socialImg ? (
+            <div className="overflow-hidden rounded-lg border border-[color:var(--border)]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={socialImg} alt="" className={hasVid ? "aspect-video w-full object-cover" : "max-h-48 w-full object-cover"} />
+            </div>
+          ) : heroSrc ? (
+            <div className="relative overflow-hidden rounded-lg border border-dashed border-[color:var(--border)]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={heroSrc} alt="" className="max-h-40 w-full object-cover opacity-95" />
+              <p className="absolute bottom-0 left-0 right-0 bg-black/55 px-2 py-1 text-[10px] font-semibold text-white">
+                Channel image not set — showing article hero as stand-in
+              </p>
+            </div>
+          ) : null}
+          {hasVid ? (
+            <p className="rounded-md bg-[color:var(--surface-muted)] px-2 py-1 text-[10px] font-semibold text-[color:var(--text-secondary)]">
+              Video attached · {layoutLabel}
+            </p>
+          ) : null}
+          {(previewPost?.hashtags?.length ?? 0) > 0 ? (
+            <p className="text-[11px] text-[color:var(--accent)]">{previewPost?.hashtags?.join(" ")}</p>
+          ) : null}
+          {previewPost?.callToAction?.trim() ? (
+            <span className="inline-block rounded-lg bg-[color:var(--surface-muted)] px-2 py-1 text-[11px] font-semibold text-[color:var(--text-primary)]">
+              {previewPost.callToAction}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </aside>
+  );
 }
 
 function hasIncompleteSocialOutput(translation: Translation): boolean {
@@ -586,6 +824,8 @@ export function LanguageStudioClient() {
   const [journalistProfiles, setJournalistProfiles] = useState<JournalistProfileRow[]>([]);
   const [latestRawApiKey, setLatestRawApiKey] = useState<string | null>(null);
   const [selectedArticleId, setSelectedArticleId] = useState("");
+  /** Imports tab — attach library/upload image without opening Review Queue. */
+  const [importsAttachArticleId, setImportsAttachArticleId] = useState("");
   const [selectedArticleIds, setSelectedArticleIds] = useState<string[]>([]);
   const [articleSelectionMode, setArticleSelectionMode] = useState<"selected" | "all">("selected");
   const [selectedTranslationId, setSelectedTranslationId] = useState("");
@@ -624,7 +864,11 @@ export function LanguageStudioClient() {
   const [libraryRelAttach, setLibraryRelAttach] = useState("");
   /** Runway Gen-4 text_to_image ratio — F365 heroes use 1280:720. */
   const [runwayT2iRatio, setRunwayT2iRatio] = useState<string>("1080:1920");
-  const [textToImageProvider, setTextToImageProvider] = useState<"runway" | "openai">("runway");
+  /** OpenAI Images API size — applies to dall-e-3; gpt-image-* ignores `size` in our proxy route */
+  const [openAiImageSize, setOpenAiImageSize] = useState<"1792x1024" | "1024x1024" | "1024x1792">("1792x1024");
+  /** Higgsfield `/api/higgsfield/text-to-image` aspect_ratio */
+  const [higgsfieldT2iAspect, setHiggsfieldT2iAspect] = useState<"1:1" | "4:3" | "3:4" | "16:9" | "9:16">("16:9");
+  const [textToImageProvider, setTextToImageProvider] = useState<"runway" | "openai" | "higgsfield">("runway");
   /** Shown under Text to Image after a successful OpenAI generation (same session). */
   const [lastOpenAiImagePreview, setLastOpenAiImagePreview] = useState<{
     previewUrl: string;
@@ -638,6 +882,14 @@ export function LanguageStudioClient() {
   const [deeplinkArticleId, setDeeplinkArticleId] = useState<string | null>(null);
   /** Single extra refetch when landing with ?articleId= before that row appears (post-publish race). */
   const deeplinkListRefetchDoneRef = useRef(false);
+  /** Preserve `?tab=` from the save deeplink until `articleId` resolves (otherwise we always forced Rewrite). */
+  const deeplinkPreferredTabRef = useRef<LanguageStudioTab | null>(null);
+  const socialUploadInputRef = useRef<HTMLInputElement>(null);
+  const [socialUploadCtx, setSocialUploadCtx] = useState<{ platform: SocialPost["platform"]; kind: "image" | "video" } | null>(null);
+  const [expandedSocialPlatforms, setExpandedSocialPlatforms] = useState<Partial<Record<SocialPost["platform"], boolean>>>(
+    {},
+  );
+  const [socialPreviewPlatform, setSocialPreviewPlatform] = useState<SocialPost["platform"]>(() => socialPlatformOrder[0]);
 
   useEffect(() => {
     if (!busy || !processingOverlay) {
@@ -702,9 +954,18 @@ export function LanguageStudioClient() {
   const originalForTranslation = selectedTranslation
     ? articles.find((article) => article.id === selectedTranslation.articleId)
     : selectedArticle;
+  const articlesSortedForImports = useMemo(
+    () => [...articles].sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""))),
+    [articles],
+  );
+  const articleForImportsAttach = articles.find((a) => a.id === importsAttachArticleId);
   useEffect(() => {
     setLastOpenAiImagePreview(null);
   }, [originalForTranslation?.id]);
+  useEffect(() => {
+    setExpandedSocialPlatforms({});
+    setSocialPreviewPlatform(socialPlatformOrder[0]);
+  }, [selectedTranslation?.id]);
   const publishedOnDay = useMemo(() => {
     return translations.filter((row) => {
       if (row.status !== "approved" && row.status !== "exported") return false;
@@ -772,14 +1033,14 @@ export function LanguageStudioClient() {
 
   const loadAll = useCallback(async () => {
     const [articleRes, transRes, glossaryRes, rulesRes, exportsRes, clientsRes, sourceBrandsRes, governanceRes] = await Promise.all([
-      fetch("/api/language/articles"),
-      fetch("/api/language/translations"),
-      fetch("/api/language/glossary"),
-      fetch("/api/language/rules"),
-      fetch("/api/language/exports"),
-      fetch("/api/language/clients"),
-      fetch("/api/language/source-brands"),
-      fetch("/api/language/governance"),
+      fetch(studioApiPath("/api/language/articles")),
+      fetch(studioApiPath("/api/language/translations")),
+      fetch(studioApiPath("/api/language/glossary")),
+      fetch(studioApiPath("/api/language/rules")),
+      fetch(studioApiPath("/api/language/exports")),
+      fetch(studioApiPath("/api/language/clients")),
+      fetch(studioApiPath("/api/language/source-brands")),
+      fetch(studioApiPath("/api/language/governance")),
     ]);
     const articleData = await articleRes.json();
     const transData = await transRes.json();
@@ -843,7 +1104,10 @@ export function LanguageStudioClient() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get("tab");
-    if (isLanguageStudioTab(tabParam)) setTab(tabParam);
+    if (isLanguageStudioTab(tabParam)) {
+      setTab(tabParam);
+      deeplinkPreferredTabRef.current = tabParam;
+    }
     const aid = params.get("articleId")?.trim();
     if (aid) {
       deeplinkListRefetchDoneRef.current = false;
@@ -866,14 +1130,30 @@ export function LanguageStudioClient() {
     url.searchParams.delete("articleId");
     const cleanHref = `${url.pathname}${url.search}${url.hash}`;
     setPipelineSinceDate("");
-    setTab("Rewrite");
+    const preferredTab = deeplinkPreferredTabRef.current;
+    deeplinkPreferredTabRef.current = null;
+    const targetTab: LanguageStudioTab = preferredTab ?? "Rewrite";
+    setTab(targetTab);
     setSelectedArticleId(deeplinkArticleId);
     setSelectedArticleIds([deeplinkArticleId]);
     setArticleSelectionMode("selected");
     if (match.sport) setSportContext(match.sport);
+    if (targetTab === "Review Queue" && translations.length > 0) {
+      const pending = translations.filter(
+        (t) =>
+          t.articleId === deeplinkArticleId &&
+          t.status !== "approved" &&
+          t.status !== "exported",
+      );
+      const pick =
+        pending.find((t) => t.id.startsWith("lreview-")) ??
+        pending.find((t) => t.translationMode === "rewrite-only") ??
+        pending[0];
+      if (pick) setSelectedTranslationId(pick.id);
+    }
     setDeeplinkArticleId(null);
     window.history.replaceState({}, "", cleanHref);
-  }, [articles, deeplinkArticleId, loadAll]);
+  }, [articles, translations, deeplinkArticleId, loadAll]);
 
   useEffect(() => {
     if (selectedRewriteClientIds.length || activeClients.length === 0) return;
@@ -904,7 +1184,7 @@ export function LanguageStudioClient() {
 
   const importFeed = () =>
     run(async () => {
-      const res = await fetch("/api/language/import/xml", {
+      const res = await fetch(studioApiPath("/api/language/import/xml"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -947,7 +1227,7 @@ export function LanguageStudioClient() {
   const translateSelected = () =>
     run(async () => {
       if (translationArticleIds.length === 0) throw new Error("Select at least one article first.");
-      const res = await fetch("/api/language/translate", {
+      const res = await fetch(studioApiPath("/api/language/translate"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -983,7 +1263,7 @@ export function LanguageStudioClient() {
   const rewriteSelected = () =>
     run(async () => {
       if (translationArticleIds.length === 0) throw new Error("Select at least one article first.");
-      const res = await fetch("/api/language/rewrite", {
+      const res = await fetch(studioApiPath("/api/language/rewrite"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1017,7 +1297,7 @@ export function LanguageStudioClient() {
   const deleteSelectedArticles = () =>
     run(async () => {
       if (translationArticleIds.length === 0) throw new Error("Select at least one article first.");
-      const res = await fetch("/api/language/articles", {
+      const res = await fetch(studioApiPath("/api/language/articles"), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ articleIds: translationArticleIds }),
@@ -1035,7 +1315,7 @@ export function LanguageStudioClient() {
   const saveArticleSportTag = (sport: LanguageSportContext | "") =>
     run(async () => {
       if (!selectedArticle) throw new Error("Select an article first.");
-      const res = await fetch("/api/language/articles", {
+      const res = await fetch(studioApiPath("/api/language/articles"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1055,7 +1335,7 @@ export function LanguageStudioClient() {
   const saveArticleTags = (tags: string[]) =>
     run(async () => {
       if (!selectedArticle) throw new Error("Select an article first.");
-      const res = await fetch("/api/language/articles", {
+      const res = await fetch(studioApiPath("/api/language/articles"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1074,7 +1354,7 @@ export function LanguageStudioClient() {
 
   const reopenStoredArticleToTab = (articleId: string, targetTab: "Rewrite" | "Translations") =>
     run(async () => {
-      const res = await fetch("/api/language/articles", {
+      const res = await fetch(studioApiPath("/api/language/articles"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ articleId }),
@@ -1096,7 +1376,7 @@ export function LanguageStudioClient() {
   const saveTranslation = () =>
     run(async () => {
       if (!selectedTranslation) throw new Error("Select a translation first.");
-      const res = await fetch("/api/language/review/save", {
+      const res = await fetch(studioApiPath("/api/language/review/save"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...selectedTranslation, tags: uniqueTags(selectedTranslation.tags) }),
@@ -1109,7 +1389,7 @@ export function LanguageStudioClient() {
   const approveTranslation = (approved: boolean) =>
     run(async () => {
       if (!selectedTranslation) throw new Error("Select a translation first.");
-      const res = await fetch("/api/language/review/approve", {
+      const res = await fetch(studioApiPath("/api/language/review/approve"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ translationId: selectedTranslation.id, approved, adminOverride, overrideReason }),
@@ -1124,7 +1404,7 @@ export function LanguageStudioClient() {
         setTranslations((rows) => rows.filter((row) => row.id !== selectedTranslation.id));
       }
       if (approved) {
-        const exportsRes = await fetch("/api/language/exports");
+        const exportsRes = await fetch(studioApiPath("/api/language/exports"));
         const exportsData = await exportsRes.json();
         setExportsRows(exportsData.exports ?? []);
       }
@@ -1136,7 +1416,7 @@ export function LanguageStudioClient() {
   const exportTranslation = (format: "xml" | "json") =>
     run(async () => {
       if (!selectedTranslation) throw new Error("Select a translation first.");
-      const res = await fetch(format === "xml" ? "/api/language/export/xml" : "/api/language/export/json", {
+      const res = await fetch(studioApiPath(format === "xml" ? "/api/language/export/xml" : "/api/language/export/json"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ translationId: selectedTranslation.id }),
@@ -1149,7 +1429,7 @@ export function LanguageStudioClient() {
 
   const saveGlossary = (entry: Partial<GlossaryEntry>) =>
     run(async () => {
-      const res = await fetch("/api/language/glossary", {
+      const res = await fetch(studioApiPath("/api/language/glossary"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(entry),
@@ -1161,7 +1441,7 @@ export function LanguageStudioClient() {
 
   const saveRule = (rule: Partial<Rule>) =>
     run(async () => {
-      const res = await fetch("/api/language/rules", {
+      const res = await fetch(studioApiPath("/api/language/rules"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(rule),
@@ -1173,7 +1453,7 @@ export function LanguageStudioClient() {
 
   const saveClient = (client: Partial<ClientRow>) =>
     run(async () => {
-      const res = await fetch("/api/language/clients", {
+      const res = await fetch(studioApiPath("/api/language/clients"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(client),
@@ -1185,7 +1465,7 @@ export function LanguageStudioClient() {
 
   const createClientApiKey = (apiKey: Partial<ClientApiKeyRow>) =>
     run(async () => {
-      const res = await fetch("/api/language/client-keys", {
+      const res = await fetch(studioApiPath("/api/language/client-keys"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "create", ...apiKey }),
@@ -1198,7 +1478,7 @@ export function LanguageStudioClient() {
 
   const revokeClientApiKey = (id: string) =>
     run(async () => {
-      const res = await fetch("/api/language/client-keys", {
+      const res = await fetch(studioApiPath("/api/language/client-keys"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "revoke", id }),
@@ -1210,7 +1490,7 @@ export function LanguageStudioClient() {
 
   const deleteClient = (id: string) =>
     run(async () => {
-      const res = await fetch(`/api/language/clients?id=${encodeURIComponent(id)}`, {
+      const res = await fetch(studioApiPath(`/api/language/clients?id=${encodeURIComponent(id)}`), {
         method: "DELETE",
       });
       const data = await res.json();
@@ -1228,7 +1508,7 @@ export function LanguageStudioClient() {
     run(async () => {
       const name = newRewriteClientName.trim();
       if (!name) throw new Error("Enter a client name first.");
-      const res = await fetch("/api/language/clients", {
+      const res = await fetch(studioApiPath("/api/language/clients"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1249,7 +1529,7 @@ export function LanguageStudioClient() {
 
   const saveSourceBrand = (source: Partial<SourceBrandRow>) =>
     run(async () => {
-      const res = await fetch("/api/language/source-brands", {
+      const res = await fetch(studioApiPath("/api/language/source-brands"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(source),
@@ -1261,7 +1541,7 @@ export function LanguageStudioClient() {
 
   const deleteSourceBrandById = (id: string) =>
     run(async () => {
-      const res = await fetch("/api/language/source-brands", {
+      const res = await fetch(studioApiPath("/api/language/source-brands"), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
@@ -1276,11 +1556,11 @@ export function LanguageStudioClient() {
     setTranslations((rows) => rows.map((row) => (row.id === selectedTranslation.id ? { ...row, ...patch } : row)));
   };
 
-  const updateArticleImage = (action: "delete" | "change") =>
+  const updateArticleImage = (action: "delete" | "change", targetArticle?: Article) =>
     run(async () => {
-      const article = originalForTranslation ?? selectedArticle;
+      const article = targetArticle ?? originalForTranslation ?? selectedArticle;
       if (!article) throw new Error("Select an article first.");
-      const res = await fetch("/api/language/articles/image", {
+      const res = await fetch(studioApiPath("/api/language/articles/image"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ articleId: article.id, action, imageUrl: imageChangeUrl }),
@@ -1297,7 +1577,7 @@ export function LanguageStudioClient() {
   const generateSocialOutput = () =>
     run(async () => {
       if (!selectedTranslation) throw new Error("Select a translation first.");
-      const res = await fetch("/api/language/social-posts", {
+      const res = await fetch(studioApiPath("/api/language/social-posts"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ translationId: selectedTranslation.id }),
@@ -1320,7 +1600,7 @@ export function LanguageStudioClient() {
           ? new URL(src, window.location.origin).toString()
           : "";
       if (!promptImage) throw new Error("Image to Video needs a public HTTPS image URL. Use this on Netlify or change to a remote HTTPS image.");
-      const res = await fetch("/api/runway/image-to-video", {
+      const res = await fetch(studioApiPath("/api/runway/image-to-video"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1343,12 +1623,12 @@ export function LanguageStudioClient() {
         `Editorial sports news thumbnail image for: ${article.title}. Clean, premium, realistic.`;
 
       if (textToImageProvider === "openai") {
-        const res = await fetch("/api/openai/text-to-image", {
+        const res = await fetch(studioApiPath("/api/openai/text-to-image"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt: promptText,
-            size: "1792x1024",
+            size: openAiImageSize,
             quality: "standard",
           }),
         });
@@ -1363,7 +1643,7 @@ export function LanguageStudioClient() {
           previewUrl: data.imageUrl,
           libraryRel: data.imageLibraryRel?.trim() || undefined,
         });
-        const attach = await fetch("/api/language/articles/image", {
+        const attach = await fetch(studioApiPath("/api/language/articles/image"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1386,12 +1666,55 @@ export function LanguageStudioClient() {
         return;
       }
 
+      if (textToImageProvider === "higgsfield") {
+        const res = await fetch(studioApiPath("/api/higgsfield/text-to-image"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: promptText,
+            aspectRatio: higgsfieldT2iAspect,
+          }),
+        });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          imageUrl?: string;
+          imageLibraryRel?: string;
+        };
+        if (!res.ok || !data.imageUrl) throw new Error(data.error || "Higgsfield Text to Image failed");
+        setLastOpenAiImagePreview({
+          previewUrl: data.imageUrl,
+          libraryRel: data.imageLibraryRel?.trim() || undefined,
+        });
+        const attach = await fetch(studioApiPath("/api/language/articles/image"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            articleId: article.id,
+            action: "change",
+            imageUrl: data.imageUrl,
+            ...(data.imageLibraryRel?.trim() ? { imageLibraryRel: data.imageLibraryRel.trim() } : {}),
+          }),
+        });
+        const attachData = (await attach.json()) as { error?: string; article?: Article };
+        if (!attach.ok) throw new Error(attachData.error || "Image generated but could not attach to the article.");
+        const updated = normaliseArticle(attachData.article as Article);
+        setArticles((rows) => rows.map((row) => (row.id === updated.id ? updated : row)));
+        setImageChangeUrl("");
+        setMessage(
+          data.imageLibraryRel?.trim()
+            ? `Higgsfield image saved to library (${data.imageLibraryRel.trim()}) and attached to the article.`
+            : "Higgsfield image generated and attached to the source article (saved to Library when download succeeds).",
+        );
+        return;
+      }
+
       if (promptText.length > RUNWAY_T2I_PROMPT_MAX) {
         throw new Error(
-          `Runway allows at most ${RUNWAY_T2I_PROMPT_MAX} characters (this prompt is ${promptText.length}). Select Runway and re-apply the Football365 preset, or shorten the prompt — OpenAI uses a much longer brief.`,
+          `Runway allows at most ${RUNWAY_T2I_PROMPT_MAX} characters (this prompt is ${promptText.length}). Select Runway and re-apply the Football365 preset, or shorten the prompt — OpenAI and Higgsfield accept a much longer brief.`,
         );
       }
-      const res = await fetch("/api/runway/text-to-image", {
+      const res = await fetch(studioApiPath("/api/runway/text-to-image"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1401,26 +1724,125 @@ export function LanguageStudioClient() {
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; taskId?: string };
       if (!res.ok || data.ok === false) throw new Error(data.error || "Text to Image failed");
-      setMessage(`Runway Text to Image started (${runwayT2iRatio}). Task: ${data.taskId ?? "unknown"}`);
+      const taskId = typeof data.taskId === "string" ? data.taskId.trim() : "";
+      if (!taskId) throw new Error("Runway did not return a task id.");
+
+      const norm = normalizeContentIdForFilename(article.id);
+      const contentId = isSafeContentId(norm) && norm.length > 0 ? norm : `ls-runway-${Date.now().toString(36)}`;
+
+      setMessage(`Runway started (${runwayT2iRatio}). Task ${taskId} — waiting for image…`);
+
+      const maxAttempts = 45;
+      const delayMs = 3000;
+      let lastStatus = "";
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await new Promise((r) => setTimeout(r, delayMs));
+        const impRes = await fetch(studioApiPath("/api/runway/import-task"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contentId, taskId, assetKind: "image" }),
+        });
+        const impData = (await impRes.json()) as {
+          error?: string;
+          backgroundImageRel?: string;
+          status?: string;
+        };
+        if (impRes.ok && typeof impData.backgroundImageRel === "string" && impData.backgroundImageRel.trim()) {
+          const rel = impData.backgroundImageRel.trim();
+          const previewUrl = withAppPathPrefix(`/api/file?rel=${encodeURIComponent(rel)}`);
+          setLastOpenAiImagePreview({ previewUrl, libraryRel: rel });
+          const attach = await fetch(studioApiPath("/api/language/articles/image"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              articleId: article.id,
+              action: "change",
+              imageUrl: previewUrl,
+              imageLibraryRel: rel,
+            }),
+          });
+          const attachData = (await attach.json()) as { error?: string; article?: Article };
+          if (!attach.ok) throw new Error(attachData.error || "Runway image saved but could not attach to the article.");
+          const updated = normaliseArticle(attachData.article as Article);
+          setArticles((rows) => rows.map((row) => (row.id === updated.id ? updated : row)));
+          setImageChangeUrl("");
+          setMessage(`Runway image ready (task ${taskId}) — saved to ${rel} and attached.`);
+          return;
+        }
+        if (impRes.status === 409) {
+          lastStatus = typeof impData.status === "string" ? impData.status : "processing";
+          setMessage(`Runway processing… (${lastStatus}). Task: ${taskId}`);
+          continue;
+        }
+        throw new Error(impData.error || `Runway import failed (${impRes.status}).`);
+      }
+      const approxMin = Math.round((maxAttempts * delayMs) / 6000) / 10;
+      throw new Error(
+        lastStatus
+          ? `Runway task did not finish within ~${approxMin} min (last status: ${lastStatus}).`
+          : `Runway task did not finish within ~${approxMin} min.`,
+      );
     }, { reload: false });
+
+  const attachLibraryImageToArticle = async (
+    article: Article | undefined,
+    relRaw: string,
+    opts?: { clearPathInput?: boolean },
+  ) => {
+    if (!article) throw new Error("Select an article first.");
+    const rel = relRaw.trim();
+    if (!rel) throw new Error("Paste an Image Library relative path (images/library/…).");
+    const res = await fetch(studioApiPath("/api/language/articles/image"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ articleId: article.id, action: "attach_library", imageLibraryRel: rel }),
+    });
+    const data = (await res.json()) as { error?: string; article?: Article };
+    if (!res.ok) throw new Error(data.error || "Could not attach library image.");
+    const updated = normaliseArticle(data.article as Article);
+    setArticles((rows) => rows.map((row) => (row.id === updated.id ? updated : row)));
+    if (opts?.clearPathInput) setLibraryRelAttach("");
+  };
 
   const attachArticleFromLibraryPath = () =>
     run(async () => {
       const article = originalForTranslation ?? selectedArticle;
+      await attachLibraryImageToArticle(article, libraryRelAttach, { clearPathInput: true });
+      setMessage("Library image path attached to the source article.");
+    }, { reload: false });
+
+  const attachLibraryPickReviewQueue = (rel: string) =>
+    run(async () => {
+      const article = originalForTranslation ?? selectedArticle;
+      await attachLibraryImageToArticle(article, rel);
+      setMessage("Library image attached to the source article.");
+    }, { reload: false });
+
+  const attachLibraryPickImportsTab = (rel: string) =>
+    run(async () => {
+      const article = articles.find((a) => a.id === importsAttachArticleId);
+      await attachLibraryImageToArticle(article, rel);
+      setMessage("Library image attached to the article.");
+    }, { reload: false });
+
+  const uploadSourceImageForArticle = (article: Article | undefined, file: File) =>
+    run(async () => {
       if (!article) throw new Error("Select an article first.");
-      const rel = libraryRelAttach.trim();
-      if (!rel) throw new Error("Paste an Image Library relative path (images/library/…).");
-      const res = await fetch("/api/language/articles/image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ articleId: article.id, action: "attach_library", imageLibraryRel: rel }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not attach library image.");
+      const fd = new FormData();
+      fd.set("articleId", article.id);
+      fd.set("image", file);
+      const res = await fetch(studioApiPath("/api/language/articles/image-upload"), { method: "POST", body: fd });
+      const data = (await res.json()) as { error?: string; article?: Article };
+      if (!res.ok) throw new Error(data.error || "Could not upload image.");
       const updated = normaliseArticle(data.article as Article);
       setArticles((rows) => rows.map((row) => (row.id === updated.id ? updated : row)));
-      setLibraryRelAttach("");
-      setMessage("Library image path attached to the source article.");
+      setMessage("Image uploaded to the library and attached.");
+    }, { reload: false });
+
+  const attachArticleFromLibraryPathForImports = () =>
+    run(async () => {
+      await attachLibraryImageToArticle(articleForImportsAttach, libraryRelAttach, { clearPathInput: true });
+      setMessage("Library image path attached to the article.");
     }, { reload: false });
 
   const applyF365MatchReportPromptPreset = () => {
@@ -1438,7 +1860,7 @@ export function LanguageStudioClient() {
     });
     const articleSnip = { standfirst: a.standfirst, body: a.body };
     setImageGenerationPrompt(
-      textToImageProvider === "openai"
+      textToImageProvider === "openai" || textToImageProvider === "higgsfield"
         ? buildF365MatchReportOpenAiPrompt(v, articleSnip)
         : buildF365MatchReportRunwayPrompt(v, { narrativeHook: f365RunwayArticleHook(articleSnip) }),
     );
@@ -1447,7 +1869,9 @@ export function LanguageStudioClient() {
     setMessage(
       textToImageProvider === "openai"
         ? "Football365 match-report prompt filled for OpenAI with article facts (cyan #60CAEA, no yellow). Run Text to Image +."
-        : "Football365 match-report Runway prompt filled (16:9 + article hook). Run Text to Image +.",
+        : textToImageProvider === "higgsfield"
+          ? "Football365 match-report prompt filled for Higgsfield (OpenAI-style long brief). Run Text to Image +."
+          : "Football365 match-report Runway prompt filled (16:9 + article hook). Run Text to Image +.",
     );
   };
 
@@ -1466,7 +1890,7 @@ export function LanguageStudioClient() {
     });
     const articleSnip = { standfirst: a.standfirst, body: a.body };
     setImageGenerationPrompt(
-      textToImageProvider === "openai"
+      textToImageProvider === "openai" || textToImageProvider === "higgsfield"
         ? buildF365PreviewOpenAiPrompt(pv, articleSnip)
         : buildF365PreviewRunwayPrompt(pv, { narrativeHook: f365RunwayArticleHook(articleSnip) }),
     );
@@ -1475,7 +1899,9 @@ export function LanguageStudioClient() {
     setMessage(
       textToImageProvider === "openai"
         ? "Football365 preview / thumbnail prompt filled for OpenAI with article context (#60CAEA, no yellow). Run Text to Image +."
-        : "Football365 preview Runway prompt filled (16:9 + article hook). Edit if needed, then Text to Image +.",
+        : textToImageProvider === "higgsfield"
+          ? "Football365 preview prompt filled for Higgsfield (OpenAI-style long brief). Run Text to Image +."
+          : "Football365 preview Runway prompt filled (16:9 + article hook). Edit if needed, then Text to Image +.",
     );
   };
 
@@ -1693,6 +2119,63 @@ export function LanguageStudioClient() {
               busy={busy}
               intro="Add, edit or remove partner feeds. Changes apply everywhere you pick a source brand (imports, crons, automations)."
             />
+          </Panel>
+          <Panel title="Source image (library or upload)" className="space-y-4 p-5">
+            <p className="text-sm text-slate-400">
+              Select an article, then browse <strong className="text-slate-200">any</strong> Media Library image (including Language Studio / OpenAI / Higgsfield exports), paste a path, or upload a file. Also available under Review Queue for the article in context.
+            </p>
+            <label className="block text-xs font-semibold uppercase text-slate-500">
+              Article
+              <select
+                className={inputClass}
+                value={importsAttachArticleId}
+                onChange={(e) => setImportsAttachArticleId(e.target.value)}
+              >
+                <option value="">Select article…</option>
+                {articlesSortedForImports.map((a) => {
+                  const t = a.title?.trim() || "Untitled";
+                  return (
+                    <option key={a.id} value={a.id}>
+                      {t.length > 90 ? `${t.slice(0, 90)}…` : t}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+            {articleForImportsAttach ? (
+              <SourceImagePanel
+                variant="attach"
+                article={articleForImportsAttach}
+                lastOpenAiImagePreview={lastOpenAiImagePreview}
+                onClearLastOpenAiImagePreview={() => setLastOpenAiImagePreview(null)}
+                imageChangeUrl={imageChangeUrl}
+                imageGenerationPrompt={imageGenerationPrompt}
+                libraryRelAttach={libraryRelAttach}
+                runwayT2iRatio={runwayT2iRatio}
+                openAiImageSize={openAiImageSize}
+                busy={busy}
+                onImageChangeUrl={setImageChangeUrl}
+                onImageGenerationPrompt={setImageGenerationPrompt}
+                onLibraryRelAttach={setLibraryRelAttach}
+                onRunwayT2iRatioChange={setRunwayT2iRatio}
+                onOpenAiImageSizeChange={setOpenAiImageSize}
+                higgsfieldT2iAspect={higgsfieldT2iAspect}
+                onHiggsfieldT2iAspectChange={setHiggsfieldT2iAspect}
+                textToImageProvider={textToImageProvider}
+                onTextToImageProviderChange={setTextToImageProvider}
+                onAttachLibraryPath={() => void attachArticleFromLibraryPathForImports()}
+                onAttachLibraryRelFromPicker={(rel) => void attachLibraryPickImportsTab(rel)}
+                onManualImageUpload={(file) => void uploadSourceImageForArticle(articleForImportsAttach, file)}
+                onApplyF365MatchReportPrompt={applyF365MatchReportPromptPreset}
+                onApplyF365PreviewPrompt={applyF365PreviewPromptPreset}
+                onDelete={() => void updateArticleImage("delete", articleForImportsAttach)}
+                onChange={() => void updateArticleImage("change", articleForImportsAttach)}
+                onImageToVideo={() => void startImageToVideo()}
+                onTextToImage={() => void startTextToImage()}
+              />
+            ) : (
+              <p className="text-xs text-slate-500">Choose an article to attach or upload a source image.</p>
+            )}
           </Panel>
           {adminPanel}
         </div>
@@ -2021,7 +2504,7 @@ export function LanguageStudioClient() {
               Human approval for AI rewrites and translations before they are published to client feeds. Automations and crons send work here unless auto-approve is enabled.
             </p>
             <p className="rounded-lg border border-sky-500/25 bg-sky-500/10 p-3 text-sm text-slate-300">
-              <strong className="text-white">Data Studio and RSS imports</strong> save <strong className="text-white">source articles</strong> first. They appear under{" "}
+              <strong className="text-white">Data Studio, RSS imports, and the YouTube Transcript tool</strong> save <strong className="text-white">source articles</strong> first. They appear under{" "}
               <button type="button" className="font-semibold text-[#22c55e] underline decoration-[#22c55e]/50 hover:text-white" onClick={() => setTab("Rewrite")}>
                 Rewrite
               </button>{" "}
@@ -2059,57 +2542,393 @@ export function LanguageStudioClient() {
                         ))}
                       </div>
                     ) : null}
-                    <div className="space-y-2 rounded-lg border border-[#1f2d26] bg-black/20 p-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-xs font-semibold uppercase text-slate-500">Social Output</p>
+                    <div className={`${socialOutputPanelClass} space-y-4`}>
+                        <input
+                          ref={socialUploadInputRef}
+                          type="file"
+                          className="sr-only"
+                          aria-hidden
+                          accept={socialUploadCtx?.kind === "video" ? "video/mp4,video/webm,video/quicktime" : "image/*"}
+                          onChange={(e) => {
+                            void run(async () => {
+                              const ctx = socialUploadCtx;
+                              const file = e.target.files?.[0];
+                              e.target.value = "";
+                              setSocialUploadCtx(null);
+                              if (!ctx || !file || !selectedTranslation) return;
+                              const form = new FormData();
+                              form.append("translationId", selectedTranslation.id);
+                              form.append("platform", ctx.platform);
+                              form.append("kind", ctx.kind);
+                              form.append("file", file);
+                              const res = await fetch(studioApiPath("/api/language/translations/social-upload"), {
+                                method: "POST",
+                                body: form,
+                              });
+                              const data = await readJsonResponse(res);
+                              if (!res.ok) {
+                                throw new Error(typeof data.error === "string" ? data.error : "Upload failed");
+                              }
+                              const updated = normaliseTranslation(
+                                data.translation as Translation,
+                                articles.find((a) => a.id === selectedTranslation.articleId),
+                              );
+                              setTranslations((rows) => rows.map((row) => (row.id === updated.id ? updated : row)));
+                              setMessage(ctx.kind === "image" ? "Social image uploaded." : "Social video uploaded.");
+                            }, { reload: false });
+                          }}
+                        />
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Social output</p>
+                            <p className="mt-1 max-w-xl text-sm leading-snug text-[color:var(--text-secondary)]">
+                              Edit copy per channel, then attach channel-specific image or video when it should differ from the article hero.
+                            </p>
+                          </div>
+                          <span className="shrink-0 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-1 text-[11px] font-semibold tabular-nums text-[color:var(--text-muted)]">
+                            {socialPlatformOrder.length} platforms
+                          </span>
                         </div>
                         {hasIncompleteSocialOutput(selectedTranslation) ? (
-                          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-100">
-                            <p className="font-semibold text-white">Platform copy is incomplete.</p>
-                            <p className="mt-1">Use AI to complete every platform copy field, then review/edit before approval.</p>
-                            <button type="button" className={`${amberButtonClass} mt-2`} onClick={() => void generateSocialOutput()} disabled={busy}>
+                          <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 p-4 text-sm text-amber-100">
+                            <p className="font-semibold text-[color:var(--text-primary)]">Platform copy is incomplete</p>
+                            <p className="mt-1 text-[color:var(--text-secondary)]">Generate drafts for every platform, then tweak before approval.</p>
+                            <button type="button" className={`${amberButtonClass} mt-3`} onClick={() => void generateSocialOutput()} disabled={busy}>
                               {busy ? "Generating social output..." : "Complete all social fields with AI"}
                             </button>
                           </div>
                         ) : null}
-                        <div className="grid gap-3 lg:grid-cols-2">
-                          {socialPostsForEditor(selectedTranslation).map((post) => (
-                            <div key={post.platform} className="space-y-2 rounded border border-[#1f2d26] bg-black/20 p-3">
-                              <p className="text-xs font-bold uppercase text-slate-400">{socialPlatformLabels[post.platform]}</p>
-                              <input
-                                className={inputClass}
-                                placeholder="Headline"
-                                value={post.headline ?? ""}
-                                onChange={(e) => updateSelectedTranslation({
-                                  socialPosts: socialPostsForEditor(selectedTranslation).map((row) => row.platform === post.platform ? { ...row, headline: e.target.value } : row),
-                                })}
-                              />
-                              <textarea
-                                className={textareaClass}
-                                placeholder="Platform copy"
-                                value={post.text}
-                                onChange={(e) => updateSelectedTranslation({
-                                  socialPosts: socialPostsForEditor(selectedTranslation).map((row) => row.platform === post.platform ? { ...row, text: e.target.value } : row),
-                                })}
-                              />
-                              <input
-                                className={inputClass}
-                                placeholder="Hashtags, comma-separated"
-                                value={(post.hashtags ?? []).join(", ")}
-                                onChange={(e) => updateSelectedTranslation({
-                                  socialPosts: socialPostsForEditor(selectedTranslation).map((row) => row.platform === post.platform ? { ...row, hashtags: uniqueTags(e.target.value.split(",").map((tag) => tag.trim()).filter(Boolean)) } : row),
-                                })}
-                              />
-                              <input
-                                className={inputClass}
-                                placeholder="Call to action"
-                                value={post.callToAction ?? ""}
-                                onChange={(e) => updateSelectedTranslation({
-                                  socialPosts: socialPostsForEditor(selectedTranslation).map((row) => row.platform === post.platform ? { ...row, callToAction: e.target.value } : row),
-                                })}
-                              />
+                        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_min(320px,38%)] lg:items-start lg:gap-5">
+                          <div className="min-w-0 space-y-3">
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                className={miniButtonClass}
+                                onClick={() => {
+                                  const next: Partial<Record<SocialPost["platform"], boolean>> = {};
+                                  for (const p of socialPlatformOrder) next[p] = true;
+                                  setExpandedSocialPlatforms(next);
+                                }}
+                              >
+                                Expand all channels
+                              </button>
+                              <button
+                                type="button"
+                                className={miniButtonClass}
+                                onClick={() => setExpandedSocialPlatforms({})}
+                              >
+                                Collapse all
+                              </button>
                             </div>
-                          ))}
+                            {socialPostsForEditor(selectedTranslation).map((post) => {
+                              const theme = SOCIAL_PLATFORM_THEME[post.platform];
+                              const expanded = expandedSocialPlatforms[post.platform] === true;
+                              const chipImg = socialPostHasImage(post);
+                              const chipVid = socialPostHasVideo(post);
+                              const chipOff = "bg-[color:var(--surface-muted)] text-[color:var(--text-muted)]";
+                              const chipImgOn = "bg-emerald-500/15 text-emerald-800 ring-1 ring-emerald-500/25 dark:text-emerald-200";
+                              const chipVidOn = "bg-sky-500/15 text-sky-900 ring-1 ring-sky-500/25 dark:text-sky-200";
+                              const chipImgExp = chipImg
+                                ? "bg-white/25 text-white ring-1 ring-white/35 dark:bg-emerald-500/25 dark:text-emerald-950 dark:ring-emerald-800/30"
+                                : "bg-black/20 text-white/80 dark:bg-neutral-900/12 dark:text-neutral-800";
+                              const chipVidExp = chipVid
+                                ? "bg-white/25 text-white ring-1 ring-white/35 dark:bg-sky-500/25 dark:text-sky-950 dark:ring-sky-800/30"
+                                : "bg-black/20 text-white/80 dark:bg-neutral-900/12 dark:text-neutral-800";
+                              return (
+                            <div key={post.platform} className={`${socialPlatformCardClass} ${theme.border} border-l-4`}>
+                              <button
+                                type="button"
+                                aria-expanded={expanded}
+                                className={`flex w-full items-center gap-3 px-3 py-3 text-left transition ${
+                                  expanded ? theme.expandedHeader : "bg-[color:var(--surface)] hover:bg-[color:var(--surface-muted)]"
+                                }`}
+                                onClick={() => {
+                                  setExpandedSocialPlatforms((prev) => ({ ...prev, [post.platform]: !prev[post.platform] }));
+                                  setSocialPreviewPlatform(post.platform);
+                                }}
+                              >
+                                <span className={`shrink-0 text-base font-black leading-none ${expanded ? "text-white/90" : "text-[color:var(--text-muted)]"}`} aria-hidden>
+                                  {expanded ? "▼" : "▶"}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className={`truncate text-sm font-bold ${expanded ? "text-white" : theme.collapsedTitle}`}>{socialPlatformLabels[post.platform]}</p>
+                                  <p className={`truncate text-[11px] ${expanded ? "text-white/85" : "text-[color:var(--text-muted)]"}`}>
+                                    {truncateForPreview(post.headline || post.text || "No copy yet", 80)}
+                                  </p>
+                                </div>
+                                <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${expanded ? chipImgExp : chipImg ? chipImgOn : chipOff}`}>Img</span>
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${expanded ? chipVidExp : chipVid ? chipVidOn : chipOff}`}>Vid</span>
+                                </div>
+                              </button>
+                              {expanded ? (
+                              <div className="space-y-4 border-t border-[color:var(--border)] bg-[color:var(--surface-muted)]/40 p-4">
+                                <div className={socialSubsectionClass}>
+                                  <p className={`${socialFieldLabelClass} mb-3`}>Copy</p>
+                                  <div className="space-y-3">
+                                    <label className="block">
+                                      <span className={socialFieldLabelClass}>Headline</span>
+                                      <input
+                                        className={inputClass}
+                                        placeholder="Short headline for this channel"
+                                        value={post.headline ?? ""}
+                                        onChange={(e) => updateSelectedTranslation({
+                                          socialPosts: mapSocialPostsForPlatform(selectedTranslation, post.platform, { headline: e.target.value }),
+                                        })}
+                                      />
+                                    </label>
+                                    <label className="block">
+                                      <span className={socialFieldLabelClass}>Body</span>
+                                      <textarea
+                                        className={textareaClass}
+                                        placeholder="Main post text"
+                                        value={post.text}
+                                        onChange={(e) => updateSelectedTranslation({
+                                          socialPosts: mapSocialPostsForPlatform(selectedTranslation, post.platform, { text: e.target.value }),
+                                        })}
+                                      />
+                                    </label>
+                                    <label className="block">
+                                      <span className={socialFieldLabelClass}>Hashtags</span>
+                                      <input
+                                        className={inputClass}
+                                        placeholder="Comma-separated, e.g. #F1, #Racing"
+                                        value={(post.hashtags ?? []).join(", ")}
+                                        onChange={(e) => updateSelectedTranslation({
+                                          socialPosts: mapSocialPostsForPlatform(selectedTranslation, post.platform, {
+                                            hashtags: uniqueTags(e.target.value.split(",").map((tag) => tag.trim()).filter(Boolean)),
+                                          }),
+                                        })}
+                                      />
+                                    </label>
+                                    <label className="block">
+                                      <span className={socialFieldLabelClass}>Call to action</span>
+                                      <input
+                                        className={inputClass}
+                                        placeholder="e.g. Read more"
+                                        value={post.callToAction ?? ""}
+                                        onChange={(e) => updateSelectedTranslation({
+                                          socialPosts: mapSocialPostsForPlatform(selectedTranslation, post.platform, { callToAction: e.target.value }),
+                                        })}
+                                      />
+                                    </label>
+                                  </div>
+                                </div>
+
+                                <div className="grid gap-4 xl:grid-cols-2">
+                                  <div className={`${socialSubsectionClass} space-y-3`}>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <p className={socialFieldLabelClass}>Image</p>
+                                    </div>
+                                    <div className="relative flex min-h-[132px] items-center justify-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] aspect-[16/10]">
+                                      {socialPostImageSrc(post) ? (
+                                        // eslint-disable-next-line @next/next/no-img-element -- dynamic `/api/file` URL
+                                        <img
+                                          src={socialPostImageSrc(post)}
+                                          alt=""
+                                          className="max-h-full max-w-full object-contain"
+                                        />
+                                      ) : (
+                                        <div className="px-4 text-center">
+                                          <p className="text-xs font-medium text-[color:var(--text-muted)]">No image selected</p>
+                                          <p className="mt-1 text-[11px] leading-snug text-[color:var(--text-muted)]/85">
+                                            Reuse the article hero, upload a file, or paste a library path or URL.
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <label className="block">
+                                      <span className={socialFieldLabelClass}>Library path</span>
+                                      <input
+                                        className={inputClass}
+                                        placeholder="images/library/…"
+                                        value={post.imageLibraryRel ?? ""}
+                                        onChange={(e) => {
+                                          const v = e.target.value.trim();
+                                          updateSelectedTranslation({
+                                            socialPosts: mapSocialPostsForPlatform(selectedTranslation, post.platform, {
+                                              imageLibraryRel: v || undefined,
+                                              imageUrl: v ? undefined : post.imageUrl,
+                                            }),
+                                          });
+                                        }}
+                                      />
+                                    </label>
+                                    <label className="block">
+                                      <span className={socialFieldLabelClass}>External URL</span>
+                                      <input
+                                        className={inputClass}
+                                        placeholder="https://…"
+                                        value={post.imageUrl ?? ""}
+                                        onChange={(e) => {
+                                          const v = e.target.value.trim();
+                                          updateSelectedTranslation({
+                                            socialPosts: mapSocialPostsForPlatform(selectedTranslation, post.platform, {
+                                              imageUrl: v || undefined,
+                                              imageLibraryRel: v ? undefined : post.imageLibraryRel,
+                                            }),
+                                          });
+                                        }}
+                                      />
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                      <button
+                                        type="button"
+                                        className={miniButtonClass}
+                                        disabled={busy || (!originalForTranslation?.imageLibraryRel && !originalForTranslation?.imageUrl)}
+                                        onClick={() => {
+                                          const a = originalForTranslation;
+                                          if (!a) return;
+                                          updateSelectedTranslation({
+                                            socialPosts: mapSocialPostsForPlatform(selectedTranslation, post.platform, {
+                                              imageLibraryRel: a.imageLibraryRel?.trim() || undefined,
+                                              imageUrl: a.imageUrl?.trim() || undefined,
+                                            }),
+                                          });
+                                        }}
+                                      >
+                                        Use article hero
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className={socialPrimaryMiniButtonClass}
+                                        disabled={busy}
+                                        onClick={() => {
+                                          setSocialUploadCtx({ platform: post.platform, kind: "image" });
+                                          window.requestAnimationFrame(() => socialUploadInputRef.current?.click());
+                                        }}
+                                      >
+                                        Upload image
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className={dangerMiniButtonClass}
+                                        disabled={busy || (!post.imageLibraryRel && !post.imageUrl)}
+                                        onClick={() => updateSelectedTranslation({
+                                          socialPosts: mapSocialPostsForPlatform(selectedTranslation, post.platform, {
+                                            imageLibraryRel: undefined,
+                                            imageUrl: undefined,
+                                          }),
+                                        })}
+                                      >
+                                        Clear
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className={`${socialSubsectionClass} space-y-3`}>
+                                    <p className={socialFieldLabelClass}>Video</p>
+                                    <div className="relative flex min-h-[140px] items-center justify-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] aspect-video">
+                                      {socialPostVideoSrc(post) ? (
+                                        <video
+                                          src={socialPostVideoSrc(post)}
+                                          controls
+                                          className="max-h-full max-w-full"
+                                        />
+                                      ) : (
+                                        <div className="px-4 text-center">
+                                          <p className="text-xs font-medium text-[color:var(--text-muted)]">No video selected</p>
+                                          <p className="mt-1 text-[11px] leading-snug text-[color:var(--text-muted)]/85">
+                                            Upload MP4/WebM/MOV, or paste a path or stream URL. Set format for publishers below.
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <label className="block">
+                                      <span className={socialFieldLabelClass}>Library path</span>
+                                      <input
+                                        className={inputClass}
+                                        placeholder="images/library/…"
+                                        value={post.videoLibraryRel ?? ""}
+                                        onChange={(e) => {
+                                          const v = e.target.value.trim();
+                                          updateSelectedTranslation({
+                                            socialPosts: mapSocialPostsForPlatform(selectedTranslation, post.platform, {
+                                              videoLibraryRel: v || undefined,
+                                              videoUrl: v ? undefined : post.videoUrl,
+                                              videoLayout: v || post.videoUrl ? post.videoLayout ?? defaultVideoLayoutForPlatform(post.platform) : undefined,
+                                            }),
+                                          });
+                                        }}
+                                      />
+                                    </label>
+                                    <label className="block">
+                                      <span className={socialFieldLabelClass}>External URL</span>
+                                      <input
+                                        className={inputClass}
+                                        placeholder="MP4 URL or similar"
+                                        value={post.videoUrl ?? ""}
+                                        onChange={(e) => {
+                                          const v = e.target.value.trim();
+                                          updateSelectedTranslation({
+                                            socialPosts: mapSocialPostsForPlatform(selectedTranslation, post.platform, {
+                                              videoUrl: v || undefined,
+                                              videoLibraryRel: v ? undefined : post.videoLibraryRel,
+                                              videoLayout: v || post.videoLibraryRel ? post.videoLayout ?? defaultVideoLayoutForPlatform(post.platform) : undefined,
+                                            }),
+                                          });
+                                        }}
+                                      />
+                                    </label>
+                                    <label className="block">
+                                      <span className={socialFieldLabelClass}>Format for publishers</span>
+                                      <select
+                                        className={inputClass}
+                                        value={post.videoLayout ?? defaultVideoLayoutForPlatform(post.platform)}
+                                        onChange={(e) => updateSelectedTranslation({
+                                          socialPosts: mapSocialPostsForPlatform(selectedTranslation, post.platform, {
+                                            videoLayout: e.target.value === "shorts" ? "shorts" : "landscape",
+                                          }),
+                                        })}
+                                      >
+                                        <option value="shorts">Vertical / Shorts / Reels (9:16)</option>
+                                        <option value="landscape">Landscape / in-feed (16:9)</option>
+                                      </select>
+                                      <p className="mt-1 text-[11px] leading-snug text-[color:var(--text-muted)]">
+                                        Hint only — does not resize files. Use for handoff to scheduling tools.
+                                      </p>
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                      <button
+                                        type="button"
+                                        className={socialPrimaryMiniButtonClass}
+                                        disabled={busy}
+                                        onClick={() => {
+                                          setSocialUploadCtx({ platform: post.platform, kind: "video" });
+                                          window.requestAnimationFrame(() => socialUploadInputRef.current?.click());
+                                        }}
+                                      >
+                                        Upload video
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className={dangerMiniButtonClass}
+                                        disabled={busy || (!post.videoLibraryRel && !post.videoUrl)}
+                                        onClick={() => updateSelectedTranslation({
+                                          socialPosts: mapSocialPostsForPlatform(selectedTranslation, post.platform, {
+                                            videoLibraryRel: undefined,
+                                            videoUrl: undefined,
+                                            videoLayout: undefined,
+                                          }),
+                                        })}
+                                      >
+                                        Clear
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              ) : null}
+                            </div>
+                              );
+                            })}
+                          </div>
+                          <SocialPublishPreviewAside
+                            translation={selectedTranslation}
+                            sourceArticle={originalForTranslation}
+                            previewPlatform={socialPreviewPlatform}
+                            onPreviewPlatformChange={setSocialPreviewPlatform}
+                          />
                         </div>
                       </div>
                     <div className="grid gap-3 lg:grid-cols-2">
@@ -2159,6 +2978,7 @@ export function LanguageStudioClient() {
               </div>
               <div className="min-w-0 space-y-4 2xl:sticky 2xl:top-4 2xl:self-start">
                 <SourceImagePanel
+                  variant="full"
                   article={originalForTranslation}
                   lastOpenAiImagePreview={lastOpenAiImagePreview}
                   onClearLastOpenAiImagePreview={() => setLastOpenAiImagePreview(null)}
@@ -2166,14 +2986,20 @@ export function LanguageStudioClient() {
                   imageGenerationPrompt={imageGenerationPrompt}
                   libraryRelAttach={libraryRelAttach}
                   runwayT2iRatio={runwayT2iRatio}
+                  openAiImageSize={openAiImageSize}
                   busy={busy}
                   onImageChangeUrl={setImageChangeUrl}
                   onImageGenerationPrompt={setImageGenerationPrompt}
                   onLibraryRelAttach={setLibraryRelAttach}
                   onRunwayT2iRatioChange={setRunwayT2iRatio}
+                  onOpenAiImageSizeChange={setOpenAiImageSize}
+                  higgsfieldT2iAspect={higgsfieldT2iAspect}
+                  onHiggsfieldT2iAspectChange={setHiggsfieldT2iAspect}
                   textToImageProvider={textToImageProvider}
                   onTextToImageProviderChange={setTextToImageProvider}
                   onAttachLibraryPath={() => void attachArticleFromLibraryPath()}
+                  onAttachLibraryRelFromPicker={(rel) => void attachLibraryPickReviewQueue(rel)}
+                  onManualImageUpload={(file) => void uploadSourceImageForArticle(originalForTranslation ?? selectedArticle, file)}
                   onApplyF365MatchReportPrompt={applyF365MatchReportPromptPreset}
                   onApplyF365PreviewPrompt={applyF365PreviewPromptPreset}
                   onDelete={() => void updateArticleImage("delete")}
@@ -2442,11 +3268,120 @@ export function LanguageStudioClient() {
   );
 }
 
+type LibraryImageListItem = { relPath: string; label: string };
+
+function LibraryImagePickerModal({
+  open,
+  onClose,
+  onPick,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onPick: (relPath: string) => void;
+}) {
+  const [items, setItems] = useState<LibraryImageListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [q, setQ] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    setErr(null);
+    void fetch(studioApiPath("/api/language/articles/library-images"))
+      .then((r) => r.json())
+      .then((d: { items?: LibraryImageListItem[]; error?: string }) => {
+        if (cancelled) return;
+        if (d.error) setErr(d.error);
+        setItems(Array.isArray(d.items) ? d.items : []);
+      })
+      .catch(() => {
+        if (!cancelled) setErr("Could not load library images.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const n = q.trim().toLowerCase();
+    if (!n) return items;
+    return items.filter((row) => row.relPath.toLowerCase().includes(n) || row.label.toLowerCase().includes(n));
+  }, [items, q]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ls-library-picker-title"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border)] p-4">
+          <h2 id="ls-library-picker-title" className="text-lg font-bold text-[color:var(--text-primary)]">
+            Pick from Image Library
+          </h2>
+          <button type="button" className={miniButtonClass} onClick={onClose}>
+            Close
+          </button>
+        </div>
+        <div className="border-b border-[color:var(--border)] p-3">
+          <input
+            className={inputClass}
+            placeholder="Filter by path or filename…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          {loading ? <p className="text-sm text-[color:var(--text-muted)]">Loading…</p> : null}
+          {err ? <p className="text-sm text-red-400">{err}</p> : null}
+          {!loading && !err && filtered.length === 0 ? (
+            <p className="text-sm text-[color:var(--text-muted)]">No images match. Generate or upload images first.</p>
+          ) : null}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {filtered.map((row) => (
+              <button
+                key={row.relPath}
+                type="button"
+                className="group flex flex-col overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] text-left transition hover:border-[#22c55e]/50"
+                onClick={() => {
+                  onPick(row.relPath);
+                  onClose();
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={withAppPathPrefix(`/api/file?rel=${encodeURIComponent(row.relPath)}`)}
+                  alt=""
+                  className="h-28 w-full object-cover"
+                />
+                <p className="truncate p-2 font-mono text-[10px] text-[color:var(--text-muted)]">{row.label}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Stat({ title, value }: { title: string; value: number }) {
   return <Panel title={title} className="p-5"><p className="text-3xl font-black text-white">{value}</p></Panel>;
 }
 
 function SourceImagePanel({
+  variant = "full",
   article,
   lastOpenAiImagePreview,
   onClearLastOpenAiImagePreview,
@@ -2454,14 +3389,20 @@ function SourceImagePanel({
   imageGenerationPrompt,
   libraryRelAttach,
   runwayT2iRatio,
+  openAiImageSize,
+  higgsfieldT2iAspect,
   textToImageProvider,
   busy,
   onImageChangeUrl,
   onImageGenerationPrompt,
   onLibraryRelAttach,
   onRunwayT2iRatioChange,
+  onOpenAiImageSizeChange,
+  onHiggsfieldT2iAspectChange,
   onTextToImageProviderChange,
   onAttachLibraryPath,
+  onAttachLibraryRelFromPicker,
+  onManualImageUpload,
   onApplyF365MatchReportPrompt,
   onApplyF365PreviewPrompt,
   onDelete,
@@ -2469,6 +3410,7 @@ function SourceImagePanel({
   onImageToVideo,
   onTextToImage,
 }: {
+  variant?: "full" | "attach";
   article?: Article;
   lastOpenAiImagePreview: { previewUrl: string; libraryRel?: string } | null;
   onClearLastOpenAiImagePreview: () => void;
@@ -2476,14 +3418,20 @@ function SourceImagePanel({
   imageGenerationPrompt: string;
   libraryRelAttach: string;
   runwayT2iRatio: string;
-  textToImageProvider: "runway" | "openai";
+  openAiImageSize: "1792x1024" | "1024x1024" | "1024x1792";
+  higgsfieldT2iAspect: "1:1" | "4:3" | "3:4" | "16:9" | "9:16";
+  textToImageProvider: "runway" | "openai" | "higgsfield";
   busy: boolean;
   onImageChangeUrl: (value: string) => void;
   onImageGenerationPrompt: (value: string) => void;
   onLibraryRelAttach: (value: string) => void;
   onRunwayT2iRatioChange: (value: string) => void;
-  onTextToImageProviderChange: (value: "runway" | "openai") => void;
+  onOpenAiImageSizeChange: (value: "1792x1024" | "1024x1024" | "1024x1792") => void;
+  onHiggsfieldT2iAspectChange: (value: "1:1" | "4:3" | "3:4" | "16:9" | "9:16") => void;
+  onTextToImageProviderChange: (value: "runway" | "openai" | "higgsfield") => void;
   onAttachLibraryPath: () => void;
+  onAttachLibraryRelFromPicker: (relPath: string) => void;
+  onManualImageUpload: (file: File) => void;
   onApplyF365MatchReportPrompt: () => void;
   onApplyF365PreviewPrompt: () => void;
   onDelete: () => void;
@@ -2491,6 +3439,9 @@ function SourceImagePanel({
   onImageToVideo: () => void;
   onTextToImage: () => void;
 }) {
+  const isFull = variant !== "attach";
+  const [libraryPickerOpen, setLibraryPickerOpen] = useState(false);
+  const manualUploadRef = useRef<HTMLInputElement>(null);
   const src = articleImageSrc(article);
   return (
     <div className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-sm">
@@ -2514,12 +3465,12 @@ function SourceImagePanel({
       <div className="space-y-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
         <p className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Image Library path</p>
         <p className="text-xs text-[color:var(--text-secondary)]">
-          Paste the relative path shown in{" "}
-          <Link href={withAppPathPrefix("/library")} className="font-semibold text-[#22c55e] hover:underline">
-            Media Library
-          </Link>{" "}
-          (same value as <code className="text-[color:var(--text-muted)]">/api/file?rel=…</code>). Saves to the{" "}
-          <strong className="text-[color:var(--text-primary)]">source article</strong>.
+          Paste a path from{" "}
+          <Link href={withAppPathPrefix("/library?tab=libraryImages")} className="font-semibold text-[#22c55e] hover:underline">
+            Media Library → Images
+          </Link>
+          , <strong className="text-[color:var(--text-primary)]">browse</strong> recent thumbnails (Language Studio / OpenAI / Higgsfield / Shorts — not filtered to Shorts only), or{" "}
+          <strong className="text-[color:var(--text-primary)]">upload</strong> a file. Same value as <code className="text-[color:var(--text-muted)]">/api/file?rel=…</code>.
         </p>
         <input
           className={inputClass}
@@ -2531,8 +3482,25 @@ function SourceImagePanel({
           <button type="button" className={miniButtonClass} onClick={onAttachLibraryPath} disabled={busy || !libraryRelAttach.trim() || !article}>
             Attach from Library path
           </button>
+          <button type="button" className={miniButtonClass} onClick={() => setLibraryPickerOpen(true)} disabled={busy || !article}>
+            Browse library…
+          </button>
+          <button type="button" className={miniButtonClass} onClick={() => manualUploadRef.current?.click()} disabled={busy || !article}>
+            Upload image…
+          </button>
+          <input
+            ref={manualUploadRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onManualImageUpload(f);
+              e.target.value = "";
+            }}
+          />
           <Link
-            href={withAppPathPrefix("/library")}
+            href={withAppPathPrefix("/library?tab=libraryImages")}
             className="inline-flex items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text-secondary)] hover:bg-[color:var(--surface-hover)]"
           >
             Open Library
@@ -2553,15 +3521,18 @@ function SourceImagePanel({
         </div>
       </div>
 
+      {isFull ? (
+        <>
       <label className="block text-xs font-semibold uppercase text-[color:var(--text-muted)]">
         Text-to-image provider
         <select
           className={inputClass}
           value={textToImageProvider}
-          onChange={(e) => onTextToImageProviderChange(e.target.value as "runway" | "openai")}
+          onChange={(e) => onTextToImageProviderChange(e.target.value as "runway" | "openai" | "higgsfield")}
         >
           <option value="runway">Runway Gen-4 (returns task id — finish in Runway)</option>
           <option value="openai">OpenAI Images (gpt-image-1 by default — auto-attaches to source article)</option>
+          <option value="higgsfield">Higgsfield (prompt-only — Seedream v4 default — auto-attaches)</option>
         </select>
       </label>
 
@@ -2574,18 +3545,61 @@ function SourceImagePanel({
           onChange={(e) => onRunwayT2iRatioChange(e.target.value)}
         >
           {RUNWAY_T2I_RATIOS_NEWS_SHORTS.map((r) => (
-            <option key={r} value={r}>{r.replace(":", " × ")}</option>
+            <option key={r} value={r}>
+              {formatRunwayT2iRatioLabel(r)}
+            </option>
           ))}
         </select>
       </label>
+      ) : textToImageProvider === "openai" ? (
+        <>
+          <label className="block text-xs font-semibold uppercase text-[color:var(--text-muted)]">
+            OpenAI output size
+            <select
+              className={inputClass}
+              value={openAiImageSize}
+              onChange={(e) =>
+                onOpenAiImageSizeChange(e.target.value as "1792x1024" | "1024x1024" | "1024x1792")
+              }
+            >
+              <option value="1792x1024">1792 × 1024 — landscape (≈16:9)</option>
+              <option value="1024x1024">1024 × 1024 — square</option>
+              <option value="1024x1792">1024 × 1792 — portrait (≈9:16)</option>
+            </select>
+          </label>
+          <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-2 text-xs text-[color:var(--text-secondary)]">
+            Uses model from Admin /{" "}
+            <code className="text-[color:var(--text-muted)]">OPENAI_IMAGE_MODEL</code> (default{" "}
+            <strong className="text-[color:var(--text-primary)]">gpt-image-1</strong>).{" "}
+            <strong className="text-[color:var(--text-primary)]">DALL·E&nbsp;3</strong> applies the size above;{" "}
+            <strong className="text-[color:var(--text-primary)]">gpt-image</strong> families ignore size here — OpenAI chooses dimensions.
+          </p>
+        </>
       ) : (
-        <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-2 text-xs text-[color:var(--text-secondary)]">
-          OpenAI uses the Images API with model from Admin /{" "}
-          <code className="text-[color:var(--text-muted)]">OPENAI_IMAGE_MODEL</code> (default{" "}
-          <strong className="text-[color:var(--text-primary)]">gpt-image-1</strong>).{" "}
-          <code className="text-[color:var(--text-muted)]">1792×1024</code> applies when the model supports it (
-          <strong className="text-[color:var(--text-primary)]">dall-e-3</strong>); gpt-image responses are persisted to the library.
-        </p>
+        <>
+          <label className="block text-xs font-semibold uppercase text-[color:var(--text-muted)]">
+            Higgsfield aspect ratio
+            <select
+              className={inputClass}
+              value={higgsfieldT2iAspect}
+              onChange={(e) =>
+                onHiggsfieldT2iAspectChange(e.target.value as "1:1" | "4:3" | "3:4" | "16:9" | "9:16")
+              }
+            >
+              <option value="1:1">1:1</option>
+              <option value="4:3">4:3</option>
+              <option value="3:4">3:4</option>
+              <option value="16:9">16:9</option>
+              <option value="9:16">9:16</option>
+            </select>
+          </label>
+          <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-2 text-xs text-[color:var(--text-secondary)]">
+            Uses Higgsfield <strong className="text-[color:var(--text-primary)]">prompt-only</strong> generation (default path{" "}
+            <code className="text-[color:var(--text-muted)]">bytedance/seedream/v4/text-to-image</code>). Set{" "}
+            <code className="text-[color:var(--text-muted)]">HIGGSFIELD_TEXT_TO_IMAGE_ENDPOINT</code> in Admin / env to switch models.
+            Requires HF credentials (Admin → Higgsfield).
+          </p>
+        </>
       )}
 
       <div className="space-y-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
@@ -2593,7 +3607,7 @@ function SourceImagePanel({
         <p className="text-xs text-[color:var(--text-secondary)]">
           Inlines teams, score, headline, venue and competition from the <strong className="text-[color:var(--text-primary)]">source article</strong>. Brand cyan{" "}
           <code className="text-[color:var(--text-muted)]">#60CAEA</code> — no yellow.{" "}
-          <strong className="text-[color:var(--text-primary)]">Match report</strong> preset: long article-grounded brief for OpenAI, compact for Runway (≤1000 chars).{" "}
+          <strong className="text-[color:var(--text-primary)]">Match report</strong> preset: long article-grounded brief for OpenAI / Higgsfield, compact for Runway (≤1000 chars).{" "}
           <strong className="text-[color:var(--text-primary)]">Preview hero</strong> uses the same provider split (full preview / YouTube thumbnail brief vs compact Runway).{" "}
           Pick provider above first, then apply preset. Uses{" "}
           <code className="text-[color:var(--text-muted)]">1280×720</code> wording for Runway ratio preset.
@@ -2614,7 +3628,7 @@ function SourceImagePanel({
       </div>
 
       <label className="block text-xs font-semibold uppercase text-[color:var(--text-muted)]">
-        Image generation prompt (Runway text-to-image)
+        Image generation prompt
         <textarea
           className={textareaClass}
           placeholder="Optional prompt — use presets above or write your own"
@@ -2627,7 +3641,7 @@ function SourceImagePanel({
           This prompt is <strong className="text-[color:var(--text-primary)]">{imageGenerationPrompt.length}</strong> characters;
           Runway allows <strong className="text-[color:var(--text-primary)]">{RUNWAY_T2I_PROMPT_MAX}</strong>. Re-apply{" "}
           <strong className="text-[color:var(--text-primary)]">Match report hero</strong> or{" "}
-          <strong className="text-[color:var(--text-primary)]">Preview hero</strong> with Runway selected, or switch to OpenAI.
+          <strong className="text-[color:var(--text-primary)]">Preview hero</strong> with Runway selected, or switch to OpenAI / Higgsfield.
         </p>
       ) : null}
       <div className="grid gap-2">
@@ -2641,7 +3655,7 @@ function SourceImagePanel({
       {lastOpenAiImagePreview ? (
         <div className="space-y-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-bold uppercase tracking-wide text-emerald-200">Last OpenAI image — preview</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-200">Last generated image — preview</p>
             <button
               type="button"
               className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-1 text-[10px] font-semibold uppercase text-[color:var(--text-secondary)] hover:bg-[color:var(--surface-hover)]"
@@ -2680,8 +3694,19 @@ function SourceImagePanel({
         <strong className="text-[color:var(--text-primary)]">Runway:</strong> requires{" "}
         <code className="text-[color:var(--text-muted)]">RUNWAYML_API_SECRET</code>.{" "}
         <strong className="text-[color:var(--text-primary)]">OpenAI:</strong> requires{" "}
-        <code className="text-[color:var(--text-muted)]">OPENAI_API_KEY</code> — generated image is fetched and attached like &quot;Change image URL&quot;.
+        <code className="text-[color:var(--text-muted)]">OPENAI_API_KEY</code> — generated image is fetched and attached like &quot;Change image URL&quot;.{" "}
+        <strong className="text-[color:var(--text-primary)]">Higgsfield:</strong> requires HF credentials (Admin → Higgsfield); same attach flow as the other sync providers.
       </p>
+        </>
+      ) : null}
+      <LibraryImagePickerModal
+        open={libraryPickerOpen}
+        onClose={() => setLibraryPickerOpen(false)}
+        onPick={(rel) => {
+          onLibraryRelAttach(rel);
+          onAttachLibraryRelFromPicker(rel);
+        }}
+      />
     </div>
   );
 }

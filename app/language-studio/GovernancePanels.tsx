@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
 import { LANGUAGE_LABELS, type LanguageCode } from "@/app/lib/language-studio/types";
+import { studioApiPath } from "@/app/lib/app-base-path";
 
 type Section = "Guardrails" | "Protected Terms" | "Market Rules" | "Prompt Rules" | "Compliance Notes" | "Quality Checks" | "Knowledge Files" | "Journalists";
 type GovernanceData = Record<string, Array<Record<string, unknown>>>;
@@ -34,7 +35,7 @@ export function GovernancePanel({ section }: { section: Section }) {
   const rows = collection ? data[collection] ?? [] : [];
 
   const load = async () => {
-    const res = await fetch("/api/language/governance");
+    const res = await fetch(studioApiPath("/api/language/governance"));
     const next = await res.json();
     if (!res.ok) throw new Error(next.error || "Governance load failed");
     setData(next);
@@ -48,7 +49,7 @@ export function GovernancePanel({ section }: { section: Section }) {
     if (!collection) return;
     setError(null);
     setMessage(null);
-    const res = await fetch("/api/language/governance", {
+    const res = await fetch(studioApiPath("/api/language/governance"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ collection, item: draft }),

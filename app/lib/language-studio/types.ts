@@ -120,12 +120,35 @@ export type LanguageSocialEmbed = {
 
 export type LanguageSocialPlatform = "appAlerts" | "facebook" | "x" | "instagram" | "youtube" | "tiktok" | "whatsapp" | "telegram";
 
+/** Ordered list used by translation UI, AI social output and exports (keep in sync). */
+export const LANGUAGE_SOCIAL_PLATFORM_ORDER: LanguageSocialPlatform[] = [
+  "appAlerts",
+  "facebook",
+  "x",
+  "instagram",
+  "youtube",
+  "tiktok",
+  "whatsapp",
+  "telegram",
+];
+
+/** Vertical (Shorts/Reels/TikTok) vs horizontal feed/video. */
+export type LanguageSocialVideoLayout = "shorts" | "landscape";
+
 export type LanguageSocialPost = {
   platform: LanguageSocialPlatform;
   text: string;
   headline?: string;
   hashtags?: string[];
   callToAction?: string;
+  /** Library path under output (same pattern as article `imageLibraryRel`). */
+  imageLibraryRel?: string;
+  /** Remote or absolute preview URL; optional when `imageLibraryRel` is set. */
+  imageUrl?: string;
+  videoLibraryRel?: string;
+  videoUrl?: string;
+  /** Intended format when a video is attached (editor + feed hint). */
+  videoLayout?: LanguageSocialVideoLayout;
 };
 
 export type LanguageImport = {

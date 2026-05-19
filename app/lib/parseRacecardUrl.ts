@@ -240,6 +240,108 @@ async function resolveRacing365CourseTimeToFetchId(
   );
 }
 
+/** Pre-race id bundled on `GetResults` so clients can link back to the card (casing varies). */
+function preRaceIdFromPlanetSportResults(results: PlanetSportRacePayload): number | null {
+  const o = results as Record<string, unknown>;
+  return positiveInt(o.preraceID) ?? positiveInt(o.PreRaceID) ?? positiveInt(o.preRaceId);
+}
+
+const RUNNER_SILK_FIELD_KEYS = [
+  "Silk",
+  "silk",
+  "SILK",
+  "Silks",
+  "silks",
+  "SilkUrl",
+  "silkUrl",
+  "SilksUrl",
+  "JockeySilk",
+  "jockeySilk",
+  "JockeySilkUrl",
+  "jockeySilkUrl",
+  "RunnerSilk",
+  "ClothUrl",
+  "ColoursUrl",
+  "ColoursURL",
+  "WSilk",
+  "wSilk",
+  "ImageSilk",
+  "SilkImage",
+  "SilkPNG",
+] as const;
+
+/**
+ * `GetResults` often drops `SilksStrip`, meeting ids, and per-runner `Silk` even though `GetRace` has them.
+ * Merge pre-race metadata + runner silk fields so import / placings resolve image URLs.
+ */
+export function mergePlanetSportResultsWithPreRaceApi(
+  results: PlanetSportRacePayload,
+  pre: PlanetSportRacePayload,
+): void {
+  const res = results as Record<string, unknown>;
+  const preObj = pre as Record<string, unknown>;
+
+  const preStrip = str(preObj.SilksStrip);
+  if (preStrip && !str(res.SilksStrip)) res.SilksStrip = preStrip;
+
+  for (const k of ["MeetingID", "MeetingId", "CrsMeetingID", "SilkMeetingId", "SilksMeetingId"] as const) {
+    const v = preObj[k];
+    if (v != null && str(v) && !str(res[k] as unknown)) res[k] = v;
+  }
+
+  const rRows = res.Runners;
+  const pRows = preObj.Runners;
+  if (!Array.isArray(rRows) || !Array.isArray(pRows)) return;
+
+  const byHorse = new Map<string, PlanetSportRunnerRow>();
+  for (const row of pRows) {
+    const pr = row as PlanetSportRunnerRow;
+    const hid = runnerHorseIdString(pr);
+    if (hid) byHorse.set(hid, pr);
+  }
+
+  for (const row of rRows) {
+    const r = row as PlanetSportRunnerRow & Record<string, unknown>;
+    const hid = runnerHorseIdString(r);
+    if (!hid) continue;
+    const preRow = byHorse.get(hid);
+    if (!preRow) continue;
+
+    for (const k of RUNNER_SILK_FIELD_KEYS) {
+      const existing = str(r[k]);
+      if (existing && looksLikeSilkAssetUrl(existing)) continue;
+      const v = (preRow as Record<string, unknown>)[k];
+      const vs = str(v);
+      if (vs && looksLikeSilkAssetUrl(vs)) r[k] = v;
+    }
+    if (!r.Silks && preRow.Silks) r.Silks = preRow.Silks;
+  }
+}
+
+async function enrichPlanetSportGetResultsWithPreRaceMetadata(
+  results: PlanetSportRacePayload,
+  headers: Record<string, string>,
+): Promise<PlanetSportRacePayload> {
+  const preId = preRaceIdFromPlanetSportResults(results);
+  if (!preId) return results;
+
+  const preRes = await fetch(`${PLANETSPORT_BASE}/GetRace/${preId}`, {
+    headers,
+    next: { revalidate: 0 },
+  });
+  if (!preRes.ok) return results;
+  let pre: unknown;
+  try {
+    pre = await preRes.json();
+  } catch {
+    return results;
+  }
+  if (!pre || typeof pre !== "object") return results;
+  const prePayload = pre as PlanetSportRacePayload;
+  mergePlanetSportResultsWithPreRaceApi(results, prePayload);
+  return results;
+}
+
 /** Try `GetRace` first (pre-race / full card); fall back to `GetResults` (post-race id only) — matches Racing365 behaviour. */
 export async function fetchPlanetSportRacePayloadFlexible(raceId: number): Promise<PlanetSportRacePayload> {
   const headers = { Accept: "application/json", "Content-Type": "application/json" };
@@ -282,7 +384,7 @@ export async function fetchPlanetSportRacePayloadFlexible(raceId: number): Promi
   if (!Array.isArray(runners2) || runners2.length === 0) {
     throw new RacecardUrlImportError("We found the page but could not parse a racecard", "unsupported");
   }
-  return data2 as PlanetSportRacePayload;
+  return enrichPlanetSportGetResultsWithPreRaceMetadata(data2 as PlanetSportRacePayload, headers);
 }
 
 export function extractPlanetSportRaceIdFromHtml(html: string): number | null {
@@ -404,7 +506,7 @@ function silkFromFormArray(r: PlanetSportRunnerRow): string {
 
 function runnerHorseIdString(r: PlanetSportRunnerRow): string {
   const o = r as Record<string, unknown>;
-  const v = o.HorseId ?? o.horseId ?? o.HORSEID;
+  const v = o.HorseId ?? o.horseId ?? o.HORSEID ?? o.HorseID;
   if (v == null) return "";
   const s = typeof v === "number" && Number.isFinite(v) ? String(Math.trunc(v)) : str(v);
   return /^\d+$/.test(s) ? s : "";

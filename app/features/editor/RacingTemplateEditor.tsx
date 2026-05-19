@@ -41,7 +41,10 @@ import type {
 const input =
   "w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] px-2 py-1.5 text-sm text-white";
 const label = "block text-[10px] font-semibold uppercase tracking-wide text-slate-500";
-const hint = "text-xs text-amber-200/90";
+/** Legible on light panels (e.g. system light theme) and on dark editor chrome. */
+const hint = "text-xs leading-snug text-slate-700 dark:text-amber-100/90";
+const hintStrong = "font-semibold text-slate-900 dark:text-slate-200";
+const hintCode = "font-mono text-slate-800 dark:text-slate-400";
 
 const ANIM_PRESETS: { value: TemplateFieldAnimPreset; label: string }[] = [
   { value: "none", label: "None" },
@@ -378,16 +381,16 @@ function SilkEditor({
       </label>
       <div className="col-span-2 space-y-2 border-t border-[#1f2d26] pt-3 sm:col-span-5">
         <p className={hint}>
-          <strong className="text-slate-300">No image?</strong> Colours drive the shirt-and-cap SVG (pick a style
-          above). <strong className="text-slate-300">With image:</strong> Timeform code or URL wins — use your CDN,
+          <strong className={hintStrong}>No image?</strong> Colours drive the shirt-and-cap SVG (pick a style
+          above). <strong className={hintStrong}>With image:</strong> Timeform code or URL wins — use your CDN,
           or this app&apos;s proxy{" "}
-          <code className="text-slate-400">/api/silk-image?url=…</code> (allowlist in{" "}
-          <code className="text-slate-400">.env</code>). Silks live in your template JSON —{" "}
-          <strong className="text-slate-300">Save template to disk</strong> (tpl-…) for{" "}
-          <code className="text-slate-400">data/local/user-templates.json</code>.{" "}
-          <strong className="text-slate-300">Remember / Apply saved</strong> reuses the same URL or Timeform code
+          <code className={hintCode}>/api/silk-image?url=…</code> (allowlist in{" "}
+          <code className={hintCode}>.env</code>). Silks live in your template JSON —{" "}
+          <strong className={hintStrong}>Save template to disk</strong> (tpl-…) for{" "}
+          <code className={hintCode}>data/local/user-templates.json</code>.{" "}
+          <strong className={hintStrong}>Remember / Apply saved</strong> reuses the same URL or Timeform code
           across horses; leaving the URL or code field also updates that clipboard on blur. Use{" "}
-          <strong className="text-slate-300">Save draft</strong> to persist the whole template in this browser.
+          <strong className={hintStrong}>Save draft</strong> to persist the whole template in this browser.
         </p>
         <label className={label}>
           Timeform silk code (per horse)
@@ -965,8 +968,10 @@ export function RacingTemplateEditor({
     return (
       <EditorCollapsible title="Template data — Fast results" unstyled={templateSectionUnstyled}>
         <p className={`mb-3 ${hint}`}>
-          Edit fields below — the preview clears until you <strong className="text-[#eab308]">Render scenes</strong>.
-          Use <strong className="text-slate-300">Save draft</strong> under silks or <strong className="text-slate-300">Save template</strong> in the browser panel to keep silks after refresh.
+          Edit fields below — the preview clears until you{" "}
+          <strong className="font-semibold text-amber-800 dark:text-[#eab308]">Render scenes</strong>. Use{" "}
+          <strong className={hintStrong}>Save draft</strong> under silks or{" "}
+          <strong className={hintStrong}>Save template</strong> in the browser panel to keep silks after refresh.
         </p>
         <div className="space-y-3">
           <p className="text-xs font-semibold text-[#22d3ee]">Race</p>

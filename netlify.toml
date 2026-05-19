@@ -1,10 +1,16 @@
 [build]
+  # Use `next build` here — not `npm run build` — because package.json pins
+  # NEXT_DIST_DIR=.next-prod locally; Netlify must emit `.next` for the adapter.
   command = "next build"
   publish = ".next"
 
 [build.environment]
   NODE_VERSION = "20"
   NEXT_TELEMETRY_DISABLED = "1"
+  # Puppeteer normally downloads Chrome on install (~hundreds of MB). Runtime on
+  # Netlify uses @sparticuz/chromium; skipping keeps install smaller and avoids failures.
+  PUPPETEER_SKIP_DOWNLOAD = "true"
+  NODE_OPTIONS = "--max-old-space-size=8192"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

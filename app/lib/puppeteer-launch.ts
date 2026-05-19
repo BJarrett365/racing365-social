@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import type { LaunchOptions } from "puppeteer";
+import { isNetlifyHostedLambdaRuntime } from "@/app/lib/netlify-hosted-runtime";
 
 const MAC_CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const MAC_CHROMIUM = "/Applications/Chromium.app/Contents/MacOS/Chromium";
@@ -23,19 +24,22 @@ const DEFAULT_ARGS = [
   "--font-render-hinting=none",
 ] as const;
 
-/** Resolution: env path → macOS Chrome/Chromium → Windows Chrome → `channel: chrome` → bundled (cache). */
-export function getPuppeteerLaunchOptions(): LaunchOptions {
-  const args = [...DEFAULT_ARGS];
+/**
+ * Linux serverless / Netlify: no system Chrome at `/opt/google/chrome`; use Sparticuz
+ * (same pattern as [Netlify guidance](https://github.com/Sparticuz/chromium/issues/24#issuecomment-1414107620)).
+ */
+export async function resolvePuppeteerLaunchOptions(): Promise<LaunchOptions> {
+  const argsFallback = [...DEFAULT_ARGS];
   const envExe = process.env.PUPPETEER_EXECUTABLE_PATH?.trim();
   if (envExe && fs.existsSync(envExe)) {
-    return { headless: true, executablePath: envExe, args };
+    return { headless: true, executablePath: envExe, args: argsFallback };
   }
   if (process.platform === "darwin") {
     if (fs.existsSync(MAC_CHROME)) {
-      return { headless: true, executablePath: MAC_CHROME, args };
+      return { headless: true, executablePath: MAC_CHROME, args: argsFallback };
     }
     if (fs.existsSync(MAC_CHROMIUM)) {
-      return { headless: true, executablePath: MAC_CHROMIUM, args };
+      return { headless: true, executablePath: MAC_CHROMIUM, args: argsFallback };
     }
   }
   if (process.platform === "win32") {
@@ -54,11 +58,36 @@ export function getPuppeteerLaunchOptions(): LaunchOptions {
     ];
     for (const p of candidates) {
       if (p && fs.existsSync(p)) {
-        return { headless: true, executablePath: p, args };
+        return { headless: true, executablePath: p, args: argsFallback };
       }
     }
   }
-  return { headless: true, channel: "chrome", args };
+
+  if (isNetlifyHostedLambdaRuntime()) {
+    try {
+      const chromiumMod = await import("@sparticuz/chromium");
+      const Chromium = chromiumMod.default;
+      if (Chromium) {
+        const { defaultArgs } = await import("puppeteer");
+        Chromium.setGraphicsMode = false;
+        const executablePath = await Chromium.executablePath();
+        if (executablePath) {
+          const mergedArgs = defaultArgs({ args: Chromium.args, headless: "shell" });
+          return {
+            args: mergedArgs,
+            defaultViewport: { width: 1920, height: 1080, deviceScaleFactor: 1 },
+            executablePath,
+            headless: "shell",
+          };
+        }
+      }
+    } catch {
+      /* fall through to channel/chrome */
+    }
+  }
+
+  normalizePuppeteerCacheDir();
+  return { headless: true, channel: "chrome", args: argsFallback };
 }
 
 export async function loadPuppeteer() {

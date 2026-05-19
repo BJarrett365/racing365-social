@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { getStore } from "@netlify/blobs";
 import { projectRoot } from "@/app/lib/paths";
+import { shouldUseNetlifyBlobStore } from "@/app/lib/netlify-blob-json";
 import type {
   LanguageArticle,
   LanguageArticleAutomation,
@@ -121,10 +122,6 @@ const DEFAULT_CLIENTS = [
     updatedAt: "2026-05-07T00:00:00.000Z",
   },
 ];
-
-function shouldUseNetlifyBlobStore(): boolean {
-  return process.env.NETLIFY === "true" || Boolean(process.env.NETLIFY_BLOBS_CONTEXT);
-}
 
 function emptyData(): LanguageStudioData {
   return {

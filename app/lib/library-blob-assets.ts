@@ -93,15 +93,16 @@ export async function listLibraryBlobAssetRels(): Promise<LibraryBlobAssetListIt
   if (!shouldUseNetlifyBlobStore()) return [];
   try {
     const store = getStore(BLOB_STORE_NAME);
-    const listed = await store.list({ prefix: LIBRARY_IMAGE_PREFIX });
     const out: LibraryBlobAssetListItem[] = [];
-    for (const blob of listed.blobs) {
-      const key = normaliseRel(blob.key);
-      if (!key) continue;
-      const metadata = await store.getMetadata(key).catch(() => null);
-      const updatedAt =
-        typeof metadata?.metadata?.updatedAt === "string" ? metadata.metadata.updatedAt : "";
-      out.push({ rel: key, mtimeMs: Date.parse(updatedAt) || 0 });
+    for await (const page of store.list({ prefix: LIBRARY_IMAGE_PREFIX, paginate: true })) {
+      for (const blob of page.blobs) {
+        const key = normaliseRel(blob.key);
+        if (!key) continue;
+        const metadata = await store.getMetadata(key).catch(() => null);
+        const updatedAt =
+          typeof metadata?.metadata?.updatedAt === "string" ? metadata.metadata.updatedAt : "";
+        out.push({ rel: key, mtimeMs: Date.parse(updatedAt) || 0 });
+      }
     }
     return out;
   } catch {

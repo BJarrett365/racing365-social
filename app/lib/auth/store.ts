@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { getStore } from "@netlify/blobs";
 import { projectRoot } from "@/app/lib/paths";
+import { shouldUseNetlifyBlobStore } from "@/app/lib/netlify-blob-json";
 import type { PlexaAuthData, PlexaUser, PublicPlexaUser } from "@/app/lib/auth/types";
 
 const STORE_FILE = path.join(projectRoot(), "data", "local", "plexa-auth-users.json");
@@ -10,10 +11,6 @@ const BLOB_STORE_KEY = "plexa-auth-users.json";
 
 function emptyData(): PlexaAuthData {
   return { users: {} };
-}
-
-function shouldUseNetlifyBlobStore(): boolean {
-  return process.env.NETLIFY === "true" || Boolean(process.env.NETLIFY_BLOBS_CONTEXT);
 }
 
 export function newAuthId(prefix: string): string {

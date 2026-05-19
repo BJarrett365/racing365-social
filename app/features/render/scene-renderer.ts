@@ -4,7 +4,7 @@ import type { Browser } from "puppeteer";
 import { renderHtmlTemplate } from "./html-templates";
 import { normalizeContentIdForFilename } from "@/app/lib/editor-upload";
 import { outputImagesDir } from "@/app/lib/paths";
-import { getPuppeteerLaunchOptions, loadPuppeteer } from "@/app/lib/puppeteer-launch";
+import { loadPuppeteer, resolvePuppeteerLaunchOptions } from "@/app/lib/puppeteer-launch";
 
 export interface RenderSceneInput {
   contentId: string;
@@ -26,7 +26,7 @@ export type RenderSceneToPngOptions = {
 /** Launch one browser, run `fn`, then close (shared pattern for multi-scene API routes). */
 export async function withSharedPuppeteerBrowser<T>(fn: (browser: Browser) => Promise<T>): Promise<T> {
   const puppeteer = await loadPuppeteer();
-  const browser = await puppeteer.launch(getPuppeteerLaunchOptions());
+  const browser = await puppeteer.launch(await resolvePuppeteerLaunchOptions());
   try {
     return await fn(browser);
   } finally {
@@ -56,7 +56,7 @@ export async function renderSceneToPng(
 
   const reuseBrowser = options?.browser;
   const puppeteer = await loadPuppeteer();
-  const browser = reuseBrowser ?? (await puppeteer.launch(getPuppeteerLaunchOptions()));
+  const browser = reuseBrowser ?? (await puppeteer.launch(await resolvePuppeteerLaunchOptions()));
   const ownBrowser = !reuseBrowser;
   try {
     const page = await browser.newPage();

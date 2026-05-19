@@ -2,16 +2,13 @@ import fs from "fs";
 import path from "path";
 import { getStore } from "@netlify/blobs";
 import { projectRoot } from "@/app/lib/paths";
+import { shouldUseNetlifyBlobStore } from "@/app/lib/netlify-blob-json";
 import type { YouTubeScriptImport } from "@/app/lib/youtube-script/types";
 
 const LOCAL_DIR = path.join(projectRoot(), "data", "local");
 const LOCAL_FILE = path.join(LOCAL_DIR, "youtube-script-imports.json");
 const BLOB_STORE_NAME = "plexa-youtube-script-imports";
 const BLOB_STORE_KEY = "imports.json";
-
-function shouldUseNetlifyBlobStore(): boolean {
-  return process.env.NETLIFY === "true" || Boolean(process.env.NETLIFY_BLOBS_CONTEXT);
-}
 
 async function readImports(): Promise<YouTubeScriptImport[]> {
   if (shouldUseNetlifyBlobStore()) {

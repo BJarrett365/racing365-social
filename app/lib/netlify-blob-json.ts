@@ -1,7 +1,12 @@
 import { getStore } from "@netlify/blobs";
+import { hasNetlifyBlobExecutionContext, isNetlifyHostedLambdaRuntime } from "@/app/lib/netlify-hosted-runtime";
 
+/**
+ * Persist JSON / library assets via Netlify Blobs on hosted SSR, not only when `NETLIFY=true`
+ * (mostly build-only) but also Lambda + `SITE_ID`, or blobs context on global/env.
+ */
 export function shouldUseNetlifyBlobStore(): boolean {
-  return process.env.NETLIFY === "true" || Boolean(process.env.NETLIFY_BLOBS_CONTEXT);
+  return hasNetlifyBlobExecutionContext() || isNetlifyHostedLambdaRuntime();
 }
 
 export async function readJsonBlob<T>(storeName: string, key: string): Promise<T | null> {

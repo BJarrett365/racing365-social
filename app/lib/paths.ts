@@ -1,5 +1,6 @@
 import { tmpdir } from "os";
 import path from "path";
+import { usesEphemeralOutputRootRuntime } from "@/app/lib/netlify-hosted-runtime";
 
 export function projectRoot() {
   return process.cwd();
@@ -12,11 +13,7 @@ export function projectRoot() {
  * Named without `use*` so ESLint `react-hooks/rules-of-hooks` does not treat this as a hook.
  */
 function ephemeralWritableOutputRoot(): boolean {
-  return (
-    process.env.NETLIFY === "true" ||
-    Boolean(process.env.NETLIFY_BLOBS_CONTEXT) ||
-    process.env.VERCEL === "1"
-  );
+  return usesEphemeralOutputRootRuntime();
 }
 
 export function outputDir() {

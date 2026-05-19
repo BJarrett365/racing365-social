@@ -25,6 +25,7 @@
   "dependencies": {
     "@netlify/blobs": "^10.7.4",
     "@runwayml/sdk": "^3.19.0",
+    "@sparticuz/chromium": "^148.0.0",
     "@supabase/supabase-js": "^2.49.1",
     "deepl-node": "^1.27.0",
     "fast-xml-parser": "^5.7.2",

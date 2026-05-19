@@ -6,7 +6,7 @@ import {
 } from "@/app/lib/planet-football-table-parser";
 import { planetFootballTableView, type PlanetFootballTableView } from "@/app/lib/planet-football-table-views";
 import { withPlanetFootballTeamLogoUrls } from "@/app/lib/planet-football-team-logos";
-import { getPuppeteerLaunchOptions, loadPuppeteer } from "@/app/lib/puppeteer-launch";
+import { loadPuppeteer, resolvePuppeteerLaunchOptions } from "@/app/lib/puppeteer-launch";
 import type { PlanetFootballTableRow } from "@/types";
 
 type Body = { url?: string; tableView?: string };
@@ -78,7 +78,7 @@ function parseRenderedRowText(text: string, logoUrl?: string): PlanetFootballTab
 
 async function parseViaRenderedPage(url: string, tableView: PlanetFootballTableView): Promise<ReturnType<typeof parsePlanetFootballTable> | null> {
   const puppeteer = await loadPuppeteer();
-  const browser = await puppeteer.launch(getPuppeteerLaunchOptions());
+  const browser = await puppeteer.launch(await resolvePuppeteerLaunchOptions());
   const responsePayloads: unknown[] = [];
   const football365 = isFootball365Url(url);
   try {

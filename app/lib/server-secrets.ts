@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { getStore } from "@netlify/blobs";
 import { projectRoot } from "@/app/lib/paths";
+import { shouldUseNetlifyBlobStore } from "@/app/lib/netlify-blob-json";
 
 export type AdminStoredSettings = {
   elevenlabsApiKey?: string;
@@ -55,10 +56,6 @@ const LOCAL_DIR = path.join(projectRoot(), "data", "local");
 const SETTINGS_FILE = path.join(LOCAL_DIR, "admin-settings.json");
 const BLOB_STORE_NAME = "plexa-admin-settings";
 const BLOB_STORE_KEY = "admin-settings.json";
-
-function shouldUseNetlifyBlobStore(): boolean {
-  return process.env.NETLIFY === "true" || Boolean(process.env.NETLIFY_BLOBS_CONTEXT);
-}
 
 function ensureDir() {
   fs.mkdirSync(LOCAL_DIR, { recursive: true });

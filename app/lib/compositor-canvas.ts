@@ -175,6 +175,19 @@ export function drawCompositorLayers(
   }
 }
 
+/**
+ * Drops text layers that match legacy fast-results editor labels ("Board 1", "BOARD 2", …).
+ * Those were scene markers in the UI; they were often left in the layer stack and baked into PNG previews.
+ */
+export function stripLegacyFastResultsBoardOverlayLayers(layers: CompositorLayer[]): CompositorLayer[] {
+  return layers.filter((l) => {
+    if (l.type !== "text") return true;
+    const normalized = l.text.trim().replace(/\s+/g, " ");
+    if (!normalized) return true;
+    return !/^board \d+$/i.test(normalized);
+  });
+}
+
 /** Rasterise layers to a PNG data URL (browser only). */
 export function compositorLayersToDataUrl(
   layers: CompositorLayer[],

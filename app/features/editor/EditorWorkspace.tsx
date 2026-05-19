@@ -48,7 +48,7 @@ import {
 } from "@/app/features/editor/voiceover/types";
 import { pickRacingCommentatorVoiceId } from "@/app/lib/racing-voice-defaults";
 import type { CompositorLayer } from "@/app/lib/compositor-types";
-import { compositorLayersToDataUrl } from "@/app/lib/compositor-canvas";
+import { compositorLayersToDataUrl, stripLegacyFastResultsBoardOverlayLayers } from "@/app/lib/compositor-canvas";
 import { sceneDisplayLabel } from "@/app/lib/scene-display-labels";
 import { parseApiJson } from "@/app/lib/parse-api-json";
 import { BRAND_SHORT_SINGULAR, BRAND_SHORTS } from "@/app/lib/brand";
@@ -908,12 +908,14 @@ export function EditorWorkspace({
     } catch {
       next = {};
     }
+    const fastResults = content?.templateSource?.format === "fast-results";
     for (const id of ids) {
       if (!next[id]) next[id] = [];
+      else if (fastResults) next[id] = stripLegacyFastResultsBoardOverlayLayers(next[id]!);
     }
     setCompositorByScene(next);
     setCompositorSceneId((prev) => (prev && ids.includes(prev) ? prev : ids[0]!));
-  }, [contentId, content?.scenes]);
+  }, [contentId, content?.scenes, content?.templateSource?.format]);
 
   useEffect(() => {
     try {
@@ -1684,10 +1686,12 @@ export function EditorWorkspace({
         });
       }
       const editorCompositorBySceneId: Record<string, string> = {};
+      const fastResults = content.templateSource?.format === "fast-results";
       for (const s of scenesForRender) {
         const ly = compositorByScene[s.id];
         if (ly?.length) {
-          const dataUrl = compositorLayersToDataUrl(ly, 0);
+          const toRaster = fastResults ? stripLegacyFastResultsBoardOverlayLayers(ly) : ly;
+          const dataUrl = compositorLayersToDataUrl(toRaster, 0);
           if (dataUrl) editorCompositorBySceneId[s.id] = dataUrl;
         }
       }

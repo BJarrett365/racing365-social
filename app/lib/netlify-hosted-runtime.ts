@@ -19,7 +19,13 @@ export function hasNetlifyBlobExecutionContext(): boolean {
  * note `NETLIFY=true` is [build-centric](https://docs.netlify.com/build/configure-builds/environment-variables#read-only-variables), not reliably set at function runtime.
  */
 export function isNetlifyHostedLambdaRuntime(): boolean {
-  return typeof process.env.SITE_ID === "string" && Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
+  if (typeof process.env.SITE_ID !== "string" || !process.env.SITE_ID.trim()) return false;
+  // Netlify’s Next runtime is Lambda-backed but may omit `AWS_LAMBDA_FUNCTION_NAME`; these are still AWS Lambda signals.
+  return Boolean(
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.AWS_EXECUTION_ENV?.includes("AWS_Lambda") ||
+      process.env.LAMBDA_TASK_ROOT,
+  );
 }
 
 /** Writable filesystem under tmp for FFmpeg, renders, uploads, and disk mirror paths. */

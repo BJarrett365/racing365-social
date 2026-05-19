@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 import { normalizeContentIdForFilename } from "@/app/lib/editor-upload";
+import { writeLibraryBlobAsset } from "@/app/lib/library-blob-assets";
+import { shouldUseNetlifyBlobStore } from "@/app/lib/netlify-blob-json";
 import { libraryBackgroundImagesDir, outputDir } from "@/app/lib/paths";
 import { upsertLibraryMetadata } from "@/app/lib/library-metadata";
 
@@ -13,6 +15,13 @@ type Body = {
 };
 
 const IMAGE_EXT = new Set([".png", ".jpg", ".jpeg", ".webp"]);
+
+function mimeForImageExtension(ext: string): string {
+  const e = ext.toLowerCase();
+  if (e === ".png") return "image/png";
+  if (e === ".webp") return "image/webp";
+  return "image/jpeg";
+}
 
 export async function POST(req: Request) {
   try {
@@ -35,14 +44,24 @@ export async function POST(req: Request) {
     }
     await fs.access(sourceAbs);
 
+    const buf = await fs.readFile(sourceAbs);
+
     const dir = libraryBackgroundImagesDir(contentId);
-    await fs.mkdir(dir, { recursive: true });
     const scenePart = normalizeContentIdForFilename(body.sceneId || "preview");
     const filename = `preview-${scenePart}-${Date.now()}${ext === ".jpeg" ? ".jpg" : ext}`;
     const destAbs = path.join(dir, filename);
-    await fs.copyFile(sourceAbs, destAbs);
+    const rel = path
+      .join("images", "library", contentId, filename)
+      .split(path.sep)
+      .join("/");
 
-    const rel = path.relative(root, destAbs).split(path.sep).join("/");
+    if (shouldUseNetlifyBlobStore()) {
+      await writeLibraryBlobAsset(rel, buf, mimeForImageExtension(ext));
+    } else {
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(destAbs, buf);
+    }
+
     await upsertLibraryMetadata(contentId, {
       title: body.title || "Saved preview image",
       keywords: ["preview image", "saved from editor", contentId, scenePart],

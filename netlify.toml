@@ -14,3 +14,7 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Synchronous functions (incl. Language Studio rewrite/translate/import) default to 10s on Netlify — too low for OpenAI.
+[functions]
+  timeout = 26

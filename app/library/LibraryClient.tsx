@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
 import { CleanOrphansButton } from "@/app/components/CleanOrphansButton";
@@ -35,7 +36,6 @@ import {
   LibraryPaginationBar,
   paginateSlice,
 } from "@/app/library/LibraryListBulkControls";
-import { LibraryTextToImagePanel } from "@/app/library/LibraryTextToImagePanel";
 
 const BRAND_RULES: Array<{ id: string; label: string; patterns: RegExp[] }> = [
   { id: "football365", label: "Football365", patterns: [/football365/i] },
@@ -1847,7 +1847,16 @@ export function LibraryClient({
                 {bulkDeleteMsg}
               </p>
             ) : null}
-            <LibraryTextToImagePanel />
+            <Panel title="Add images" className="mb-6">
+              <p className="text-xs text-[color:var(--text-secondary)]">
+                <strong className="text-[color:var(--text-primary)]">Upload</strong> stills or use{" "}
+                <strong className="text-[color:var(--text-primary)]">text-to-image</strong> (OpenAI, Higgsfield, Runway) under{" "}
+                <Link href="/tools/asset-library" className="font-semibold text-[#86efac] underline hover:text-[#bbf7d0]">
+                  Tools → Asset library
+                </Link>
+                . This tab stays focused on browsing and housekeeping.
+              </p>
+            </Panel>
             <Panel title="Library images (background stills)">
               <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-[color:var(--border)] pb-3">
                 <p className="max-w-xl text-xs text-[color:var(--text-secondary)]">

@@ -23,6 +23,7 @@ const MAX_LANGUAGE_IMAGE_BYTES = 12 * 1024 * 1024;
 const OPENAI_T2I_LIBRARY_METADATA_ID = "openai-text-to-image";
 const HIGGSFIELD_EDIT_LIBRARY_METADATA_ID = "higgsfield-image-edit";
 const LANGUAGE_STUDIO_MANUAL_UPLOAD_METADATA_ID = "language-studio-upload";
+const TOOLS_ASSET_LIBRARY_UPLOAD_METADATA_ID = "tools-asset-library";
 const LANGUAGE_STUDIO_SOCIAL_MEDIA_METADATA_ID = "language-studio-social";
 
 const MAX_SOCIAL_VIDEO_BYTES = 95 * 1024 * 1024;
@@ -99,6 +100,42 @@ export async function saveLanguageStudioManualUploadBytesToLibrary(
   await upsertLibraryMetadata(LANGUAGE_STUDIO_MANUAL_UPLOAD_METADATA_ID, {
     title: "Language Studio uploads",
     keywords: ["language-studio", "upload", "manual", "library"],
+  });
+  const imageUrl = absoluteUrlWithAppBasePath(request, `/api/file?rel=${encodeURIComponent(rel)}`);
+  return { imageLibraryRel: rel, imageUrl };
+}
+
+/**
+ * Save a browser upload from **Tools → Asset library** under `images/library/tools-upload/`.
+ */
+export async function saveToolsAssetLibraryUploadBytesToLibrary(
+  bytes: Buffer,
+  contentTypeHeader: string | undefined,
+  request: Request,
+  options?: { note?: string },
+): Promise<{ imageLibraryRel: string; imageUrl: string }> {
+  if (!bytes.length || bytes.length > MAX_LANGUAGE_IMAGE_BYTES) {
+    throw new Error("Image data empty or too large.");
+  }
+  const ct = contentTypeHeader?.split(";")[0]?.trim().toLowerCase() ?? "image/png";
+  const ext = IMAGE_EXT_BY_TYPE[ct] ?? ".png";
+  const mime = contentTypeForExtension(ext);
+  const rel = `images/library/tools-upload/${Date.now()}-${randomUUID().slice(0, 8)}${ext}`;
+  if (shouldUseNetlifyBlobStore()) {
+    await writeLibraryBlobAsset(rel, bytes, mime);
+  } else {
+    const full = path.resolve(outputDir(), rel);
+    const rootNorm = path.normalize(outputDir() + path.sep);
+    if (!full.startsWith(rootNorm)) throw new Error("Invalid library path.");
+    await fs.mkdir(path.dirname(full), { recursive: true });
+    await fs.writeFile(full, bytes);
+  }
+  const kw = ["tools", "upload", "asset-library", "library"];
+  const note = options?.note?.trim();
+  if (note) kw.push(note.slice(0, 80));
+  await upsertLibraryMetadata(TOOLS_ASSET_LIBRARY_UPLOAD_METADATA_ID, {
+    title: "Tools — asset library uploads",
+    keywords: kw,
   });
   const imageUrl = absoluteUrlWithAppBasePath(request, `/api/file?rel=${encodeURIComponent(rel)}`);
   return { imageLibraryRel: rel, imageUrl };
@@ -298,20 +335,32 @@ export async function saveLanguageArticleImageToLibrary(article: LanguageArticle
 }
 
 export async function saveLanguageArticleImagesToLibrary(articles: LanguageArticle[]): Promise<LanguageArticle[]> {
-  const out: LanguageArticle[] = [];
-  const savedByImageUrl = new Map<string, string>();
-  for (const article of articles) {
-    const imageUrl = article.imageUrl?.trim();
-    const reusedRel = imageUrl ? savedByImageUrl.get(imageUrl) : undefined;
-    const imageLibraryRel = reusedRel ?? await saveLanguageArticleImageToLibrary(article).catch(() => article.imageLibraryRel);
-    if (imageUrl && imageLibraryRel) savedByImageUrl.set(imageUrl, imageLibraryRel);
-    out.push({
+  const urlToRel = new Map<string, string>();
+  const firstByUrl = new Map<string, LanguageArticle>();
+  for (const a of articles) {
+    const u = a.imageUrl?.trim();
+    if (u && !firstByUrl.has(u)) firstByUrl.set(u, a);
+  }
+  const jobs = [...firstByUrl.entries()];
+  const CONCURRENCY = 4;
+  for (let i = 0; i < jobs.length; i += CONCURRENCY) {
+    const slice = jobs.slice(i, i + CONCURRENCY);
+    await Promise.all(
+      slice.map(async ([url, article]) => {
+        const rel = await saveLanguageArticleImageToLibrary(article).catch(() => undefined);
+        if (rel) urlToRel.set(url, rel);
+      }),
+    );
+  }
+  return articles.map((article) => {
+    const u = article.imageUrl?.trim();
+    const imageLibraryRel = u ? urlToRel.get(u) ?? article.imageLibraryRel : article.imageLibraryRel;
+    return {
       ...article,
       imageLibraryRel,
       updatedAt: imageLibraryRel ? new Date().toISOString() : article.updatedAt,
-    });
-  }
-  return out;
+    };
+  });
 }
 
 export async function copyLanguageArticleImageForExport(

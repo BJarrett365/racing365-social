@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { stripArticleMetadataLines, stripGeneratedArticleMetadataLines } from "@/app/lib/language-studio/article-pages";
-import { generateSocialPosts, translateContent } from "@/app/lib/language-studio/language-engine";
+import { scheduleDeferredSocialPostsForTranslation } from "@/app/lib/language-studio/deferred-social-posts";
+import { translateContent } from "@/app/lib/language-studio/language-engine";
 import {
   newLanguageId,
   readLanguageStudioData,
@@ -117,11 +118,7 @@ export async function POST(req: Request) {
         body: stripGeneratedArticleMetadataLines(fields.body, article, fields.title),
       };
       if (!hasCompleteSocialPosts(row)) {
-        row.socialPosts = await generateSocialPosts({
-          article,
-          translation: row,
-          knowledgeFiles: Object.values(data.knowledgeFiles),
-        });
+        scheduleDeferredSocialPostsForTranslation(row.id);
       }
       data.translations[row.id] = row;
       article.status = "review_needed";

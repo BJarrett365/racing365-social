@@ -536,10 +536,20 @@ function normaliseTranslation(row: Translation, sourceArticle?: Article): Transl
 }
 
 async function readJsonResponse(res: Response): Promise<Record<string, unknown>> {
-  try {
-    return (await res.json()) as Record<string, unknown>;
-  } catch {
+  const text = await res.text();
+  const trimmed = text.trim();
+  if (!trimmed) {
+    if (res.status === 504 || res.status === 502) {
+      throw new Error(
+        "The server stopped responding in time (gateway timeout). The rewrite or translation may still have been saved — refresh Language Studio. If this persists, run one article at a time or ask your host to raise the function time limit.",
+      );
+    }
     throw new Error(`Server returned an empty response (${res.status}). Check the Netlify function logs for the translation error.`);
+  }
+  try {
+    return JSON.parse(trimmed) as Record<string, unknown>;
+  } catch {
+    throw new Error(`Server returned a non-JSON response (${res.status}). Check the Netlify function logs.`);
   }
 }
 

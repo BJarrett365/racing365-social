@@ -11,7 +11,13 @@ type T2iProvider = "runway" | "openai" | "higgsfield";
 
 const HIGGSFIELD_ASPECTS = ["1:1", "4:3", "3:4", "16:9", "9:16"] as const;
 
-export function LibraryTextToImagePanel() {
+type Props = {
+  /** Override default panel heading (e.g. on Tools → Asset library). */
+  panelTitle?: string;
+  className?: string;
+};
+
+export function LibraryTextToImagePanel({ panelTitle = "Text to image (asset library)", className = "mb-6" }: Props) {
   const [provider, setProvider] = useState<T2iProvider>("higgsfield");
   const [prompt, setPrompt] = useState("");
   const [runwayRatio, setRunwayRatio] = useState("1280:720");
@@ -139,7 +145,7 @@ export function LibraryTextToImagePanel() {
     : previewUrl;
 
   return (
-    <Panel title="Text to image (asset library)" className="mb-6">
+    <Panel title={panelTitle} className={className}>
       <p className="text-xs text-[color:var(--text-secondary)]">
         Generate a still and save it under <code className="text-[color:var(--text-muted)]">output/images/library/</code>. Then attach
         the path in{" "}

@@ -34,6 +34,13 @@ const importTools: ToolCard[] = [
 
 const studioTools: ToolCard[] = [
   {
+    name: "Asset library",
+    description:
+      "Upload stills or generate images (OpenAI, Higgsfield, Runway) into the shared library for Shorts, Language Studio, and backdrops.",
+    href: "/tools/asset-library",
+    status: "Live",
+  },
+  {
     name: "Loop Feed teams",
     description:
       "Save each club’s Loop topic content URL once. Data Studio uses Side A / Side B dropdowns for match-day social context in reports.",

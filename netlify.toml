@@ -15,6 +15,6 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Synchronous functions (incl. Language Studio rewrite/translate/import) default to 10s on Netlify — too low for OpenAI.
-[functions]
-  timeout = 26
+# Note: Do not set `[functions] timeout` here — some Netlify + Next.js config parsers reject it at the
+# "Reading and parsing configuration files" stage. Raise the synchronous function limit in the UI instead:
+# Site configuration → Build & deploy → Functions → Function timeout (e.g. 26s on supported plans).

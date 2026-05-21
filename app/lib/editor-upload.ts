@@ -13,7 +13,7 @@ function normalizedUploadAbs(rel: string): string {
   return path.normalize(path.join(outputDir(), ...rel.split("/")));
 }
 
-const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
 const MAX_VOICE_RECORD_BYTES = 50 * 1024 * 1024;
 
@@ -268,7 +268,7 @@ export async function saveEditorUploads(
   await fs.mkdir(uploadDir, { recursive: true });
 
   if (image && image.size > 0) {
-    if (image.size > MAX_IMAGE_BYTES) throw new Error("Image too large (max 15MB)");
+    if (image.size > MAX_IMAGE_BYTES) throw new Error("Image too large (max 6MB after optimisation)");
     const ext = imageExtForFile(image);
     if (![".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(ext)) {
       throw new Error("Image must be PNG, JPEG, WebP, or GIF");

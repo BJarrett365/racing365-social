@@ -118,22 +118,24 @@ function ToolGrid({ tools }: { tools: ToolCard[] }) {
       {tools.map((tool) => {
         const isLive = tool.status === "Live";
         return (
-          <Panel key={tool.name} title={tool.status}>
+          <Panel key={tool.name} title={tool.name}>
             <div className="flex h-full min-h-[190px] flex-col gap-5">
               <div className="flex-1">
-                <h2 className="text-xl font-black tracking-tight text-[color:var(--text-primary)]">{tool.name}</h2>
+                <div className="flex items-center justify-between gap-3">
+                  <span
+                    className={
+                      isLive
+                        ? "rounded-full border border-[color:var(--border)] bg-[color:var(--accent-soft)] px-3 py-1 text-xs font-black uppercase tracking-wide text-[color:var(--primary)]"
+                        : "rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-muted)] px-3 py-1 text-xs font-black uppercase tracking-wide text-[color:var(--text-secondary)]"
+                    }
+                  >
+                    {tool.status}
+                  </span>
+                </div>
                 <p className="mt-3 text-sm leading-6 text-[color:var(--text-secondary)]">{tool.description}</p>
               </div>
               <div className="flex items-center justify-between gap-3 border-t border-[color:var(--border)] pt-4">
-                <span
-                  className={
-                    isLive
-                      ? "rounded-full border border-emerald-500/40 bg-emerald-500/12 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-700 dark:text-emerald-100"
-                      : "rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-muted)] px-3 py-1 text-xs font-black uppercase tracking-wide text-[color:var(--text-secondary)]"
-                  }
-                >
-                  {tool.status}
-                </span>
+                <span className="text-xs font-semibold text-[color:var(--text-muted)]">Utility</span>
                 {isLive ? (
                   <Link href={tool.href}>
                     <R365Button>Open</R365Button>
@@ -155,14 +157,19 @@ function ToolGrid({ tools }: { tools: ToolCard[] }) {
 export default function ToolsPage() {
   return (
     <div className="space-y-8">
-      <div className="max-w-3xl">
-        <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#eab308]">Tools</p>
-        <h1 className="mt-2 text-4xl font-black tracking-tight text-[color:var(--text-primary)]">
-          Planet Sport Studio utility hub
-        </h1>
-        <p className="mt-4 text-lg leading-7 text-[color:var(--text-secondary)]">
-          Import, convert and prepare content for Planet Sport Studio projects without changing the existing template flows.
-        </p>
+      <div className="rounded-[2rem] border bg-[color:var(--surface)] p-6 shadow-[var(--shadow-card)] sm:p-8" style={{ borderColor: "var(--border)" }}>
+        <p className="text-xs font-bold uppercase tracking-[0.25em] text-[color:var(--accent)]">Tools</p>
+        <div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <h1 className="text-4xl font-black tracking-tight text-[color:var(--text-primary)]">Utility hub</h1>
+            <p className="mt-4 text-lg leading-7 text-[color:var(--text-secondary)]">
+              Import, convert and prepare content for studio projects without breaking the creative flow.
+            </p>
+          </div>
+          <Link href="/tools/rss-import-builder">
+            <R365Button>Start with imports</R365Button>
+          </Link>
+        </div>
       </div>
 
       <section className="space-y-4">

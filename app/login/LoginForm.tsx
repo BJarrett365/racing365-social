@@ -1,23 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { R365Button } from "@/app/components/R365Button";
 import { plexaAuthApiUrl } from "@/app/lib/auth/client-api-url";
 
-const inputClass = "mt-1 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] px-3 py-2 text-sm text-white placeholder:text-slate-600";
+const inputClass =
+  "mt-2 w-full rounded-xl border bg-[var(--surface-muted)] px-3 py-3 text-base text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--focus)] focus:ring-2 focus:ring-[color:var(--focus)]/30";
+
+function safeNextPath(value: string | null): string {
+  return value?.startsWith("/") && !value.startsWith("//") ? value : "/";
+}
 
 export function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (busy) return;
+
+    const form = event.currentTarget as HTMLFormElement;
+    const formData = new FormData(form);
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
+
     setBusy(true);
     setError(null);
     try {
@@ -28,32 +37,37 @@ export function LoginForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed");
-      router.replace(params.get("next") || "/");
-      router.refresh();
+      window.location.replace(safeNextPath(params.get("next")));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Login failed");
-    } finally {
       setBusy(false);
     }
   };
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      {error ? <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</p> : null}
-      <label className="block text-xs font-semibold uppercase text-slate-500">
+      {error ? (
+        <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+          {error}
+        </p>
+      ) : null}
+      <label className="block text-sm font-semibold text-[color:var(--text-secondary)]">
         Email
-        <input className={inputClass} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input className={inputClass} name="email" type="email" autoComplete="email" required />
       </label>
-      <label className="block text-xs font-semibold uppercase text-slate-500">
+      <label className="block text-sm font-semibold text-[color:var(--text-secondary)]">
         Password
-        <input className={inputClass} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <input className={inputClass} name="password" type="password" autoComplete="current-password" required />
       </label>
-      <p className="text-right text-sm">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="text-[color:var(--text-muted)]">Private access only</span>
         <Link href="/forgot-password" className="text-[#22c55e] hover:underline">
           Forgot password?
         </Link>
-      </p>
-      <R365Button type="submit" disabled={busy}>{busy ? "Signing in..." : "Log in"}</R365Button>
+      </div>
+      <R365Button type="submit" disabled={busy} className="w-full py-3">
+        {busy ? "Signing in..." : "Sign in"}
+      </R365Button>
     </form>
   );
 }

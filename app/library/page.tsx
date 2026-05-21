@@ -117,25 +117,31 @@ export default async function LibraryPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-black tracking-tight text-[color:var(--text-primary)]">Asset library</h1>
-        <p className="mt-2 text-[color:var(--text-secondary)]">
-          Use <strong className="font-semibold text-[color:var(--text-primary)]">Recent builds</strong> for manifest
-          Shorts and the video folder scan,{" "}
-          <strong className="font-semibold text-[color:var(--text-primary)]">Background video</strong> for Runway /
-          editor clips and, under <strong className="font-semibold text-[color:var(--text-primary)]">Direct videos</strong>, News
-          Shorts camera saves (<code className="text-[color:var(--text-muted)]">camera-record.*</code>
-          ), and{" "}
-          <strong className="font-semibold text-[color:var(--text-primary)]">Library images</strong> for background
-          stills (<code className="text-[color:var(--text-muted)]">output/images/library/</code>), and{" "}
-          <strong className="font-semibold text-[color:var(--text-primary)]">Voice recordings</strong> for saved News
-          Shorts mic takes and Audio Studio recordings, and{" "}
-          <strong className="font-semibold text-[color:var(--text-primary)]">Podcasts</strong> for generated Podcast
-          Template audio. Assets live under the
-          project <code className="text-[color:var(--text-muted)]">output/</code> folder.{" "}
-          <strong className="font-semibold text-[color:var(--text-primary)]">Delete</strong> removes matching files and
-          manifest entries where applicable.
-        </p>
+      <div className="rounded-[2rem] border bg-[color:var(--surface)] p-6 shadow-[var(--shadow-card)] sm:p-8" style={{ borderColor: "var(--border)" }}>
+        <p className="text-xs font-bold uppercase tracking-[0.25em] text-[color:var(--accent)]">Library</p>
+        <div className="mt-2 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <h1 className="text-4xl font-black tracking-tight text-[color:var(--text-primary)]">Asset library</h1>
+            <p className="mt-4 text-lg leading-7 text-[color:var(--text-secondary)]">
+              Browse recent builds, source media, background assets, voice recordings and podcast audio in one place.
+              Use filters and tabs to find the output you need, then preview, download or clean up files.
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center text-xs sm:min-w-[20rem]">
+            <div className="rounded-2xl bg-[color:var(--surface-muted)] px-3 py-3">
+              <p className="text-2xl font-black text-[color:var(--text-primary)]">{manifest.length}</p>
+              <p className="mt-1 font-semibold text-[color:var(--text-muted)]">Builds</p>
+            </div>
+            <div className="rounded-2xl bg-[color:var(--surface-muted)] px-3 py-3">
+              <p className="text-2xl font-black text-[color:var(--text-primary)]">{videoRels.length}</p>
+              <p className="mt-1 font-semibold text-[color:var(--text-muted)]">Videos</p>
+            </div>
+            <div className="rounded-2xl bg-[color:var(--surface-muted)] px-3 py-3">
+              <p className="text-2xl font-black text-[color:var(--text-primary)]">{libraryBackgroundImages.length}</p>
+              <p className="mt-1 font-semibold text-[color:var(--text-muted)]">Images</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <Suspense fallback={<p className="text-sm text-[color:var(--text-muted)]">Loading library…</p>}>

@@ -4,7 +4,10 @@ import { useCallback, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
-import { withAppPathPrefix } from "@/app/lib/app-base-path";
+import { studioApiPath, withAppPathPrefix } from "@/app/lib/app-base-path";
+import { optimiseClientImageFile } from "@/app/lib/client-image-optimise";
+
+const MAX_BROWSER_UPLOAD_BYTES = 6 * 1024 * 1024;
 
 export function LibraryUploadImagePanel() {
   const [title, setTitle] = useState("");
@@ -32,12 +35,16 @@ export function LibraryUploadImagePanel() {
 
       setBusy(true);
       try {
+        const optimised = await optimiseClientImageFile(file);
+        if (optimised.file.size > MAX_BROWSER_UPLOAD_BYTES) {
+          throw new Error("Image is still too large after optimisation. Use an image under 6MB for live uploads.");
+        }
         const body = new FormData();
-        body.set("file", file);
+        body.set("file", optimised.file);
         const note = title.trim();
         if (note) body.set("title", note);
 
-        const res = await fetch("/api/library/upload-image", {
+        const res = await fetch(studioApiPath("/api/library/upload-image"), {
           method: "POST",
           body,
         });
@@ -52,7 +59,9 @@ export function LibraryUploadImagePanel() {
         }
         setImageUrl(data.imageUrl);
         setLibraryRel(data.imageLibraryRel);
-        setMessage("Saved to the shared asset library. Use the path in editors or browse it under Library → Library images.");
+        setMessage(
+          `${optimised.message ? `${optimised.message} ` : ""}Saved to the shared asset library. Use the path in editors or browse it under Library → Library images.`,
+        );
         form.reset();
         setTitle("");
       } catch (err) {
@@ -71,9 +80,9 @@ export function LibraryUploadImagePanel() {
   return (
     <Panel title="Upload image to asset library" className="mb-6">
       <p className="text-xs text-[color:var(--text-secondary)]">
-        JPEG, PNG, WebP, or GIF (max ~12MB). Files are stored under{" "}
+        JPEG/WebP uploads are optimised in the browser before upload. PNG/GIF are preserved (max 6MB). Files are stored under{" "}
         <code className="text-[color:var(--text-muted)]">images/library/tools-upload/</code> and appear in{" "}
-        <Link href="/library?tab=libraryImages" className="font-semibold text-[#86efac] underline hover:text-[#bbf7d0]">
+        <Link href={withAppPathPrefix("/library?tab=libraryImages")} className="font-semibold text-[#86efac] underline hover:text-[#bbf7d0]">
           Library → Library images
         </Link>
         .

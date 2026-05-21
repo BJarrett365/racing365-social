@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { saveToolsAssetLibraryUploadBytesToLibrary } from "@/app/lib/language-studio/library-images";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"]);
+const MAX_UPLOAD_BYTES = 6 * 1024 * 1024;
 
 export async function POST(req: Request) {
   let form: FormData;
@@ -14,6 +15,9 @@ export async function POST(req: Request) {
   const raw = form.get("file") ?? form.get("image");
   if (!(raw instanceof File) || raw.size === 0) {
     return NextResponse.json({ error: "Image file is required (field name: file)." }, { status: 400 });
+  }
+  if (raw.size > MAX_UPLOAD_BYTES) {
+    return NextResponse.json({ error: "Image is too large. Use an optimised image under 6MB." }, { status: 400 });
   }
 
   const mime = raw.type.split(";")[0]?.trim().toLowerCase() ?? "";

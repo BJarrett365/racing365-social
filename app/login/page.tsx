@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { Panel } from "@/app/components/Panel";
 import { LoginForm } from "@/app/login/LoginForm";
-import { BRAND_SUITE } from "@/app/lib/brand";
+import { BRAND_MARK, BRAND_SLOGAN, BRAND_SUITE } from "@/app/lib/brand";
 
 export const metadata = {
   title: `Login · ${BRAND_SUITE}`,
@@ -10,21 +9,28 @@ export const metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="mx-auto max-w-xl space-y-6">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#eab308]">Secure Access</p>
-        <h1 className="mt-1 text-3xl font-black text-white">Log in to Planet Sport Studio</h1>
-        <p className="mt-2 text-sm text-slate-400">Planet Sport Studio is private. Use a verified account to access the platform.</p>
+    <div className="fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto bg-[var(--background)] px-4 py-8">
+      <div className="w-full max-w-md space-y-6">
+        <div className="text-center">
+          <p className="text-xs font-black uppercase tracking-[0.28em] text-[color:var(--accent)]">{BRAND_MARK}</p>
+          <h1 className="mt-4 text-3xl font-black tracking-tight text-[color:var(--text-primary)]">Sign in</h1>
+          <p className="mt-2 text-sm text-[color:var(--text-muted)]">{BRAND_SLOGAN}</p>
+        </div>
+        <section
+          className="rounded-3xl border p-5 sm:p-6"
+          style={{ borderColor: "var(--border)", background: "var(--surface)", boxShadow: "var(--shadow-card)" }}
+        >
+          <Suspense fallback={<p className="text-sm text-slate-500">Loading login...</p>}>
+            <LoginForm />
+          </Suspense>
+        </section>
+        <p className="text-center text-xs text-[color:var(--text-muted)]">
+          First admin?{" "}
+          <Link href="/setup" className="font-semibold text-[#22c55e] hover:underline">
+            Open setup
+          </Link>
+        </p>
       </div>
-      <Panel title="Login" className="p-5">
-        <Suspense fallback={<p className="text-sm text-slate-500">Loading login...</p>}>
-          <LoginForm />
-        </Suspense>
-      </Panel>
-      <p className="text-xs text-slate-500">
-        First time hosting Planet Sport Studio? Create the first admin on{" "}
-        <Link href="/setup" className="text-[#22c55e] hover:underline">Setup</Link>.
-      </p>
     </div>
   );
 }

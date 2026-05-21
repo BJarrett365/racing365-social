@@ -81,7 +81,8 @@ import { buildRacecardRunwayI2vFields } from "@/app/lib/racecard-runway-i2v-fiel
 import { buildEditorRunwayI2vFields } from "@/app/lib/editor-runway-i2v-fields";
 import { firstRunwayTaskOutputUrl } from "@/app/lib/runway-task-output";
 import { RunwayImageToVideoPanel } from "@/app/features/runway/RunwayImageToVideoPanel";
-import { withAppPathPrefix } from "@/app/lib/app-base-path";
+import { studioApiPath, withAppPathPrefix } from "@/app/lib/app-base-path";
+import { optimiseClientImageFile } from "@/app/lib/client-image-optimise";
 
 type EditorType =
   | "next-off"
@@ -559,7 +560,7 @@ export function EditorWorkspace({
     setBackdropLibraryBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/library/backdrop-assets", { cache: "no-store" });
+      const res = await fetch(studioApiPath("/api/library/backdrop-assets"), { cache: "no-store" });
       const json = (await res.json()) as {
         backdropVideos?: string[];
         libraryBackgroundImages?: string[];
@@ -660,7 +661,7 @@ export function EditorWorkspace({
     setT2iBusy(true);
     setT2iError(null);
     try {
-      const res = await fetch("/api/runway/text-to-image", {
+      const res = await fetch(studioApiPath("/api/runway/text-to-image"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -684,7 +685,7 @@ export function EditorWorkspace({
     setT2iImportBusy(true);
     setT2iError(null);
     try {
-      const res = await fetch("/api/runway/import-task", {
+      const res = await fetch(studioApiPath("/api/runway/import-task"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contentId, taskId: t2iTaskId, assetKind: "image" }),
@@ -746,7 +747,7 @@ export function EditorWorkspace({
     setBusy("load");
     setError(null);
     try {
-      const res = await fetch("/api/generate-content", {
+      const res = await fetch(studioApiPath("/api/generate-content"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ format, id }),
@@ -1145,7 +1146,7 @@ export function EditorWorkspace({
           mode === "regenerate"
             ? `${aiPrompt.trim()}\n\nRegenerate a fresh variant with a different structure while preserving all facts.`
             : aiPrompt.trim();
-        const res = await fetch("/api/ai/improve-racing-voiceover", {
+        const res = await fetch(studioApiPath("/api/ai/improve-racing-voiceover"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1261,7 +1262,7 @@ export function EditorWorkspace({
     try {
       localStorage.removeItem(aiSettingsKey);
       try {
-        const res = await fetch("/api/prompts");
+        const res = await fetch(studioApiPath("/api/prompts"));
         const data = await res.json();
         if (res.ok) {
           const row = (data.builtin ?? []).find((b: { id: string }) => b.id === "builtin-editor-voiceover");
@@ -1336,7 +1337,7 @@ export function EditorWorkspace({
     const loadVoices = async () => {
       setVoicesLoading(true);
       try {
-        const res = await fetch("/api/voice-options/elevenlabs", { cache: "no-store" });
+        const res = await fetch(studioApiPath("/api/voice-options/elevenlabs"), { cache: "no-store" });
         const data = (await res.json().catch(() => ({}))) as {
           voices?: Array<{
             voice_id?: string;
@@ -1487,7 +1488,7 @@ export function EditorWorkspace({
             /* ignore */
           }
         }
-        const res = await fetch("/api/prompts");
+        const res = await fetch(studioApiPath("/api/prompts"));
         const data = await res.json();
         if (cancelled || !res.ok) return;
         const row = (data.builtin ?? []).find((b: { id: string }) => b.id === "builtin-editor-voiceover");
@@ -1714,7 +1715,7 @@ export function EditorWorkspace({
       if (Object.keys(editorCompositorBySceneId).length > 0) {
         payload.editorCompositorBySceneId = editorCompositorBySceneId;
       }
-      const res = await fetch("/api/render-scenes", {
+      const res = await fetch(studioApiPath("/api/render-scenes"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -1777,7 +1778,7 @@ export function EditorWorkspace({
     const controller = new AbortController();
     voicePreviewAbortRef.current = controller;
     try {
-      const res = await fetch("/api/preview-voice", {
+      const res = await fetch(studioApiPath("/api/preview-voice"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
@@ -2065,7 +2066,7 @@ export function EditorWorkspace({
           },
         };
       }
-      const res = await fetch("/api/templates", {
+      const res = await fetch(studioApiPath("/api/templates"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -2118,7 +2119,7 @@ export function EditorWorkspace({
             durationSec: cur.durationSec,
           };
         });
-        const res = await fetch("/api/render-scenes", {
+        const res = await fetch(studioApiPath("/api/render-scenes"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -2177,7 +2178,7 @@ export function EditorWorkspace({
       if (scenes.some((s) => !s.imagePath)) {
         throw new Error("Missing image for a scene — re-render.");
       }
-      const res = await fetch("/api/build-short", {
+      const res = await fetch(studioApiPath("/api/build-short"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2228,7 +2229,7 @@ export function EditorWorkspace({
     setError(null);
     setEditVideoMsg(null);
     try {
-      const res = await fetch("/api/edit-video", {
+      const res = await fetch(studioApiPath("/api/edit-video"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2273,9 +2274,17 @@ export function EditorWorkspace({
       fd.set("contentId", contentId);
       const selectedSceneId = compositorSceneId ?? content?.scenes[0]?.id ?? "";
       if (imgFile && selectedSceneId) fd.set("sceneId", selectedSceneId);
-      if (imgFile) fd.append("backgroundImage", imgFile);
+      let imageOptimisationMsg = "";
+      if (imgFile) {
+        const optimised = await optimiseClientImageFile(imgFile);
+        if (optimised.file.size > 6 * 1024 * 1024) {
+          throw new Error("Background image is still too large after optimisation. Use an image under 6MB for live renders.");
+        }
+        imageOptimisationMsg = optimised.message ? `${optimised.message} ` : "";
+        fd.append("backgroundImage", optimised.file);
+      }
       if (vidFile) fd.append("backgroundVideo", vidFile);
-      const res = await fetch("/api/editor-upload", { method: "POST", body: fd });
+      const res = await fetch(studioApiPath("/api/editor-upload"), { method: "POST", body: fd });
       const data = await parseApiJson<{
         error?: string;
         backgroundImageRel?: string;
@@ -2287,20 +2296,34 @@ export function EditorWorkspace({
       const mergedByScene = data.backgroundImageRelBySceneId
         ? { ...backgroundImageRelBySceneId, ...data.backgroundImageRelBySceneId }
         : { ...backgroundImageRelBySceneId };
+      const nextBackgroundImageRel = data.backgroundImageRel?.trim()
+        ? data.backgroundImageRel.trim()
+        : data.backgroundImageRelBySceneId
+          ? coalesceGlobalBackgroundImageRel(backgroundImageRel, mergedByScene)
+          : data.backgroundVideoRel
+            ? null
+            : backgroundImageRel;
       if (data.backgroundImageRelBySceneId) {
         setBackgroundImageRelBySceneId(mergedByScene);
       }
-      if (data.backgroundImageRel?.trim()) {
-        setBackgroundImageRel(data.backgroundImageRel.trim());
-      } else if (data.backgroundImageRelBySceneId) {
-        setBackgroundImageRel(coalesceGlobalBackgroundImageRel(backgroundImageRel, mergedByScene));
+      if (nextBackgroundImageRel !== backgroundImageRel) {
+        setBackgroundImageRel(nextBackgroundImageRel);
       }
       if (data.backgroundVideoRel) setBackgroundVideoRel(data.backgroundVideoRel);
       if (data.backgroundVideoFrameRel) setBackgroundVideoFrameRel(data.backgroundVideoFrameRel);
+      setContent((c) =>
+        c && c.templateSource && c.templateSource.format !== "football-lineups"
+          ? mergeBackdropIntoContent(c, {
+              backgroundImageRel: nextBackgroundImageRel,
+              backgroundImageRelBySceneId: Object.keys(mergedByScene).length > 0 ? mergedByScene : null,
+              backgroundVideoRel: data.backgroundVideoRel ?? backgroundVideoRel,
+            })
+          : c,
+      );
       setUploadMsg(
         imgFile && selectedSceneId
-          ? `Saved image for ${sceneDisplayLabel(format, selectedSceneId)} — render scenes to apply.`
-          : "Saved — use Render scenes to apply behind the template.",
+          ? `${imageOptimisationMsg}Saved image for ${sceneDisplayLabel(format, selectedSceneId)} and attached it to this template draft — render scenes to apply.`
+          : `${imageOptimisationMsg}Saved and attached to this template draft — use Render scenes to apply behind the template.`,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload error");
@@ -2349,7 +2372,7 @@ export function EditorWorkspace({
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       const dims = VIDEO_BUILD_DIMENSIONS[effectiveVideoBuildMode];
-      fetch("/api/preview-scene-html", {
+      fetch(studioApiPath("/api/preview-scene-html"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
@@ -2434,7 +2457,7 @@ export function EditorWorkspace({
       let relForDownload = previewRel;
       let savedFromLivePreview = false;
       if (!relForDownload && planetRugbyLivePreviewScene) {
-        const res = await fetch("/api/render-scenes", {
+        const res = await fetch(studioApiPath("/api/render-scenes"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -2531,7 +2554,7 @@ export function EditorWorkspace({
       let sourceRel = previewRel;
       const sceneId = previewSceneId ?? planetRugbyLivePreviewScene?.id ?? images[0]?.sceneId ?? "scene";
       if (planetRugbyLivePreviewScene) {
-        const res = await fetch("/api/render-scenes", {
+        const res = await fetch(studioApiPath("/api/render-scenes"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -2554,7 +2577,7 @@ export function EditorWorkspace({
       }
       if (!sourceRel) throw new Error("No preview image to save.");
 
-      const saveRes = await fetch("/api/library/save-preview-image", {
+      const saveRes = await fetch(studioApiPath("/api/library/save-preview-image"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -124,7 +124,8 @@ export async function middleware(request: NextRequest) {
 
   const url = request.nextUrl.clone();
   url.pathname = withAppPathPrefix("/login");
-  url.searchParams.set("next", rawPath);
+  url.search = "";
+  url.searchParams.set("next", `${rawPath}${request.nextUrl.search}`);
   return NextResponse.redirect(url);
 }
 

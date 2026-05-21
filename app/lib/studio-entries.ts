@@ -1,6 +1,6 @@
 /** Dashboard + header “Studios” menu — single source of truth. */
 
-export type StudioAccent = "gold" | "green" | "muted";
+export type StudioAccent = "green" | "muted";
 
 export type StudioNavGroup = "video" | "editorial" | "audio" | "utilities" | "roadmap";
 
@@ -34,7 +34,7 @@ export const PRIMARY_STUDIO_CARDS: StudioDashboardCard[] = [
     description:
       "Build short-form clips from racing, football, F1 and sport-specific template bundles.",
     cta: "Open Shorts Studio",
-    accent: "gold",
+    accent: "green",
     navGroup: "video",
   },
   {
@@ -52,7 +52,7 @@ export const PRIMARY_STUDIO_CARDS: StudioDashboardCard[] = [
     heading: "Import, rewrite, translate and review",
     description: "Bring article imports, YouTube transcripts, rewrites, translations and review into one hub.",
     cta: "Open Article Studio",
-    accent: "gold",
+    accent: "green",
     navGroup: "editorial",
   },
   {
@@ -89,7 +89,7 @@ export const PRIMARY_STUDIO_CARDS: StudioDashboardCard[] = [
     heading: "Notes, transcription, TTS and voice workflows",
     description: "Record, upload, transcribe, translate and create reusable voice assets with OpenAI and ElevenLabs.",
     cta: "Open Audio Studio",
-    accent: "gold",
+    accent: "green",
     navGroup: "audio",
   },
   {
@@ -107,7 +107,7 @@ export const PRIMARY_STUDIO_CARDS: StudioDashboardCard[] = [
     heading: "Assets and generated outputs",
     description: "Review saved images, videos, manifests, source media and reusable creative assets.",
     cta: "Open Library",
-    accent: "gold",
+    accent: "green",
     navGroup: "utilities",
   },
   {

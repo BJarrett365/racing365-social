@@ -448,9 +448,14 @@ function ArticleTagsEditor({
   onSave: (tags: string[]) => void;
 }) {
   const [tags, setTags] = useState<string[]>([]);
+  const articleId = article?.id;
+  const articleTags = article?.tags;
+  const articleTagsSignature = JSON.stringify(articleTags ?? []);
+
   useEffect(() => {
-    setTags(article?.tags ? uniqueTags(article.tags) : []);
-  }, [article?.id, JSON.stringify(article?.tags ?? [])]);
+    setTags(articleTags ? uniqueTags(articleTags) : []);
+  }, [articleId, articleTags, articleTagsSignature]);
+
   if (!article) return null;
   const baseline = uniqueTags(article.tags);
   const unchanged = JSON.stringify(tags) === JSON.stringify(baseline);
@@ -3255,12 +3260,16 @@ export function LanguageStudioClient() {
           role="alertdialog"
           aria-busy="true"
           aria-live="polite"
-          aria-valuetext={`${busyCaption || "Processing"}. Elapsed ${processingElapsedSec} seconds.`}
         >
           <div className="w-full max-w-md rounded-2xl border border-[#22c55e]/40 bg-[#0a0e0c] p-8 text-center shadow-2xl">
             <p className="text-lg font-bold text-white">Processing</p>
             <p className="mt-2 text-sm text-slate-300">{busyCaption || "Please wait…"}</p>
-            <div className="ls-processing-track mt-6" role="progressbar" aria-label="Working">
+            <div
+              className="ls-processing-track mt-6"
+              role="progressbar"
+              aria-label="Working"
+              aria-valuetext={`${busyCaption || "Processing"}. Elapsed ${processingElapsedSec} seconds.`}
+            >
               <div className="ls-processing-bar" />
             </div>
             <p className="mt-3 text-xs tabular-nums tracking-wide text-slate-500">

@@ -17,6 +17,7 @@ import {
   libraryNewsShortsBackdropImageHref,
   libraryNewsShortsBackdropVideoHref,
 } from "@/app/lib/library-file-urls";
+import { studioApiPath } from "@/app/lib/app-base-path";
 
 export type LibraryMetaIndex = Record<string, { title?: string; sourceUrl?: string; keywords?: string[] }>;
 
@@ -306,7 +307,7 @@ export function LibraryImageDetailDrawer({
                 const tok = libraryWriteToken.trim();
                 const headers: Record<string, string> = { "Content-Type": "application/json" };
                 if (tok) headers["x-admin-token"] = tok;
-                const res = await fetch("/api/library/images/mutate", {
+                const res = await fetch(studioApiPath("/api/library/images/mutate"), {
                   method: "POST",
                   headers,
                   body: JSON.stringify({

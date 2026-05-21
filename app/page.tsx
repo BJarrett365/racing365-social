@@ -10,6 +10,8 @@ import {
   type StudioDashboardCard,
 } from "@/app/lib/studio-entries";
 
+const workflowSteps = ["Choose tool", "Add source", "Configure", "Preview", "Export"];
+
 function StudioDashboardCardBlock({ card }: { card: StudioDashboardCard }) {
   const panelBody = (
     <Panel title={card.title}>
@@ -27,9 +29,7 @@ function StudioDashboardCardBlock({ card }: { card: StudioDashboardCard }) {
           className={`mt-6 inline-flex text-sm font-semibold ${
             card.accent === "muted"
               ? "text-[color:var(--text-secondary)]"
-              : card.accent === "gold"
-                ? "text-[#eab308]"
-                : "text-[#22c55e]"
+              : "text-[color:var(--accent)]"
           }`}
         >
           {card.cta}
@@ -60,25 +60,46 @@ function StudioDashboardCardBlock({ card }: { card: StudioDashboardCard }) {
 export default function HomePage() {
   return (
     <div className="space-y-10">
-      <div className="max-w-3xl">
+      <div className="rounded-[2rem] border bg-[color:var(--surface)] p-6 shadow-[var(--shadow-card)] sm:p-8" style={{ borderColor: "var(--border)" }}>
         {BRAND_SUITE_UPPER ? (
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#eab308]">{BRAND_SUITE_UPPER}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-[color:var(--accent)]">{BRAND_SUITE_UPPER}</p>
         ) : null}
-        <h1 className="mt-2 text-4xl font-black tracking-tight text-[color:var(--text-primary)]">
-          Planet Sport Studio Control Room
-        </h1>
-        <p className="mt-4 text-lg text-slate-400">
-          Create short videos, social images, captions, articles and multilingual outputs from one AI-powered production
-          hub. Choose a studio, shape the story, then publish or export with the right assets ready.
-        </p>
-        <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-          Tip: use{" "}
-          <strong className="text-[color:var(--text-secondary)]">Studios</strong> in the header for quick jumps — or{" "}
-          <Link href="/#studios" className="font-semibold text-[#22c55e] underline-offset-2 hover:underline">
-            jump to the studio grid
-          </Link>{" "}
-          on mobile.
-        </p>
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <h1 className="mt-2 text-4xl font-black tracking-tight text-[color:var(--text-primary)] sm:text-5xl">
+              Create, review and publish sports media faster.
+            </h1>
+            <p className="mt-4 text-lg leading-8 text-[color:var(--text-secondary)]">
+              Choose a studio, add the source material, preview the output and save final assets to the library. Planet
+              Sport Studio keeps video, editorial, audio and translation workflows in one clean production hub.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/#studios"
+              className="rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-black text-[color:var(--accent-foreground)] transition hover:bg-[color:var(--accent-hover)]"
+            >
+              Browse studios
+            </Link>
+            <Link
+              href="/library"
+              className="rounded-full border px-5 py-3 text-sm font-bold text-[color:var(--text-secondary)] transition hover:bg-[color:var(--surface-hover)] hover:text-[color:var(--text-primary)]"
+              style={{ borderColor: "var(--border)" }}
+            >
+              Open library
+            </Link>
+          </div>
+        </div>
+        <div className="mt-8 grid gap-3 border-t pt-6 sm:grid-cols-5" style={{ borderColor: "var(--border)" }}>
+          {workflowSteps.map((step, index) => (
+            <div key={step} className="rounded-2xl bg-[color:var(--surface-muted)] px-4 py-3">
+              <p className="text-xs font-black uppercase tracking-wide text-[color:var(--accent)]">
+                {String(index + 1).padStart(2, "0")}
+              </p>
+              <p className="mt-1 text-sm font-bold text-[color:var(--text-primary)]">{step}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div id="studios" className="scroll-mt-28 space-y-10 md:scroll-mt-24">
@@ -110,12 +131,13 @@ export default function HomePage() {
             <Link
               key={card.title}
               href={card.href}
-              className="block rounded-xl border border-[#1f2d26] bg-black/20 p-4 transition hover:border-[#22c55e]/60"
+              className="block rounded-2xl border bg-[color:var(--surface-muted)] p-4 transition hover:-translate-y-0.5 hover:border-[color:var(--accent)]"
+              style={{ borderColor: "var(--border)" }}
             >
               <h2 className="text-xl font-bold text-[color:var(--text-primary)]">{card.title}</h2>
-              <p className="mt-2 text-sm font-semibold text-slate-300">{card.heading}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-400">{card.description}</p>
-              <span className="mt-6 inline-flex text-sm font-semibold text-[#22c55e]">{card.cta} →</span>
+              <p className="mt-2 text-sm font-semibold text-[color:var(--text-secondary)]">{card.heading}</p>
+              <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">{card.description}</p>
+              <span className="mt-6 inline-flex text-sm font-semibold text-[color:var(--accent)]">{card.cta} →</span>
             </Link>
           ))}
         </div>
@@ -127,10 +149,11 @@ export default function HomePage() {
             <Link
               key={card.title}
               href={card.href}
-              className="rounded-lg border border-[#1f2d26] bg-black/20 p-3 transition hover:border-[#22c55e]/60"
+              className="rounded-2xl border bg-[color:var(--surface-muted)] p-3 transition hover:border-[color:var(--accent)]"
+              style={{ borderColor: "var(--border)" }}
             >
               <p className="text-sm font-bold text-[color:var(--text-primary)]">{card.title}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">{card.description}</p>
+              <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">{card.description}</p>
             </Link>
           ))}
         </div>

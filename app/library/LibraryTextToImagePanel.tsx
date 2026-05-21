@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
-import { withAppPathPrefix } from "@/app/lib/app-base-path";
+import { studioApiPath, withAppPathPrefix } from "@/app/lib/app-base-path";
 import { isSafeContentId, normalizeContentIdForFilename } from "@/app/lib/editor-content-id";
 import { RUNWAY_T2I_PROMPT_MAX, RUNWAY_T2I_RATIOS_NEWS_SHORTS, formatRunwayT2iRatioLabel } from "@/app/lib/runway-text-to-image-constants";
 
@@ -43,7 +43,7 @@ export function LibraryTextToImagePanel({ panelTitle = "Text to image (asset lib
     setLibraryRel(null);
     try {
       if (provider === "openai") {
-        const res = await fetch("/api/openai/text-to-image", {
+        const res = await fetch(studioApiPath("/api/openai/text-to-image"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -61,7 +61,7 @@ export function LibraryTextToImagePanel({ panelTitle = "Text to image (asset lib
       }
 
       if (provider === "higgsfield") {
-        const res = await fetch("/api/higgsfield/text-to-image", {
+        const res = await fetch(studioApiPath("/api/higgsfield/text-to-image"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -82,7 +82,7 @@ export function LibraryTextToImagePanel({ panelTitle = "Text to image (asset lib
           `Runway allows at most ${RUNWAY_T2I_PROMPT_MAX} characters (this prompt is ${promptText.length}). Shorten the prompt or switch to OpenAI / Higgsfield.`,
         );
       }
-      const startRes = await fetch("/api/runway/text-to-image", {
+      const startRes = await fetch(studioApiPath("/api/runway/text-to-image"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -103,7 +103,7 @@ export function LibraryTextToImagePanel({ panelTitle = "Text to image (asset lib
       let lastStatus = "";
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         await new Promise((r) => setTimeout(r, delayMs));
-        const impRes = await fetch("/api/runway/import-task", {
+        const impRes = await fetch(studioApiPath("/api/runway/import-task"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contentId, taskId, assetKind: "image" }),

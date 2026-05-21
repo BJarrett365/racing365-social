@@ -36,7 +36,7 @@ export function StudiosNavMenu() {
   return (
     <details className="relative z-[60] group/studios">
       <summary
-        className="app-nav-link flex cursor-pointer list-none items-center gap-1 rounded-md px-3 py-2 text-sm transition [&::-webkit-details-marker]:hidden"
+        className="app-nav-link flex cursor-pointer list-none items-center gap-1 rounded-full px-3 py-2 text-sm transition [&::-webkit-details-marker]:hidden"
         style={{ color: "var(--text-secondary)" }}
       >
         Studios
@@ -45,13 +45,17 @@ export function StudiosNavMenu() {
         </span>
       </summary>
       <div
-        className="absolute left-0 top-full mt-1 min-w-[min(100vw-2rem,22rem)] rounded-xl border p-3 shadow-lg md:min-w-[20rem]"
+        className="absolute left-0 top-full mt-2 min-w-[min(100vw-2rem,24rem)] rounded-2xl border p-3 shadow-lg md:min-w-[22rem]"
         style={{
           borderColor: "var(--border)",
           background: "color-mix(in srgb, var(--surface) 96%, transparent)",
         }}
         aria-label="Studios"
       >
+        <div className="mb-3 rounded-xl bg-[color:var(--surface-muted)] px-3 py-2">
+          <p className="text-xs font-semibold text-[color:var(--text-primary)]">Choose a studio</p>
+          <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">Start with a format, then move through source, preview and export.</p>
+        </div>
         <div className="max-h-[min(70vh,28rem)] space-y-4 overflow-y-auto pr-1">
           {grouped.map(({ group, label, items }) => {
             if (items.length === 0) return null;

@@ -36,6 +36,7 @@ import {
   LibraryPaginationBar,
   paginateSlice,
 } from "@/app/library/LibraryListBulkControls";
+import { studioApiPath } from "@/app/lib/app-base-path";
 
 const BRAND_RULES: Array<{ id: string; label: string; patterns: RegExp[] }> = [
   { id: "football365", label: "Football365", patterns: [/football365/i] },
@@ -230,7 +231,7 @@ export function LibraryClient({
 
   useEffect(() => {
     if (tab !== "libraryImages" && tab !== "builds") return;
-    void fetch("/api/admin/settings")
+    void fetch(studioApiPath("/api/admin/settings"))
       .then((r) => r.json())
       .then((d: { adminTokenRequired?: boolean }) => setLibraryImagesAdminRequired(Boolean(d.adminTokenRequired)))
       .catch(() => {});
@@ -552,7 +553,7 @@ export function LibraryClient({
       const tok = libraryImagesWriteToken.trim();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (tok) headers["x-admin-token"] = tok;
-      const res = await fetch("/api/library/images/mutate", {
+      const res = await fetch(studioApiPath("/api/library/images/mutate"), {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -602,7 +603,7 @@ export function LibraryClient({
       const tok = libraryImagesWriteToken.trim();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (tok) headers["x-admin-token"] = tok;
-      const res = await fetch("/api/library/images/mutate", {
+      const res = await fetch(studioApiPath("/api/library/images/mutate"), {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -641,7 +642,7 @@ export function LibraryClient({
       const tok = libraryImagesWriteToken.trim();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (tok) headers["x-admin-token"] = tok;
-      const res = await fetch("/api/library/videos/mutate", {
+      const res = await fetch(studioApiPath("/api/library/videos/mutate"), {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -695,7 +696,7 @@ export function LibraryClient({
       for (const entryKey of keys) {
         const m = manifest.find((x) => `${x.id}-${x.createdAt}` === entryKey);
         if (!m) continue;
-        const res = await fetch("/api/assets/delete", {
+        const res = await fetch(studioApiPath("/api/assets/delete"), {
           method: "POST",
           headers,
           body: JSON.stringify({ contentId: m.id, createdAt: m.createdAt, adminToken: tok || undefined }),
@@ -732,7 +733,7 @@ export function LibraryClient({
     setBulkDeleteMsg(null);
     try {
       const { headers, tok } = adminHeaders();
-      const res = await fetch("/api/library/videos/mutate", {
+      const res = await fetch(studioApiPath("/api/library/videos/mutate"), {
         method: "POST",
         headers,
         body: JSON.stringify({ action: "deleteMany", rels, adminToken: tok || undefined }),
@@ -768,7 +769,7 @@ export function LibraryClient({
     setBulkDeleteMsg(null);
     try {
       const { headers, tok } = adminHeaders();
-      const res = await fetch("/api/library/videos/mutate", {
+      const res = await fetch(studioApiPath("/api/library/videos/mutate"), {
         method: "POST",
         headers,
         body: JSON.stringify({ action: "deleteMany", rels, adminToken: tok || undefined }),
@@ -798,7 +799,7 @@ export function LibraryClient({
     setBulkDeleteMsg(null);
     try {
       const { headers, tok } = adminHeaders();
-      const res = await fetch("/api/library/images/mutate", {
+      const res = await fetch(studioApiPath("/api/library/images/mutate"), {
         method: "POST",
         headers,
         body: JSON.stringify({ action: "deleteMany", rels, adminToken: tok || undefined }),
@@ -824,7 +825,7 @@ export function LibraryClient({
     setBulkDeleteMsg(null);
     try {
       for (const id of ids) {
-        const res = await fetch("/api/audio/files", {
+        const res = await fetch(studioApiPath("/api/audio/files"), {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id }),
@@ -863,7 +864,7 @@ export function LibraryClient({
     try {
       const { headers, tok } = adminHeaders();
       for (const contentId of cids) {
-        const res = await fetch("/api/assets/delete", {
+        const res = await fetch(studioApiPath("/api/assets/delete"), {
           method: "POST",
           headers,
           body: JSON.stringify({ contentId, adminToken: tok || undefined }),
@@ -894,7 +895,7 @@ export function LibraryClient({
     setBulkDeleteMsg(null);
     try {
       const { headers, tok } = adminHeaders();
-      const res = await fetch("/api/library/podcasts/delete-output", {
+      const res = await fetch(studioApiPath("/api/library/podcasts/delete-output"), {
         method: "POST",
         headers,
         body: JSON.stringify({ projectIds, adminToken: tok || undefined }),

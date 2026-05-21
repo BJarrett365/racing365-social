@@ -71,7 +71,26 @@ export async function renderSceneToPng(
             color: { r: 0, g: 0, b: 0, a: 0 },
           });
         }
-        await page.setContent(html, { waitUntil: "networkidle0" });
+        await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 12_000 });
+        await page
+          .evaluate(() =>
+            Promise.race([
+              Promise.all(
+              Array.from(document.images)
+                .filter((img) => !img.complete)
+                .map(
+                  (img) =>
+                    new Promise<void>((resolve) => {
+                      const done = () => resolve();
+                      img.addEventListener("load", done, { once: true });
+                      img.addEventListener("error", done, { once: true });
+                    }),
+                ),
+              ),
+              new Promise<void>((resolve) => setTimeout(resolve, 3_000)),
+            ]),
+          )
+          .catch(() => {});
         await page.screenshot({ path: outPath, type: "png", omitBackground });
       } finally {
         if (cdp) {

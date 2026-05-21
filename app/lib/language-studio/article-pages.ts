@@ -87,7 +87,7 @@ function stringValue(value: unknown): string {
   if (typeof value === "string" || typeof value === "number") return String(value).trim();
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const rec = value as Record<string, unknown>;
-    return stringValue(rec.name || rec["@id"]);
+    return stringValue(rec.url || rec.contentUrl || rec["@id"] || rec.name);
   }
   return "";
 }
@@ -214,6 +214,16 @@ function extractDateFromText(text: string): string {
   return /\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|abr)[a-z]*\s+\d{4}\s+\d{1,2}:\d{2}\s*(?:AM|PM)?\b/i.exec(text)?.[0] ?? "";
 }
 
+function absoluteUrl(value: string, baseUrl: string): string {
+  const raw = value.trim();
+  if (!raw) return "";
+  try {
+    return new URL(raw, baseUrl).toString();
+  } catch {
+    return raw;
+  }
+}
+
 function parseSocialByline(line: string): Pick<LanguageSocialEmbed, "author" | "handle" | "publishedAt"> {
   const cleaned = line.replace(/^[—-]\s*/, "").trim();
   const match = /^(.*?)\s+\((@[^)]+)\)\s+(.+)$/.exec(cleaned);
@@ -289,7 +299,8 @@ export async function enrichLanguageArticlesFromPages(articles: LanguageArticle[
       const social = extractSocialEmbedsFromBody(body || article.body);
       const bodyText = stripTrailingSourceAttributionPlain(social.body || body || article.body);
       const standfirst = jsonLd.description || firstMetaContent(rawHtml, ["description", "og:description"]) || article.standfirst;
-      const imageUrl = article.imageUrl || jsonLd.imageUrl || firstMetaContent(rawHtml, ["og:image", "twitter:image"]);
+      const pageImageUrl = jsonLd.imageUrl || firstMetaContent(rawHtml, ["og:image", "twitter:image"]);
+      const imageUrl = pageImageUrl ? absoluteUrl(pageImageUrl, url) : article.imageUrl;
 
       return {
         ...article,

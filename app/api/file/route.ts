@@ -6,6 +6,8 @@ import { readAudioStudioBlobAsset } from "@/app/lib/audio-studio-store";
 import { readLibraryBlobAsset } from "@/app/lib/library-blob-assets";
 import { assetsManifestPath, outputDir } from "@/app/lib/paths";
 
+const PREVIEW_CACHE_CONTROL = "no-store, max-age=0, must-revalidate";
+
 function normRel(r: string): string {
   return r.split(path.sep).join("/");
 }
@@ -76,7 +78,8 @@ export async function GET(req: Request) {
     if (libBlob) {
       const headers: Record<string, string> = {
         "Content-Type": libBlob.contentType,
-        "Cache-Control": "public, max-age=60",
+        "Cache-Control": PREVIEW_CACHE_CONTROL,
+        "X-Asset-Rel": libBlob.rel,
       };
       if (searchParams.get("download") === "1") {
         const filename = path.basename(libBlob.rel).replace(/"/g, "");
@@ -120,7 +123,8 @@ export async function GET(req: Request) {
 
     const headers: Record<string, string> = {
       "Content-Type": type,
-      "Cache-Control": "public, max-age=60",
+      "Cache-Control": PREVIEW_CACHE_CONTROL,
+      "X-Asset-Rel": rel,
     };
 
     const download = searchParams.get("download") === "1";
@@ -142,7 +146,8 @@ export async function GET(req: Request) {
     if (audioBlobAsset) {
       const headers: Record<string, string> = {
         "Content-Type": audioBlobAsset.contentType,
-        "Cache-Control": "public, max-age=60",
+        "Cache-Control": PREVIEW_CACHE_CONTROL,
+        "X-Asset-Rel": rel,
       };
       if (searchParams.get("download") === "1") {
         const filename = path.basename(rel).replace(/"/g, "");
@@ -163,7 +168,8 @@ export async function GET(req: Request) {
 
     const headers: Record<string, string> = {
       "Content-Type": blobAsset.contentType,
-      "Cache-Control": "public, max-age=60",
+      "Cache-Control": PREVIEW_CACHE_CONTROL,
+      "X-Asset-Rel": blobAsset.rel,
     };
     if (searchParams.get("download") === "1") {
       const filename = path.basename(blobAsset.rel).replace(/"/g, "");

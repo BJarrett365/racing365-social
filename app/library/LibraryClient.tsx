@@ -99,6 +99,29 @@ type LibraryTab = "builds" | "backgroundVideo" | "libraryImages" | "voiceRecordi
 type LibraryBrandOption = { id: string; label: string };
 type LibraryLanguageOption = { id: "all" | LanguageCode; label: string };
 
+function debugRelTail(rel: string): string {
+  return rel.split("/").slice(-4).join("/");
+}
+
+function agentDebugLog(hypothesisId: string, message: string, data: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  // #region agent log
+  fetch("http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6387c1" },
+    body: JSON.stringify({
+      sessionId: "6387c1",
+      runId: "image-library-initial",
+      hypothesisId,
+      location: "app/library/LibraryClient.tsx",
+      message,
+      data,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+}
+
 function toSearchPool(values: Array<string | null | undefined>): string {
   return values
     .map((v) => (v ?? "").trim().toLowerCase())
@@ -468,6 +491,32 @@ export function LibraryClient({
     () => paginateSlice(imagesFiltered, libraryImagesPage, LIBRARY_PAGE_SIZE),
     [imagesFiltered, libraryImagesPage],
   );
+  useEffect(() => {
+    if (tab !== "libraryImages") return;
+    const rels = imagesPageData.slice;
+    agentDebugLog("H2,H4", "Library images page render summary", {
+      activePage: imagesPageData.activePage,
+      total: imagesPageData.total,
+      pageSize: imagesPageData.pageSize,
+      relCount: rels.length,
+      uniqueRelCount: new Set(rels).size,
+      filters: { siteBrandFilter, languageFilter, search: query.trim() ? "set" : "empty" },
+      sample: rels.slice(0, 20).map((rel) => ({
+        relTail: debugRelTail(rel),
+        contentId: contentIdFromAnyBackgroundImageRel(rel),
+        fileUrlTail: fileUrl(rel).slice(-140),
+      })),
+    });
+  }, [
+    imagesPageData.activePage,
+    imagesPageData.pageSize,
+    imagesPageData.slice,
+    imagesPageData.total,
+    languageFilter,
+    query,
+    siteBrandFilter,
+    tab,
+  ]);
   const audioStudioPageData = useMemo(
     () => paginateSlice(audioStudioMediaFiltered, voiceStudioPage, LIBRARY_PAGE_SIZE),
     [audioStudioMediaFiltered, voiceStudioPage],
@@ -1988,6 +2037,15 @@ export function LibraryClient({
                                 alt=""
                                 className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
                                 loading="lazy"
+                                onLoad={(event) => {
+                                  const img = event.currentTarget;
+                                  agentDebugLog("H3", "Library image element loaded", {
+                                    relTail: debugRelTail(rel),
+                                    currentSrcTail: img.currentSrc.slice(-160),
+                                    naturalWidth: img.naturalWidth,
+                                    naturalHeight: img.naturalHeight,
+                                  });
+                                }}
                               />
                               <span className="sr-only">Open details for {cid ?? base}</span>
                             </button>
@@ -2058,6 +2116,15 @@ export function LibraryClient({
                                   alt=""
                                   className="h-full w-full object-cover"
                                   loading="lazy"
+                                  onLoad={(event) => {
+                                    const img = event.currentTarget;
+                                    agentDebugLog("H3", "Library image element loaded", {
+                                      relTail: debugRelTail(rel),
+                                      currentSrcTail: img.currentSrc.slice(-160),
+                                      naturalWidth: img.naturalWidth,
+                                      naturalHeight: img.naturalHeight,
+                                    });
+                                  }}
                                 />
                                 <span className="sr-only">Open details for {cid ?? base}</span>
                               </button>

@@ -355,23 +355,25 @@ export function LibraryClient({
   });
   const directVideosFiltered = backdropsFiltered.filter((rel) => isDirectVideoRecordingRel(rel));
   const importedBackdropVideosFiltered = backdropsFiltered.filter((rel) => !isDirectVideoRecordingRel(rel));
-  const imagesFiltered = libraryBackgroundImages.filter((rel) => {
-    const n = rel.replace(/\\/g, "/");
-    const cid = contentIdFromAnyBackgroundImageRel(rel) ?? "";
-    const entry = cid ? manifest.find((m) => m.id === cid) : undefined;
-    const meta = cid ? libraryMetadataByContentId[cid] : undefined;
-    const values = [rel, cid, entry?.seoTitle, ...(entry?.keywords ?? []), ...(meta?.keywords ?? []), meta?.title, meta?.sourceUrl];
-    const brandTags = inferSiteBrandTags(values);
-    const langTags = inferLanguageTags(values);
-    /** Paths like OpenAI/Higgsfield exports often have no brand/language metadata but still belong in the library. */
-    const genericLibraryImage =
-      n.startsWith("images/library/") && brandTags.length === 0 && langTags.length === 0;
-    const brandOk = hasBrand(values) || genericLibraryImage;
-    const langOk = hasLanguage(values) || genericLibraryImage;
-    if (!brandOk || !langOk) return false;
-    if (!needle) return true;
-    return toSearchPool(values).includes(needle);
-  });
+  const imagesFiltered = libraryBackgroundImages
+    .filter((rel) => {
+      const n = rel.replace(/\\/g, "/");
+      const cid = contentIdFromAnyBackgroundImageRel(rel) ?? "";
+      const entry = cid ? manifest.find((m) => m.id === cid) : undefined;
+      const meta = cid ? libraryMetadataByContentId[cid] : undefined;
+      const values = [rel, cid, entry?.seoTitle, ...(entry?.keywords ?? []), ...(meta?.keywords ?? []), meta?.title, meta?.sourceUrl];
+      const brandTags = inferSiteBrandTags(values);
+      const langTags = inferLanguageTags(values);
+      /** Paths like OpenAI/Higgsfield exports often have no brand/language metadata but still belong in the library. */
+      const genericLibraryImage =
+        n.startsWith("images/library/") && brandTags.length === 0 && langTags.length === 0;
+      const brandOk = hasBrand(values) || genericLibraryImage;
+      const langOk = hasLanguage(values) || genericLibraryImage;
+      if (!brandOk || !langOk) return false;
+      if (!needle) return true;
+      return toSearchPool(values).includes(needle);
+    })
+    .sort((a, b) => libraryBackgroundImages.indexOf(a) - libraryBackgroundImages.indexOf(b));
 
   const voiceRecordingsFiltered = voiceRecordings.filter((rel) => {
     const cid = contentIdFromVoiceRecordingRel(rel) ?? "";

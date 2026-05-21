@@ -120,6 +120,29 @@ function fileUrl(rel: string, cacheBust?: number) {
   return withAppPathPrefix(path);
 }
 
+function agentDebugLog(hypothesisId: string, message: string, data: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  // #region agent log
+  fetch("http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6387c1" },
+    body: JSON.stringify({
+      sessionId: "6387c1",
+      runId: "landscape-render-initial",
+      hypothesisId,
+      location: "app/features/editor/EditorWorkspace.tsx",
+      message,
+      data,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+}
+
+function relTail(value?: string | null) {
+  return value?.split("/").slice(-4).join("/") || null;
+}
+
 function toOutputRel(absPath: string) {
   const marker = "/output/";
   const idx = absPath.indexOf(marker);
@@ -1715,10 +1738,37 @@ export function EditorWorkspace({
       if (Object.keys(editorCompositorBySceneId).length > 0) {
         payload.editorCompositorBySceneId = editorCompositorBySceneId;
       }
+      const payloadJson = JSON.stringify(payload);
+      agentDebugLog("H1,H3,H4", "Landscape render request payload summary", {
+        format,
+        contentId,
+        sceneCount: scenesForRender.length,
+        width: payload.width,
+        height: payload.height,
+        payloadBytes: payloadJson.length,
+        backgroundImageRel: relTail(backgroundImageRel),
+        backgroundImageBySceneCount: Object.keys(backgroundImageRelBySceneId).length,
+        backgroundImageBySceneSample: Object.entries(backgroundImageRelBySceneId).slice(0, 5).map(([sceneId, rel]) => ({
+          sceneId,
+          rel: relTail(rel),
+        })),
+        backgroundVideoRel: relTail(backgroundVideoRel),
+        backgroundVideoFrameRel: relTail(backgroundVideoFrameRel),
+        compositorSceneCount: Object.keys(editorCompositorBySceneId).length,
+        compositorBytes: Object.values(editorCompositorBySceneId).reduce((sum, value) => sum + value.length, 0),
+        templateIds: [...new Set(scenesForRender.map((scene) => scene.templateId))],
+      });
       const res = await fetch(studioApiPath("/api/render-scenes"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: payloadJson,
+      });
+      const responsePreview = await res.clone().text().catch(() => "");
+      agentDebugLog("H2", "Landscape render response summary", {
+        ok: res.ok,
+        status: res.status,
+        contentType: res.headers.get("content-type"),
+        responsePrefix: responsePreview.slice(0, 220),
       });
       const data = await parseApiJson<{
         error?: string;
@@ -1743,6 +1793,13 @@ export function EditorWorkspace({
       setPngsStale(false);
       setPreviewNonce((n) => n + 1);
     } catch (e) {
+      agentDebugLog("H2,H3,H4", "Landscape render client caught error", {
+        message: e instanceof Error ? e.message : String(e),
+        format,
+        contentId,
+        backgroundImageRel: relTail(backgroundImageRel),
+        backgroundVideoRel: relTail(backgroundVideoRel),
+      });
       setError(e instanceof Error ? e.message : "Error");
     } finally {
       setBusy(null);

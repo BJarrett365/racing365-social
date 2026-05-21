@@ -83,39 +83,6 @@ type Article = {
   updatedAt?: string;
 };
 
-function debugUrlKey(value?: string) {
-  const raw = value?.trim();
-  if (!raw) return null;
-  try {
-    const url = new URL(raw);
-    return {
-      host: url.hostname,
-      pathTail: url.pathname.split("/").filter(Boolean).slice(-2).join("/"),
-    };
-  } catch {
-    return { rawTail: raw.slice(-80) };
-  }
-}
-
-function agentDebugLog(hypothesisId: string, message: string, data: Record<string, unknown>) {
-  if (typeof window === "undefined") return;
-  // #region agent log
-  fetch("http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6387c1" },
-    body: JSON.stringify({
-      sessionId: "6387c1",
-      runId: "image-library-initial",
-      hypothesisId,
-      location: "app/language-studio/LanguageStudioClient.tsx",
-      message,
-      data,
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-}
-
 type Translation = {
   id: string;
   articleId: string;
@@ -1254,19 +1221,6 @@ export function LanguageStudioClient() {
       if (!res.ok) throw new Error(data.error || "Import failed");
       const importedArticles = Array.isArray(data.articles) ? (data.articles as Article[]).map(normaliseArticle) : [];
       const savedImages = importedArticles.filter((article) => article.imageLibraryRel).length;
-      const imageKeys = importedArticles.map((article) => JSON.stringify(debugUrlKey(article.imageUrl)));
-      const libraryRels = importedArticles.map((article) => article.imageLibraryRel?.trim()).filter(Boolean);
-      agentDebugLog("H1,H4", "Language import response image summary", {
-        articleCount: importedArticles.length,
-        savedImages,
-        uniqueImageUrlCount: new Set(imageKeys.filter((key) => key !== "null")).size,
-        uniqueLibraryRelCount: new Set(libraryRels).size,
-        sample: importedArticles.slice(0, 20).map((article) => ({
-          title: article.title.slice(0, 80),
-          imageUrl: debugUrlKey(article.imageUrl),
-          imageLibraryRelTail: article.imageLibraryRel?.split("/").slice(-3).join("/") ?? null,
-        })),
-      });
       if (importedArticles.length > 0) {
         setArticles(importedArticles);
         setSelectedArticleId(importedArticles[0]?.id ?? "");

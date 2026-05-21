@@ -1719,13 +1719,11 @@ export function EditorWorkspace({
           if (dataUrl) editorCompositorBySceneId[s.id] = dataUrl;
         }
       }
-      const payload: Record<string, unknown> = {
+      const basePayload: Record<string, unknown> = {
         contentId,
-        scenes: scenesForRender,
         width: VIDEO_BUILD_DIMENSIONS[effectiveVideoBuildMode].width,
         height: VIDEO_BUILD_DIMENSIONS[effectiveVideoBuildMode].height,
         backgroundImageRel,
-        backgroundImageRelBySceneId,
         backgroundVideoFrameRel,
         backgroundVideoRel,
         ...(backgroundVideoRel
@@ -1735,47 +1733,67 @@ export function EditorWorkspace({
             }
           : {}),
       };
-      if (Object.keys(editorCompositorBySceneId).length > 0) {
-        payload.editorCompositorBySceneId = editorCompositorBySceneId;
+      const renderedImages: { sceneId: string; path: string; underlayPath?: string }[] = [];
+      for (const scene of scenesForRender) {
+        const sceneBackgroundImageRelBySceneId =
+          backgroundImageRelBySceneId[scene.id]
+            ? { [scene.id]: backgroundImageRelBySceneId[scene.id] }
+            : {};
+        const sceneCompositorBySceneId =
+          editorCompositorBySceneId[scene.id] ? { [scene.id]: editorCompositorBySceneId[scene.id] } : {};
+        const payload: Record<string, unknown> = {
+          ...basePayload,
+          scenes: [scene],
+          backgroundImageRelBySceneId:
+            Object.keys(sceneBackgroundImageRelBySceneId).length > 0
+              ? sceneBackgroundImageRelBySceneId
+              : undefined,
+        };
+        if (Object.keys(sceneCompositorBySceneId).length > 0) {
+          payload.editorCompositorBySceneId = sceneCompositorBySceneId;
+        }
+        const payloadJson = JSON.stringify(payload);
+        agentDebugLog("H1,H3,H4", "Landscape render request payload summary", {
+          format,
+          contentId,
+          sceneCount: 1,
+          sceneId: scene.id,
+          width: payload.width,
+          height: payload.height,
+          payloadBytes: payloadJson.length,
+          backgroundImageRel: relTail(backgroundImageRel),
+          backgroundImageBySceneCount: Object.keys(sceneBackgroundImageRelBySceneId).length,
+          backgroundImageBySceneSample: Object.entries(sceneBackgroundImageRelBySceneId).map(([sceneId, rel]) => ({
+            sceneId,
+            rel: relTail(rel),
+          })),
+          backgroundVideoRel: relTail(backgroundVideoRel),
+          backgroundVideoFrameRel: relTail(backgroundVideoFrameRel),
+          compositorSceneCount: Object.keys(sceneCompositorBySceneId).length,
+          compositorBytes: Object.values(sceneCompositorBySceneId).reduce((sum, value) => sum + value.length, 0),
+          templateIds: [scene.templateId],
+        });
+        const res = await fetch(studioApiPath("/api/render-scenes"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payloadJson,
+        });
+        const responsePreview = await res.clone().text().catch(() => "");
+        agentDebugLog("H2", "Landscape render response summary", {
+          ok: res.ok,
+          status: res.status,
+          sceneId: scene.id,
+          contentType: res.headers.get("content-type"),
+          responsePrefix: responsePreview.slice(0, 220),
+        });
+        const data = await parseApiJson<{
+          error?: string;
+          images?: { sceneId: string; path: string; underlayPath?: string }[];
+        }>(res);
+        if (!res.ok) throw new Error(data.error || "Render failed");
+        renderedImages.push(...(data.images ?? []));
       }
-      const payloadJson = JSON.stringify(payload);
-      agentDebugLog("H1,H3,H4", "Landscape render request payload summary", {
-        format,
-        contentId,
-        sceneCount: scenesForRender.length,
-        width: payload.width,
-        height: payload.height,
-        payloadBytes: payloadJson.length,
-        backgroundImageRel: relTail(backgroundImageRel),
-        backgroundImageBySceneCount: Object.keys(backgroundImageRelBySceneId).length,
-        backgroundImageBySceneSample: Object.entries(backgroundImageRelBySceneId).slice(0, 5).map(([sceneId, rel]) => ({
-          sceneId,
-          rel: relTail(rel),
-        })),
-        backgroundVideoRel: relTail(backgroundVideoRel),
-        backgroundVideoFrameRel: relTail(backgroundVideoFrameRel),
-        compositorSceneCount: Object.keys(editorCompositorBySceneId).length,
-        compositorBytes: Object.values(editorCompositorBySceneId).reduce((sum, value) => sum + value.length, 0),
-        templateIds: [...new Set(scenesForRender.map((scene) => scene.templateId))],
-      });
-      const res = await fetch(studioApiPath("/api/render-scenes"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: payloadJson,
-      });
-      const responsePreview = await res.clone().text().catch(() => "");
-      agentDebugLog("H2", "Landscape render response summary", {
-        ok: res.ok,
-        status: res.status,
-        contentType: res.headers.get("content-type"),
-        responsePrefix: responsePreview.slice(0, 220),
-      });
-      const data = await parseApiJson<{
-        error?: string;
-        images?: { sceneId: string; path: string; underlayPath?: string }[];
-      }>(res);
-      if (!res.ok) throw new Error(data.error || "Render failed");
-      const imgs = (data.images ?? []).map((im) => ({
+      const imgs = renderedImages.map((im) => ({
         ...im,
         rel: toOutputRel(im.path),
         underlayRel: im.underlayPath ? toOutputRel(im.underlayPath) : undefined,

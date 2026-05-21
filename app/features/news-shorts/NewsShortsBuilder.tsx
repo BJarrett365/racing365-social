@@ -99,6 +99,7 @@ import {
   normalizeCreativeVideoFormat,
   videoDimensionsForCreativeFormat,
 } from "@/app/features/news-shorts/creative-video-format";
+import { studioApiPath, withAppPathPrefix } from "@/app/lib/app-base-path";
 import { resolvedPanelTextColorForNewsShort } from "@/app/lib/news-shorts-slide-render-data";
 
 function VideoRecordPreview(props: {
@@ -2057,7 +2058,7 @@ export function NewsShortsBuilder() {
     setBackdropLibraryBusy(true);
     setError("");
     try {
-      const res = await fetch("/api/library/backdrop-assets", { cache: "no-store" });
+      const res = await fetch(studioApiPath("/api/library/backdrop-assets"), { cache: "no-store" });
       const json = (await res.json()) as {
         backdropVideos?: string[];
         libraryBackgroundImages?: string[];
@@ -3287,7 +3288,7 @@ export function NewsShortsBuilder() {
                         {" · "}
                         <a
                           className="text-emerald-300 underline"
-                          href={`/api/file?rel=${encodeURIComponent(buildResult.engineRel)}&download=1`}
+                          href={withAppPathPrefix(`/api/file?rel=${encodeURIComponent(buildResult.engineRel)}&download=1`)}
                         >
                           Download
                         </a>
@@ -5190,7 +5191,7 @@ export function NewsShortsBuilder() {
                   <strong className="text-slate-400">Face in circle</strong> with a saved{" "}
                   <span className="font-mono text-slate-400">camera-record</span> clip only, where the still can fill the
                   frame behind the circle PiP. You can also pick files from the{" "}
-                  <a href="/library" className="text-[#86efac] underline hover:text-[#bbf7d0]">
+                  <a href={withAppPathPrefix("/library")} className="text-[#86efac] underline hover:text-[#bbf7d0]">
                     asset library
                   </a>
                   .
@@ -5932,7 +5933,7 @@ export function NewsShortsBuilder() {
                   <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
                     <a
                       className="font-semibold text-[#86efac] underline underline-offset-2 hover:text-[#bbf7d0]"
-                      href={`/api/file?rel=${encodeURIComponent(buildResult.videoRel)}&download=1`}
+                      href={withAppPathPrefix(`/api/file?rel=${encodeURIComponent(buildResult.videoRel)}&download=1`)}
                       download={seoFriendlyMp4Filename}
                     >
                       Download MP4
@@ -6032,7 +6033,9 @@ export function NewsShortsBuilder() {
             </span>
             <a
               href={
-                backdropLibraryKind === "image" ? "/library?tab=libraryImages" : "/library?tab=backgroundVideo"
+                withAppPathPrefix(
+                  backdropLibraryKind === "image" ? "/library?tab=libraryImages" : "/library?tab=backgroundVideo",
+                )
               }
               target="_blank"
               rel="noreferrer"
@@ -6054,7 +6057,7 @@ export function NewsShortsBuilder() {
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={`/api/file?rel=${encodeURIComponent(rel)}`}
+                        src={withAppPathPrefix(`/api/file?rel=${encodeURIComponent(rel)}`)}
                         alt=""
                         className="mx-auto aspect-[9/16] w-full max-h-64 rounded-md object-cover bg-black"
                       />
@@ -6075,7 +6078,12 @@ export function NewsShortsBuilder() {
                 <p className="text-sm leading-relaxed text-slate-500">
                   No library stills match this filter. Upload above or add files under{" "}
                   <code className="text-slate-400">output/images/library/</code>, or open the{" "}
-                  <a href="/library?tab=libraryImages" className="text-[#86efac] underline" target="_blank" rel="noreferrer">
+                  <a
+                    href={withAppPathPrefix("/library?tab=libraryImages")}
+                    className="text-[#86efac] underline"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     Library images
                   </a>{" "}
                   tab.
@@ -6089,8 +6097,8 @@ export function NewsShortsBuilder() {
                     className="flex flex-col rounded-lg border border-slate-700 bg-black/50 p-2 shadow-inner"
                   >
                     <video
-                      src={`/api/file?rel=${encodeURIComponent(rel)}`}
-                      poster={`/api/file?rel=${encodeURIComponent(inferredBackdropPosterRelFromVideo(rel))}`}
+                      src={withAppPathPrefix(`/api/file?rel=${encodeURIComponent(rel)}`)}
+                      poster={withAppPathPrefix(`/api/file?rel=${encodeURIComponent(inferredBackdropPosterRelFromVideo(rel))}`)}
                       muted
                       playsInline
                       controls
@@ -6114,7 +6122,7 @@ export function NewsShortsBuilder() {
               <p className="text-sm leading-relaxed text-slate-500">
                 No motion clips match this filter. Import Runway output, save a camera recording, or open{" "}
                 <a
-                  href="/library?tab=backgroundVideo"
+                  href={withAppPathPrefix("/library?tab=backgroundVideo")}
                   className="text-[#86efac] underline"
                   target="_blank"
                   rel="noreferrer"

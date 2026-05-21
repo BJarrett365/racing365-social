@@ -497,7 +497,7 @@ export function LibraryClient({
     agentDebugLog("H2,H4", "Library images page render summary", {
       activePage: imagesPageData.activePage,
       total: imagesPageData.total,
-      pageSize: imagesPageData.pageSize,
+      pageSize: LIBRARY_PAGE_SIZE,
       relCount: rels.length,
       uniqueRelCount: new Set(rels).size,
       filters: { siteBrandFilter, languageFilter, search: query.trim() ? "set" : "empty" },
@@ -509,7 +509,6 @@ export function LibraryClient({
     });
   }, [
     imagesPageData.activePage,
-    imagesPageData.pageSize,
     imagesPageData.slice,
     imagesPageData.total,
     languageFilter,

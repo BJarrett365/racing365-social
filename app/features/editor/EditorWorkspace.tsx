@@ -2348,6 +2348,10 @@ export function EditorWorkspace({
           ...(backgroundVideoRel ? { backgroundVideoRel } : {}),
         }),
       });
+      const buildResponsePreview = await res.clone().text().catch((err) => `[[read-failed:${err instanceof Error ? err.message : String(err)}]]`);
+      // #region agent log
+      fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'live-ffmpeg-response-probe',hypothesisId:'H5,H6,H7',location:'app/features/editor/EditorWorkspace.tsx:raw-build-short-response',message:'client raw build-short response before parse',data:{status:res.status,ok:res.ok,contentType:res.headers.get('content-type'),responsePrefix:buildResponsePreview.slice(0,500)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       const data = await parseApiJson<{
         error?: string;
         videoPath?: string;

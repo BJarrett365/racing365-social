@@ -3,6 +3,17 @@ import type { BuildShortPayload } from "@/app/lib/build-short-service";
 
 const STORE = "video-build-jobs";
 
+export function sanitizeVideoBuildError(message: string): string {
+  const trimmed = message.trim();
+  if (/inactivity timeout/i.test(trimmed)) {
+    return "Video build stopped by hosting inactivity timeout before completion.";
+  }
+  if (/^<!doctype html|^<html/i.test(trimmed)) {
+    return "Video build failed due to a hosting timeout.";
+  }
+  return trimmed.length > 500 ? `${trimmed.slice(0, 500)}…` : trimmed;
+}
+
 export type VideoBuildJobRecord = {
   status: "pending" | "running" | "completed" | "failed";
   createdAt: number;
@@ -61,7 +72,7 @@ export async function failVideoBuildJob(jobId: string, error: string, debug?: un
   await writeJsonBlob<VideoBuildJobRecord>(STORE, jobId, {
     ...(current ?? { createdAt: now, contentId: undefined }),
     status: "failed",
-    error,
+    error: sanitizeVideoBuildError(error),
     debug,
     updatedAt: now,
   });

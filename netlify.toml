@@ -18,4 +18,4 @@
 # Note: Do not set `[functions] timeout` here — some Netlify + Next.js config parsers reject it at the
 # "Reading and parsing configuration files" stage. Raise the synchronous function limit in the UI instead:
 # Site configuration → Build & deploy → Functions → Function timeout (e.g. 26s on supported plans).
-# Long video builds run via POST /api/build-short/run (maxDuration 300) after the client receives 202.
+# Long video builds return 202 immediately, then finish via Next.js after() with maxDuration 300.

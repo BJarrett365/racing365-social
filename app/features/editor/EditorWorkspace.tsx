@@ -53,6 +53,7 @@ import type { CompositorLayer } from "@/app/lib/compositor-types";
 import { compositorLayersToDataUrl, stripLegacyFastResultsBoardOverlayLayers } from "@/app/lib/compositor-canvas";
 import { sceneDisplayLabel } from "@/app/lib/scene-display-labels";
 import { parseApiJson, pollVideoBuildJob } from "@/app/lib/parse-api-json";
+import { sanitizeVideoBuildError } from "@/app/lib/video-build-jobs";
 import { BRAND_SHORT_SINGULAR, BRAND_SHORTS } from "@/app/lib/brand";
 import {
   computeSyncFromScript,
@@ -2407,7 +2408,7 @@ export function EditorWorkspace({
         // #endregion
       }
 
-      if (buildResult.error) throw new Error(buildResult.error);
+      if (buildResult.error) throw new Error(sanitizeVideoBuildError(buildResult.error));
       if (!buildResult.videoPath) throw new Error("Video build finished without returning a video path.");
       setVideoRel(toOutputRel(buildResult.videoPath));
       if (buildResult.voiceProvider === "openai" && buildResult.voiceFallbackReason) {

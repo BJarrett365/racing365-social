@@ -16,7 +16,7 @@ function pathMatches(current: string, href: string): boolean {
 }
 
 export function AppNavLink({ href, className, style, children }: Props) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const active = pathMatches(pathname, href);
   return (
     <Link href={href} className={className} style={style} aria-current={active ? "page" : undefined}>

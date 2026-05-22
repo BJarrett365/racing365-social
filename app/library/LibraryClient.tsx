@@ -170,7 +170,7 @@ export function LibraryClient({
   podcastAudios,
   libraryMetadataByContentId,
 }: Props) {
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const [tab, setTab] = useState<LibraryTab>("builds");
   const [query, setQuery] = useState("");
   const [siteBrandFilter, setSiteBrandFilter] = useState("all");

@@ -24,7 +24,7 @@ type BrandRow = { slug: string; label: string };
 
 export function LiveControlNewClient() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const [adminToken, setAdminToken] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");

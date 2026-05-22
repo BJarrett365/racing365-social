@@ -14,7 +14,7 @@ function safeNextPath(value: string | null): string {
 }
 
 export function LoginForm() {
-  const params = useSearchParams();
+  const params = useSearchParams() ?? new URLSearchParams();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

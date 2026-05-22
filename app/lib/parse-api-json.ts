@@ -50,6 +50,7 @@ function sleep(ms: number): Promise<void> {
 
 export type VideoBuildJobPollResult = {
   status?: "pending" | "running" | "completed" | "failed";
+  phase?: string;
   error?: string;
   videoPath?: string;
   voiceProvider?: string;
@@ -59,7 +60,7 @@ export type VideoBuildJobPollResult = {
 
 export async function pollVideoBuildJob(
   jobUrl: string,
-  options?: { timeoutMs?: number; intervalMs?: number },
+  options?: { timeoutMs?: number; intervalMs?: number; onProgress?: (job: VideoBuildJobPollResult) => void },
 ): Promise<VideoBuildJobPollResult> {
   const timeoutMs = options?.timeoutMs ?? 15 * 60 * 1000;
   const intervalMs = options?.intervalMs ?? 2000;
@@ -68,6 +69,7 @@ export async function pollVideoBuildJob(
   while (Date.now() < deadline) {
     const res = await fetch(jobUrl, { cache: "no-store" });
     const job = await parseApiJson<VideoBuildJobPollResult>(res);
+    options?.onProgress?.(job);
     if (job.status === "completed" || job.status === "failed") {
       return job;
     }

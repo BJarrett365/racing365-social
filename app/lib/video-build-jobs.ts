@@ -19,6 +19,7 @@ export type VideoBuildJobRecord = {
   createdAt: number;
   updatedAt: number;
   contentId?: string;
+  phase?: string;
   error?: string;
   debug?: unknown;
   videoPath?: string;
@@ -30,6 +31,34 @@ export type VideoBuildJobRecord = {
   seoTitle?: string;
   seoSlug?: string;
 };
+
+/** If a running job has not heartbeated recently, the worker likely died on the host. */
+export const STALE_RUNNING_JOB_MS = 120_000;
+
+export function isStaleRunningJob(job: VideoBuildJobRecord): boolean {
+  return job.status === "running" && Date.now() - job.updatedAt > STALE_RUNNING_JOB_MS;
+}
+
+export async function touchVideoBuildJobProgress(jobId: string, phase: string): Promise<void> {
+  const current = await getVideoBuildJob(jobId);
+  if (!current || current.status === "completed" || current.status === "failed") return;
+  await writeJsonBlob<VideoBuildJobRecord>(STORE, jobId, {
+    ...current,
+    status: "running",
+    phase,
+    updatedAt: Date.now(),
+  });
+}
+
+export async function resolveStaleVideoBuildJob(jobId: string): Promise<VideoBuildJobRecord | null> {
+  const job = await getVideoBuildJob(jobId);
+  if (!job || !isStaleRunningJob(job)) return job;
+  await failVideoBuildJob(
+    jobId,
+    "Video build stopped unexpectedly — the host likely timed out. Try again after the latest deploy finishes.",
+  );
+  return getVideoBuildJob(jobId);
+}
 
 export async function createVideoBuildJob(jobId: string, contentId: string): Promise<void> {
   const now = Date.now();

@@ -32,7 +32,10 @@ export type BuildShortPayload = {
   error?: string;
 };
 
-export async function buildShortPayload(body: BuildShortRequestBody): Promise<BuildShortPayload> {
+export async function buildShortPayload(
+  body: BuildShortRequestBody,
+  options?: { onProgress?: (phase: string) => void | Promise<void> },
+): Promise<BuildShortPayload> {
   if (!body?.contentId || !body?.scenes?.length || !body?.script) {
     return { error: "contentId, script, and scenes required" };
   }
@@ -44,6 +47,7 @@ export async function buildShortPayload(body: BuildShortRequestBody): Promise<Bu
   const speedRaw = Number(body.voiceSpeed);
   const speed = Number.isFinite(speedRaw) ? Math.min(2, Math.max(0.5, speedRaw)) : 1;
 
+  await options?.onProgress?.("voice");
   const audio = await resolveVoiceTrackWithFallback(body.script, body.contentId, {
     gender,
     speed,
@@ -51,6 +55,7 @@ export async function buildShortPayload(body: BuildShortRequestBody): Promise<Bu
     providerPreference: normalizeVoiceProviderPreference(body.voiceProviderPreference),
   });
   const audioPath = audio.audioPath;
+  await options?.onProgress?.("encoding");
   const result = await buildShortVideo({
     contentId: body.contentId,
     format: body.format,

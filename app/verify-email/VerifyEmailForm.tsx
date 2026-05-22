@@ -9,7 +9,7 @@ const inputClass = "mt-1 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] 
 
 export function VerifyEmailForm() {
   const router = useRouter();
-  const params = useSearchParams();
+  const params = useSearchParams() ?? new URLSearchParams();
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

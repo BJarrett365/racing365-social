@@ -421,6 +421,7 @@ export function EditorWorkspace({
     { sceneId: string; path: string; rel: string; underlayRel?: string }[]
   >([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [videoBuildStatus, setVideoBuildStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [videoBuildMode, setVideoBuildMode] = useState<VideoBuildMode>(initialVideoBuildMode);
   const [videoRel, setVideoRel] = useState<string | null>(null);
@@ -2345,6 +2346,7 @@ export function EditorWorkspace({
       return;
     }
     setBusy("video");
+    setVideoBuildStatus(null);
     setError(null);
     try {
       const order = new Map(imagesForBuild.map((im) => [im.sceneId, im.rel ?? im.path]));
@@ -2402,7 +2404,18 @@ export function EditorWorkspace({
 
       let buildResult = data;
       if (res.status === 202 && data.async && data.jobId) {
-        buildResult = await pollVideoBuildJob(studioApiPath(`/api/build-short?jobId=${encodeURIComponent(data.jobId)}`));
+        buildResult = await pollVideoBuildJob(
+          studioApiPath(`/api/build-short?jobId=${encodeURIComponent(data.jobId)}`),
+          {
+            onProgress: (job) => {
+              if (job.status === "running" && job.phase) {
+                setVideoBuildStatus(job.phase);
+              } else if (job.status === "pending") {
+                setVideoBuildStatus("starting");
+              }
+            },
+          },
+        );
         // #region agent log
         fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'post-fix',hypothesisId:'H5',location:'app/features/editor/EditorWorkspace.tsx:after-poll',message:'background video build poll finished',data:{status:buildResult.status,hasVideoPath:Boolean(buildResult.videoPath),error:buildResult.error},timestamp:Date.now()})}).catch(()=>{});
         // #endregion
@@ -2425,6 +2438,7 @@ export function EditorWorkspace({
       setError(e instanceof Error ? e.message : "Error");
     } finally {
       setBusy(null);
+      setVideoBuildStatus(null);
     }
   };
 
@@ -3761,7 +3775,12 @@ export function EditorWorkspace({
 
           </div>
 
-        {busy && <p className="text-sm text-[#eab308]">Working: {busy}…</p>}
+        {busy && (
+          <p className="text-sm text-[#eab308]">
+            Working: {busy}
+            {busy === "video" && videoBuildStatus ? ` (${videoBuildStatus})` : ""}…
+          </p>
+        )}
         {error && <p className="text-sm text-red-400">{error}</p>}
         </div>
 

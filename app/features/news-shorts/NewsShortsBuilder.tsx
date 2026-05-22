@@ -822,9 +822,9 @@ export function NewsShortsBuilder() {
     setBackgroundImageRel("");
   }, []);
 
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   useEffect(() => {
     const v = searchParams.get("backdropVideo")?.trim();

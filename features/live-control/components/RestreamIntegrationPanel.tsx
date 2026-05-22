@@ -20,7 +20,7 @@ import {
 type ChannelsRes = { channels?: RestreamChannel[]; error?: string };
 
 export function RestreamIntegrationPanel() {
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const [adminToken, setAdminToken] = useState("");
   const [channels, setChannels] = useState<RestreamChannel[] | null>(null);
   const [ingest, setIngest] = useState<RestreamIngest | null>(null);

@@ -47,7 +47,7 @@ type ManualFieldKey =
 
 export function EditingStudioNewProjectClient() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const mode = searchParams.get("mode");
   const urlInputRef = useRef<HTMLInputElement>(null);
 

@@ -47,7 +47,7 @@ export function EditingStudioProjectEditorClient({ initialProject }: Props) {
   const projectId = initialProject.id;
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
 
   const tabParam = searchParams.get("tab");
   const activeTab: EditorTabId = isEditorTabId(tabParam) ? tabParam : "copy";

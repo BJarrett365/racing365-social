@@ -145,7 +145,8 @@ function relTail(value?: string | null) {
   return value?.split("/").slice(-4).join("/") || null;
 }
 
-function toOutputRel(absPath: string) {
+function toOutputRel(absPath?: string) {
+  if (!absPath) return "";
   const marker = "/output/";
   const idx = absPath.indexOf(marker);
   if (idx === -1) {
@@ -1798,7 +1799,7 @@ export function EditorWorkspace({
             }
           : {}),
       };
-      const renderedImages: { sceneId: string; path: string; underlayPath?: string }[] = [];
+      const renderedImages: { sceneId: string; path: string; rel?: string; underlayPath?: string; underlayRel?: string }[] = [];
       for (const scene of scenesForRender) {
         const sceneBackgroundImageRelBySceneId =
           backgroundImageRelBySceneId[scene.id]
@@ -1853,15 +1854,15 @@ export function EditorWorkspace({
         });
         const data = await parseApiJson<{
           error?: string;
-          images?: { sceneId: string; path: string; underlayPath?: string }[];
+          images?: { sceneId: string; path: string; rel?: string; underlayPath?: string; underlayRel?: string }[];
         }>(res);
         if (!res.ok) throw new Error(data.error || "Render failed");
         renderedImages.push(...(data.images ?? []));
       }
       const imgs = renderedImages.map((im) => ({
         ...im,
-        rel: toOutputRel(im.path),
-        underlayRel: im.underlayPath ? toOutputRel(im.underlayPath) : undefined,
+        rel: im.rel ?? toOutputRel(im.path),
+        underlayRel: im.underlayRel ?? (im.underlayPath ? toOutputRel(im.underlayPath) : undefined),
       }));
       setImages(imgs);
       const prefer = compositorSceneIdRef.current;
@@ -2288,13 +2289,13 @@ export function EditorWorkspace({
         });
         const data = await parseApiJson<{
           error?: string;
-          images?: { sceneId: string; path: string; underlayPath?: string }[];
+          images?: { sceneId: string; path: string; rel?: string; underlayPath?: string; underlayRel?: string }[];
         }>(res);
         if (!res.ok) throw new Error(data.error || "Render failed");
         imagesForBuild = (data.images ?? []).map((im) => ({
           ...im,
-          rel: toOutputRel(im.path),
-          underlayRel: im.underlayPath ? toOutputRel(im.underlayPath) : undefined,
+          rel: im.rel ?? toOutputRel(im.path),
+          underlayRel: im.underlayRel ?? (im.underlayPath ? toOutputRel(im.underlayPath) : undefined),
         }));
         setImages(imagesForBuild);
         setPreviewSceneId((prev) =>
@@ -2315,7 +2316,7 @@ export function EditorWorkspace({
     setBusy("video");
     setError(null);
     try {
-      const order = new Map(imagesForBuild.map((im) => [im.sceneId, im.path]));
+      const order = new Map(imagesForBuild.map((im) => [im.sceneId, im.rel ?? im.path]));
       const scriptChunks = splitScriptIntoSceneCaptions(content.script, content.scenes.length);
       const scenes = content.scenes.map((s, i) => ({
         imagePath: order.get(s.id) ?? "",

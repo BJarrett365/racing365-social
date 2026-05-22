@@ -13,6 +13,7 @@ import { buildNewsShortAss, type NewsShortAssStyle } from "@/app/features/conten
 import { buildSrt, type SubtitleCue } from "@/app/features/content/subtitle-generator";
 import type { ManifestEntry } from "@/app/lib/asset-manifest";
 import { assertAudioAssetRel, assertCrossContentBackdropRel } from "@/app/lib/editor-upload";
+import { readLibraryBlobAsset } from "@/app/lib/library-blob-assets";
 import { BRAND_ENCODER, BRAND_MARK } from "@/app/lib/brand";
 import { upsertLibraryMetadata } from "@/app/lib/library-metadata";
 import type { BackingMusicConfig, VideoRecordCirclePosition, VideoRecordLayout } from "@/app/features/news-shorts/types";
@@ -297,6 +298,20 @@ function buildImageChain(
   return { args, filterComplex, audioInputIndex };
 }
 
+async function materializeSceneImagePath(imagePath: string, contentId: string, index: number): Promise<string> {
+  if (path.isAbsolute(imagePath)) return imagePath;
+  const normalized = imagePath.split(path.sep).join("/").replace(/^\/+/, "");
+  const blob = await readLibraryBlobAsset(normalized);
+  if (blob) {
+    const ext = path.extname(normalized) || ".png";
+    const out = path.join(outputDir(), "images", contentId, `build-scene-${index}${ext}`);
+    await fs.mkdir(path.dirname(out), { recursive: true });
+    await fs.writeFile(out, blob.bytes);
+    return out;
+  }
+  return path.resolve(projectRoot(), imagePath);
+}
+
 /** RGBA foreground for overlay on motion background */
 function buildForegroundRgbaChain(
   scenes: SceneClip[],
@@ -426,15 +441,21 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
 }> {
   await fs.mkdir(outputVideoDir(), { recursive: true });
   await fs.mkdir(outputSubtitlesDir(), { recursive: true });
+  const scenes = await Promise.all(
+    input.scenes.map(async (scene, index) => ({
+      ...scene,
+      imagePath: await materializeSceneImagePath(scene.imagePath, input.contentId, index),
+    })),
+  );
 
   const { ow, oh } = clampNewsShortOutputDims(input.outputWidth, input.outputHeight);
   const halfSlideH = Math.round(oh / 2);
 
   const concatPath = path.join(outputDir(), `concat-${input.contentId}.txt`);
-  await writeConcatFile(input.scenes, concatPath);
+  await writeConcatFile(scenes, concatPath);
 
   let t = 0;
-  const cues: SubtitleCue[] = input.scenes.map((s) => {
+  const cues: SubtitleCue[] = scenes.map((s) => {
     const start = t;
     const end = t + s.durationSec;
     t = end;
@@ -453,7 +474,7 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
   let subtitleRelForBurn: string;
   if (useAss) {
     t = 0;
-    const assCues = input.scenes.map((s) => {
+    const assCues = scenes.map((s) => {
       const start = t;
       const end = t + s.durationSec;
       t = end;
@@ -489,7 +510,7 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
       : undefined;
   const subtitleBurnFilter = subtitlesFilterWithOptionalFontsdir(srtRel, fontsDirForAss);
 
-  const sceneSum = Math.max(0.1, input.scenes.reduce((a, s) => a + s.durationSec, 0));
+  const sceneSum = Math.max(0.1, scenes.reduce((a, s) => a + s.durationSec, 0));
 
   /** Output length follows voiceover (and scene timeline), padded to match. */
   const ABS_MAX_SEC = 600;
@@ -616,7 +637,7 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
     .slice(0, 250);
 
   if (bgVideoAbs) {
-    const { args: fgArgs, filterComplex: fgFc, n } = buildForegroundRgbaChain(input.scenes, ow, oh);
+    const { args: fgArgs, filterComplex: fgFc, n } = buildForegroundRgbaChain(scenes, ow, oh);
 
     let fgChain = `${fgFc};[vcat]trim=duration=${targetStr},setpts=PTS-STARTPTS[vtrimfg]`;
     if (padVideoSec > 0.0005) {
@@ -942,7 +963,7 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
       await runFfmpeg(args);
     }
   } else {
-    const { args: ffArgs, filterComplex: baseFc, audioInputIndex } = buildImageChain(input.scenes, ow, oh);
+    const { args: ffArgs, filterComplex: baseFc, audioInputIndex } = buildImageChain(scenes, ow, oh);
 
     let vChain = `${baseFc};[vcat]trim=duration=${targetStr},setpts=PTS-STARTPTS[vtrim]`;
     let mapVideo = "vtrim";
@@ -1004,7 +1025,7 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
     createdAt: new Date().toISOString(),
     video: path.relative(outputDir(), videoPath),
     subtitles: path.relative(outputDir(), assPath ?? srtPath),
-    images: input.scenes.map((s) => path.relative(outputDir(), s.imagePath)),
+    images: scenes.map((s) => path.relative(outputDir(), s.imagePath)),
     seoTitle: input.seoTitle,
     seoSlug: input.seoSlug,
     ...(input.seoDownloadFile?.trim()

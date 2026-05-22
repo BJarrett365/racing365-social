@@ -10,6 +10,7 @@ import { outputDir } from "@/app/lib/paths";
 import type { SceneSpec } from "@/types";
 import fs from "fs/promises";
 import path from "path";
+import { writeLibraryBlobAsset } from "@/app/lib/library-blob-assets";
 
 type Body = {
   contentId: string;
@@ -188,7 +189,15 @@ export async function POST(req: Request) {
 
     return await withSharedPuppeteerBrowser(async (browser) => {
     const outDir = outputDir();
-    const outputs: { sceneId: string; path: string; rel: string; underlayPath?: string; underlayRel?: string }[] = [];
+    const outputs: {
+      sceneId: string;
+      path: string;
+      rel: string;
+      underlayPath?: string;
+      underlayRel?: string;
+      diskRel?: string;
+      diskUnderlayRel?: string;
+    }[] = [];
     for (const s of body.scenes) {
       const sceneComp =
         hasPerScene && typeof byScene![s.id] === "string" && byScene![s.id]!.startsWith("data:image/")
@@ -259,10 +268,19 @@ export async function POST(req: Request) {
         underlayPath = imagePath;
       }
 
-      const rel = path.relative(outDir, imagePath).split(path.sep).join("/");
-      const underlayRel = path.relative(outDir, underlayPath).split(path.sep).join("/");
+      const diskRel = path.relative(outDir, imagePath).split(path.sep).join("/");
+      const diskUnderlayRel = path.relative(outDir, underlayPath).split(path.sep).join("/");
+      const safeSceneId = normalizeContentIdForFilename(String(s.id || "scene"));
+      const rel = `images/library/${canonicalContentId}/render-${safeSceneId}.png`;
+      const underlayRel = sceneComp !== undefined
+        ? `images/library/${canonicalContentId}/render-${safeSceneId}-underlay.png`
+        : rel;
+      await writeLibraryBlobAsset(rel, await fs.readFile(imagePath), "image/png");
+      if (underlayPath !== imagePath) {
+        await writeLibraryBlobAsset(underlayRel, await fs.readFile(underlayPath), "image/png");
+      }
 
-      outputs.push({ sceneId: s.id, path: imagePath, rel, underlayPath, underlayRel });
+      outputs.push({ sceneId: s.id, path: imagePath, rel, underlayPath, underlayRel, diskRel, diskUnderlayRel });
     }
 
     return NextResponse.json({ contentId: canonicalContentId, images: outputs });

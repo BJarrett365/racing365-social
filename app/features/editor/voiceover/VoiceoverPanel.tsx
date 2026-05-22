@@ -8,9 +8,11 @@ import { VoiceSettingsPanel } from "./VoiceSettingsPanel";
 import { R365Button } from "@/app/components/R365Button";
 import type {
   DeliveryStyle,
+  CreatorProfileOption,
   ElevenlabsVoiceOption,
   ToneStyle,
   VoicePreset,
+  VoiceProviderPreference,
   VoiceStyle,
 } from "./types";
 import type { VoiceGender } from "@/types";
@@ -25,6 +27,8 @@ type Props = {
   tone: ToneStyle;
   optimiseForVoiceover: boolean;
   addEmphasis: boolean;
+  creatorProfiles: CreatorProfileOption[];
+  selectedCreatorProfileId: string;
   loading: boolean;
   error?: string | null;
   success?: string | null;
@@ -32,6 +36,7 @@ type Props = {
   hasPreviousDraft: boolean;
   versions: { versionA?: string; versionB?: string; versionC?: string };
   voicePreset: VoicePreset;
+  voiceProviderPreference: VoiceProviderPreference;
   voiceGender: VoiceGender;
   voiceSpeed: number;
   voicePreviewBusy: boolean;
@@ -58,12 +63,14 @@ type Props = {
   onToneChange: (v: ToneStyle) => void;
   onOptimiseChange: (v: boolean) => void;
   onAddEmphasisChange: (v: boolean) => void;
+  onCreatorProfileChange: (v: string) => void;
   onImprove: () => void;
   onGenerateVersions: () => void;
   onRegenerate: () => void;
   onRestorePrevious: () => void;
   onUseVersion: (v: string) => void;
   onVoicePresetChange: (v: VoicePreset) => void;
+  onVoiceProviderPreferenceChange: (v: VoiceProviderPreference) => void;
   onVoiceGenderChange: (v: VoiceGender) => void;
   onVoiceSpeedChange: (v: number) => void;
   onElevenlabsVoiceChange: (voiceId: string) => void;
@@ -95,12 +102,15 @@ export function VoiceoverPanel(props: Props) {
         tone={props.tone}
         optimiseForVoiceover={props.optimiseForVoiceover}
         addEmphasis={props.addEmphasis}
+        creatorProfiles={props.creatorProfiles}
+        selectedCreatorProfileId={props.selectedCreatorProfileId}
         loading={props.loading}
         onVoiceStyleChange={props.onVoiceStyleChange}
         onDeliveryStyleChange={props.onDeliveryStyleChange}
         onToneChange={props.onToneChange}
         onOptimiseChange={props.onOptimiseChange}
         onAddEmphasisChange={props.onAddEmphasisChange}
+        onCreatorProfileChange={props.onCreatorProfileChange}
         onImprove={props.onImprove}
         onGenerateVersions={props.onGenerateVersions}
         onRegenerate={props.onRegenerate}
@@ -141,6 +151,7 @@ export function VoiceoverPanel(props: Props) {
 
       <VoiceSettingsPanel
         voicePreset={props.voicePreset}
+        voiceProviderPreference={props.voiceProviderPreference}
         voiceGender={props.voiceGender}
         voiceSpeed={props.voiceSpeed}
         previewBusy={props.voicePreviewBusy}
@@ -153,6 +164,7 @@ export function VoiceoverPanel(props: Props) {
         voiceProviderStatus={props.voiceProviderStatus}
         saveMessage={props.voiceSettingsMsg}
         onPresetChange={props.onVoicePresetChange}
+        onVoiceProviderPreferenceChange={props.onVoiceProviderPreferenceChange}
         onVoiceGenderChange={props.onVoiceGenderChange}
         onVoiceSpeedChange={props.onVoiceSpeedChange}
         onElevenlabsVoiceChange={props.onElevenlabsVoiceChange}

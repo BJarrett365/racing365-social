@@ -1,6 +1,7 @@
 export type VoiceStyle = "Journalist" | "Punchy Tips" | "Calm / Studio" | "Fast Picks";
 export type DeliveryStyle = "Smooth" | "Balanced" | "Fast";
 export type ToneStyle = "Neutral" | "Confident" | "Urgent";
+export type VoiceProviderPreference = "auto" | "elevenlabs" | "openai";
 export type VoicePreset =
   | "Racing365 - British - Commentator"
   | "Female - Clean"
@@ -30,4 +31,14 @@ export type ElevenlabsVoiceOption = {
   category?: string;
   groupLabel?: string;
   labels?: Record<string, string>;
+};
+
+export type CreatorProfileOption = {
+  id: string;
+  name: string;
+  brand: string;
+  sports: string[];
+  styleNotes: string;
+  articleGuidelines?: string;
+  exampleTitles: string[];
 };

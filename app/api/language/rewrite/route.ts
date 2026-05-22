@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { stripArticleMetadataLines, stripGeneratedArticleMetadataLines } from "@/app/lib/language-studio/article-pages";
 import { scheduleDeferredSocialPostsForTranslation } from "@/app/lib/language-studio/deferred-social-posts";
+import { contentStyleFromArticle, sportContextFromArticle } from "@/app/lib/language-studio/article-context";
 import { translateContent } from "@/app/lib/language-studio/language-engine";
 import {
   newLanguageId,
@@ -85,8 +86,8 @@ export async function POST(req: Request) {
         rewriteStyle: body.rewriteStyle,
         journalistStyle,
         editorialGuidelines,
-        contentStyle: body.contentStyle,
-        sportContext: body.sportContext,
+        contentStyle: body.contentStyle ?? contentStyleFromArticle(article),
+        sportContext: body.sportContext ?? sportContextFromArticle(article, Object.values(data.sourceBrands)),
         glossary,
         rules,
         guardrails: Object.values(data.guardrails),
@@ -110,8 +111,8 @@ export async function POST(req: Request) {
         editorNotes: [
           body.rewriteStyle ? `Style: ${body.rewriteStyle}` : "",
           journalistStyle ? `Journalist style: ${journalistStyle}` : "",
-          body.contentStyle ? `Content style: ${body.contentStyle}` : "",
-          body.sportContext ? `Sport: ${body.sportContext}` : "",
+          `Content style: ${body.contentStyle ?? contentStyleFromArticle(article)}`,
+          `Sport: ${body.sportContext ?? sportContextFromArticle(article, Object.values(data.sourceBrands))}`,
           editorialGuidelines ? `Guidelines: ${editorialGuidelines}` : "",
         ].filter(Boolean).join("\n"),
         ...fields,

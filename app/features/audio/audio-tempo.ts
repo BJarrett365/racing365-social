@@ -29,7 +29,18 @@ function runFfmpegAtempo(input: string, output: string, filter: string): Promise
       ["-y", "-i", input, "-filter:a", filter, "-codec:a", "libmp3lame", "-q:a", "4", output],
       { stdio: "ignore" },
     );
-    p.on("error", reject);
+    p.on("error", (e) => {
+      const err = e as NodeJS.ErrnoException;
+      if (err.code === "ENOENT") {
+        reject(
+          new Error(
+            `ffmpeg not found (${ff}) while applying voice tempo. Ensure ffmpeg-static is bundled or set FFMPEG_PATH to a valid binary.`,
+          ),
+        );
+        return;
+      }
+      reject(e);
+    });
     p.on("close", (code) => {
       if (code === 0) resolve();
       else reject(new Error(`ffmpeg atempo failed: ${code}`));

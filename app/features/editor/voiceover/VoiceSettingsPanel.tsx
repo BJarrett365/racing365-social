@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react";
 import { R365Button } from "@/app/components/R365Button";
 import type { VoiceGender } from "@/types";
-import { VOICE_PRESET_OPTIONS, type ElevenlabsVoiceOption, type VoicePreset } from "./types";
+import { VOICE_PRESET_OPTIONS, type ElevenlabsVoiceOption, type VoicePreset, type VoiceProviderPreference } from "./types";
 
 type Props = {
   voicePreset: VoicePreset;
+  voiceProviderPreference?: VoiceProviderPreference;
   voiceGender: VoiceGender;
   voiceSpeed: number;
   previewBusy: boolean;
@@ -24,6 +25,7 @@ type Props = {
   voiceProviderStatus?: string | null;
   saveMessage?: string | null;
   onPresetChange: (v: VoicePreset) => void;
+  onVoiceProviderPreferenceChange?: (v: VoiceProviderPreference) => void;
   onVoiceGenderChange: (v: VoiceGender) => void;
   onVoiceSpeedChange: (v: number) => void;
   onElevenlabsVoiceChange: (voiceId: string) => void;
@@ -35,6 +37,7 @@ type Props = {
 
 export function VoiceSettingsPanel({
   voicePreset,
+  voiceProviderPreference,
   voiceGender,
   voiceSpeed,
   previewBusy,
@@ -46,6 +49,7 @@ export function VoiceSettingsPanel({
   voiceProviderStatus,
   saveMessage,
   onPresetChange,
+  onVoiceProviderPreferenceChange,
   onVoiceGenderChange,
   onVoiceSpeedChange,
   onElevenlabsVoiceChange,
@@ -121,6 +125,21 @@ export function VoiceSettingsPanel({
         </select>
       </label>
       <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">
+        Audio provider
+        <select
+          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 shadow-sm outline-none transition focus:border-[#16a34a] focus:ring-2 focus:ring-[#16a34a]/20"
+          value={voiceProviderPreference ?? "auto"}
+          onChange={(e) => onVoiceProviderPreferenceChange?.(e.target.value as VoiceProviderPreference)}
+        >
+          <option value="auto">Auto: ElevenLabs, fallback to OpenAI</option>
+          <option value="elevenlabs">ElevenLabs premium voices</option>
+          <option value="openai">OpenAI TTS cheaper backup</option>
+        </select>
+        <span className="mt-2 block text-xs normal-case leading-relaxed tracking-normal text-slate-500">
+          OpenAI TTS is the cheaper backup if ElevenLabs credits run out. In Auto mode the build tries ElevenLabs first, then switches to OpenAI when available.
+        </span>
+      </label>
+      <label className={`block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 ${voiceProviderPreference === "openai" ? "opacity-60" : ""}`}>
         ElevenLabs voice
         <div className="mt-2 flex flex-wrap gap-1.5">
           {useCaseOptions.map((option) => (
@@ -142,7 +161,7 @@ export function VoiceSettingsPanel({
           className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 shadow-sm outline-none transition focus:border-[#eab308] focus:ring-2 focus:ring-[#eab308]/20 disabled:bg-slate-100 disabled:text-slate-400"
           value={elevenlabsVoiceId}
           onChange={(e) => onElevenlabsVoiceChange(e.target.value)}
-          disabled={voicesLoading || filteredVoices.length === 0}
+          disabled={voiceProviderPreference === "openai" || voicesLoading || filteredVoices.length === 0}
         >
           {filteredVoices.length === 0 ? (
             <option value="">{voicesLoading ? "Loading voices..." : "No voices available"}</option>

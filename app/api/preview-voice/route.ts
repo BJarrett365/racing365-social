@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
-import { getAudioProvider } from "@/app/features/audio";
+import { normalizeVoiceProviderPreference, resolveVoiceTrackWithFallback } from "@/app/features/audio";
 import { outputAudioDir } from "@/app/lib/paths";
 import { VOICE_PREVIEW_MAX_CHARS } from "@/app/lib/voice-preview";
 import type { VoiceGender } from "@/types";
@@ -11,6 +11,7 @@ type Body = {
   voiceGender?: VoiceGender;
   voiceSpeed?: number;
   elevenlabsVoiceId?: string;
+  voiceProviderPreference?: string;
   contentId?: string;
 };
 
@@ -44,11 +45,13 @@ export async function POST(req: Request) {
 
     const snippet = script.slice(0, VOICE_PREVIEW_MAX_CHARS);
 
-    const audioPath = await (await getAudioProvider()).resolveVoiceTrack(snippet, previewId, {
+    const result = await resolveVoiceTrackWithFallback(snippet, previewId, {
       gender,
       speed,
       voiceId: body.elevenlabsVoiceId?.trim() || undefined,
+      providerPreference: normalizeVoiceProviderPreference(body.voiceProviderPreference),
     });
+    const audioPath = result.audioPath;
 
     const buf = await fs.readFile(audioPath);
     await safeDeleteIfOutputAudio(audioPath);
@@ -59,6 +62,8 @@ export async function POST(req: Request) {
         "Content-Type": "audio/mpeg",
         "Content-Length": String(buf.length),
         "Cache-Control": "no-store",
+        "X-Voice-Provider": result.provider,
+        ...(result.fallbackReason ? { "X-Voice-Fallback-Reason": result.fallbackReason } : {}),
       },
     });
   } catch (e) {

@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 /** Allow long FFmpeg + TTS runs (Vercel / serverless — override in host config if needed). */
 export const maxDuration = 300;
 import { renderSceneToPng, withSharedPuppeteerBrowser } from "@/app/features/render/scene-renderer";
-import { getAudioProvider } from "@/app/features/audio";
+import { normalizeVoiceProviderPreference, resolveVoiceTrackWithFallback } from "@/app/features/audio";
 import { buildShortVideo } from "@/app/features/video/video-builder";
 import { assertVoiceRecordingRel, normalizeContentIdForFilename } from "@/app/lib/editor-upload";
 import { buildVideoSlug } from "@/app/lib/seo-slug";
@@ -72,6 +72,7 @@ type Body = {
   voiceGender?: VoiceGender;
   voiceSpeed?: number;
   elevenlabsVoiceId?: string;
+  voiceProviderPreference?: string;
   /** When set, use this file under `output/audio/` instead of ElevenLabs / TTS. */
   voiceRecordingRel?: string;
   /** Mux audio from the motion backdrop file instead of TTS / voice recording. */
@@ -240,11 +241,13 @@ export async function POST(req: Request) {
         audioPath = path.join(outputDir(), ...norm.split("/"));
         await fs.access(audioPath);
       } else {
-        audioPath = await (await getAudioProvider()).resolveVoiceTrack(script, contentId, {
+        const audio = await resolveVoiceTrackWithFallback(script, contentId, {
           gender,
           speed,
           voiceId: body.elevenlabsVoiceId?.trim() || undefined,
+          providerPreference: normalizeVoiceProviderPreference(body.voiceProviderPreference),
         });
+        audioPath = audio.audioPath;
       }
     }
 

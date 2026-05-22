@@ -2,7 +2,7 @@
 
 export type StudioAccent = "green" | "muted";
 
-export type StudioNavGroup = "video" | "editorial" | "audio" | "utilities" | "roadmap";
+export type StudioNavGroup = "video" | "editorial" | "audio" | "configure" | "utilities" | "roadmap";
 
 export type StudioDashboardCard = {
   title: string;
@@ -20,11 +20,12 @@ export const NAV_GROUP_LABEL: Record<StudioNavGroup, string> = {
   video: "Video & social",
   editorial: "Editorial & language",
   audio: "Audio",
+  configure: "Configure",
   utilities: "Library & utilities",
   roadmap: "Roadmap",
 };
 
-export const NAV_GROUP_ORDER: StudioNavGroup[] = ["video", "editorial", "audio", "utilities", "roadmap"];
+export const NAV_GROUP_ORDER: StudioNavGroup[] = ["video", "editorial", "audio", "configure", "utilities", "roadmap"];
 
 export const PRIMARY_STUDIO_CARDS: StudioDashboardCard[] = [
   {
@@ -93,13 +94,43 @@ export const PRIMARY_STUDIO_CARDS: StudioDashboardCard[] = [
     navGroup: "audio",
   },
   {
+    title: "Knowledge Base",
+    href: "/knowledge-base",
+    heading: "AI learning sources and editorial memory",
+    description:
+      "Organise URLs, files, creator styles, source brands, sport rules and prompt guidance that shape future AI output.",
+    cta: "Open Knowledge Base",
+    accent: "green",
+    navGroup: "configure",
+  },
+  {
     title: "Tools",
     href: "/tools",
     heading: "Utility hub",
     description: "Access YouTube importing, URL-to-article workflows, export tools and creator utilities.",
     cta: "Open Tools",
     accent: "green",
-    navGroup: "utilities",
+    navGroup: "configure",
+  },
+  {
+    title: "Integrations",
+    href: "/admin/provider-keys-and-platform-services",
+    heading: "Provider keys and connected services",
+    description:
+      "Manage OpenAI, ElevenLabs, Runway, Supabase, live video, translation and platform service settings.",
+    cta: "Open Integrations",
+    accent: "green",
+    navGroup: "configure",
+  },
+  {
+    title: "Deploy",
+    href: "/live",
+    heading: "Live, delivery and production controls",
+    description:
+      "Access live control, export feeds and production delivery settings for publishing-ready workflows.",
+    cta: "Open Deploy",
+    accent: "green",
+    navGroup: "configure",
   },
   {
     title: "Library",
@@ -159,6 +190,8 @@ export type SupportCard = {
 export const SUPPORT_CARDS: SupportCard[] = [
   { title: "Product", href: "/product", description: "Overview, features and use cases." },
   { title: "How It Works", href: "/how-it-works", description: "Step-by-step workflow guide." },
+  { title: "Knowledge Base", href: "/knowledge-base", description: "AI learning sources and editorial memory." },
+  { title: "Configure", href: "/configure", description: "Knowledge Base, tools, integrations and deploy." },
   { title: "Guard Rails", href: "/guard-rails", description: "Editorial and safety boundaries." },
   {
     title: "Brand Guidelines",

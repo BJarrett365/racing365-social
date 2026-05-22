@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildShortVideo } from "@/app/features/video/video-builder";
-import { getAudioProvider } from "@/app/features/audio";
+import { ffmpegResolutionDebug } from "@/app/features/video/ffmpeg-utils";
+import { normalizeVoiceProviderPreference, resolveVoiceTrackWithFallback } from "@/app/features/audio";
 import { buildVideoSlug } from "@/app/lib/seo-slug";
 import type { ContentFormat, VoiceGender } from "@/types";
 
@@ -18,6 +19,7 @@ type Body = {
   /** 0.5–2, default 1 */
   voiceSpeed?: number;
   elevenlabsVoiceId?: string;
+  voiceProviderPreference?: string;
   outputWidth?: number;
   outputHeight?: number;
   buildMode?: "shorts" | "portrait" | "landscape";
@@ -42,11 +44,13 @@ export async function POST(req: Request) {
       ? Math.min(2, Math.max(0.5, speedRaw))
       : 1;
 
-    const audioPath = await (await getAudioProvider()).resolveVoiceTrack(body.script, body.contentId, {
+    const audio = await resolveVoiceTrackWithFallback(body.script, body.contentId, {
       gender,
       speed,
       voiceId: body.elevenlabsVoiceId?.trim() || undefined,
+      providerPreference: normalizeVoiceProviderPreference(body.voiceProviderPreference),
     });
+    const audioPath = audio.audioPath;
     const result = await buildShortVideo({
       contentId: body.contentId,
       format: body.format,
@@ -66,11 +70,17 @@ export async function POST(req: Request) {
       srtPath: result.srtPath,
       concatPath: result.concatPath,
       audioPath,
+      voiceProvider: audio.provider,
+      voiceFallbackReason: audio.fallbackReason,
       seoTitle,
       seoSlug,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const ffmpegDebug = message.toLowerCase().includes("ffmpeg") ? ffmpegResolutionDebug() : undefined;
+    // #region agent log
+    fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'live-ffmpeg-initial',hypothesisId:'H1,H2,H3,H4',location:'app/api/build-short/route.ts:catch',message:'build-short server error',data:{hasFfmpegDebug:Boolean(ffmpegDebug),error:message,ffmpegDebug},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return NextResponse.json({ error: message, debug: ffmpegDebug ? { ffmpeg: ffmpegDebug } : undefined }, { status: 500 });
   }
 }

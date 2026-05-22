@@ -40,10 +40,12 @@ import { CreativeVideoGeneratorContent } from "@/app/features/editor/CreativeVid
 import { VoiceoverPanel } from "@/app/features/editor/voiceover/VoiceoverPanel";
 import {
   VOICE_PRESET_OPTIONS,
+  type CreatorProfileOption,
   type DeliveryStyle,
   type ElevenlabsVoiceOption,
   type ToneStyle,
   type VoicePreset,
+  type VoiceProviderPreference,
   type VoiceStyle,
 } from "@/app/features/editor/voiceover/types";
 import { pickRacingCommentatorVoiceId } from "@/app/lib/racing-voice-defaults";
@@ -464,6 +466,8 @@ export function EditorWorkspace({
   const [tone, setTone] = useState<ToneStyle>("Neutral");
   const [aiOptimiseRhythm, setAiOptimiseRhythm] = useState(true);
   const [aiAddEmphasis, setAiAddEmphasis] = useState(true);
+  const [creatorProfiles, setCreatorProfiles] = useState<CreatorProfileOption[]>([]);
+  const [selectedCreatorProfileId, setSelectedCreatorProfileId] = useState("");
   const [versionA, setVersionA] = useState("");
   const [t2iPromptText, setT2iPromptText] = useState("");
   const [t2iModel, setT2iModel] = useState<"gen4_image_turbo" | "gen4_image">("gen4_image_turbo");
@@ -490,6 +494,7 @@ export function EditorWorkspace({
   const [aiPreviousDraft, setAiPreviousDraft] = useState<{ script: string; caption: string } | null>(null);
   const [voiceSettingsMsg, setVoiceSettingsMsg] = useState<string | null>(null);
   const [voicePreset, setVoicePreset] = useState<VoicePreset>(() => defaultVoicePresetForEditorType(type));
+  const [voiceProviderPreference, setVoiceProviderPreference] = useState<VoiceProviderPreference>("auto");
   const [elevenlabsVoices, setElevenlabsVoices] = useState<ElevenlabsVoiceOption[]>([]);
   const [elevenlabsVoiceId, setElevenlabsVoiceId] = useState("");
   const [voicesLoading, setVoicesLoading] = useState(false);
@@ -526,6 +531,46 @@ export function EditorWorkspace({
     setBackdropLibraryKind(null);
     setBackdropLibraryData(null);
     setLibraryBrowseQuery("");
+  }, []);
+
+  const selectedCreatorProfile = useMemo(
+    () => creatorProfiles.find((profile) => profile.id === selectedCreatorProfileId) ?? null,
+    [creatorProfiles, selectedCreatorProfileId],
+  );
+
+  useEffect(() => {
+    let active = true;
+    const loadCreatorProfiles = async () => {
+      try {
+        const res = await fetch(studioApiPath("/api/language/governance"), { cache: "no-store" });
+        const data = (await res.json().catch(() => ({}))) as {
+          journalistProfiles?: Array<CreatorProfileOption & { active?: boolean }>;
+        };
+        if (!active || !Array.isArray(data.journalistProfiles)) return;
+        setCreatorProfiles(
+          data.journalistProfiles
+            .filter((profile) => profile.active !== false)
+            .map((profile) => ({
+              id: String(profile.id ?? "").trim(),
+              name: String(profile.name ?? "").trim(),
+              brand: String(profile.brand ?? "").trim(),
+              sports: Array.isArray(profile.sports) ? profile.sports.map(String).filter(Boolean) : [],
+              styleNotes: String(profile.styleNotes ?? "").trim(),
+              articleGuidelines: profile.articleGuidelines?.trim(),
+              exampleTitles: Array.isArray(profile.exampleTitles)
+                ? profile.exampleTitles.map(String).filter(Boolean).slice(0, 8)
+                : [],
+            }))
+            .filter((profile) => profile.id && profile.name && profile.styleNotes),
+        );
+      } catch {
+        if (active) setCreatorProfiles([]);
+      }
+    };
+    void loadCreatorProfiles();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -1181,6 +1226,17 @@ export function EditorWorkspace({
             optimiseForVoiceover: aiOptimiseRhythm,
             addEmphasis: aiAddEmphasis,
             generateThreeVersions: mode === "versions",
+            journalistProfile: selectedCreatorProfile
+              ? {
+                  id: selectedCreatorProfile.id,
+                  name: selectedCreatorProfile.name,
+                  brand: selectedCreatorProfile.brand,
+                  sports: selectedCreatorProfile.sports,
+                  styleNotes: selectedCreatorProfile.styleNotes,
+                  articleGuidelines: selectedCreatorProfile.articleGuidelines,
+                  exampleTitles: selectedCreatorProfile.exampleTitles,
+                }
+              : undefined,
             fields,
           }),
         });
@@ -1235,7 +1291,7 @@ export function EditorWorkspace({
         setAiBusy(false);
       }
     },
-    [content, aiPrompt, voiceStyle, deliveryStyle, tone, aiOptimiseRhythm, aiAddEmphasis],
+    [content, aiPrompt, voiceStyle, deliveryStyle, tone, aiOptimiseRhythm, aiAddEmphasis, selectedCreatorProfile],
   );
 
   const restorePreviousAiDraft = useCallback(() => {
@@ -1310,6 +1366,7 @@ export function EditorWorkspace({
           voiceGender: content.voiceGender ?? "female",
           voiceSpeed: content.voiceSpeed ?? 1,
           voicePreset,
+          voiceProviderPreference,
           elevenlabsVoiceId,
         }),
       );
@@ -1318,7 +1375,7 @@ export function EditorWorkspace({
     } catch {
       setError("Could not save voice settings in this browser.");
     }
-  }, [content, voiceSettingsKey, voicePreset, elevenlabsVoiceId]);
+  }, [content, voiceSettingsKey, voicePreset, voiceProviderPreference, elevenlabsVoiceId]);
 
   const applyVoicePreset = useCallback((preset: VoicePreset) => {
     setVoicePreset(preset);
@@ -1439,6 +1496,7 @@ export function EditorWorkspace({
         voiceGender?: VoiceGender;
         voiceSpeed?: number;
         voicePreset?: VoicePreset;
+        voiceProviderPreference?: VoiceProviderPreference;
         elevenlabsVoiceId?: string;
       };
       setContent((c) =>
@@ -1458,6 +1516,13 @@ export function EditorWorkspace({
       );
       if (p.voicePreset && VOICE_PRESET_OPTIONS.includes(p.voicePreset as VoicePreset)) {
         setVoicePreset(p.voicePreset as VoicePreset);
+      }
+      if (
+        p.voiceProviderPreference === "auto" ||
+        p.voiceProviderPreference === "elevenlabs" ||
+        p.voiceProviderPreference === "openai"
+      ) {
+        setVoiceProviderPreference(p.voiceProviderPreference);
       }
       if (typeof p.elevenlabsVoiceId === "string" && p.elevenlabsVoiceId.trim()) {
         setElevenlabsVoiceId(p.elevenlabsVoiceId.trim());
@@ -1862,12 +1927,19 @@ export function EditorWorkspace({
           voiceGender: content.voiceGender ?? "female",
           voiceSpeed: content.voiceSpeed ?? 1,
           elevenlabsVoiceId: elevenlabsVoiceId || undefined,
+          voiceProviderPreference,
           contentId,
         }),
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(data.error || `Preview failed (${res.status})`);
+      }
+      const usedProvider = res.headers.get("X-Voice-Provider");
+      const fallbackReason = res.headers.get("X-Voice-Fallback-Reason");
+      if (usedProvider === "openai" && fallbackReason) {
+        setVoiceSettingsMsg("Preview used OpenAI TTS because ElevenLabs was unavailable.");
+        setTimeout(() => setVoiceSettingsMsg(null), 3500);
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -2253,6 +2325,9 @@ export function EditorWorkspace({
       if (scenes.some((s) => !s.imagePath)) {
         throw new Error("Missing image for a scene — re-render.");
       }
+      // #region agent log
+      fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'live-ffmpeg-initial',hypothesisId:'H4',location:'app/features/editor/EditorWorkspace.tsx:before-build-short',message:'client starting build-short',data:{contentId,format,buildMode:effectiveVideoBuildMode,sceneCount:scenes.length,hasBackgroundVideo:Boolean(backgroundVideoRel),voiceProviderPreference,voiceSpeed:content.voiceSpeed ?? 1,firstSceneImagePathShape:scenes[0]?.imagePath ? {startsWithSlash:scenes[0].imagePath.startsWith('/'),includesOutput:scenes[0].imagePath.includes('/output/'),length:scenes[0].imagePath.length} : null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       const res = await fetch(studioApiPath("/api/build-short"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2266,19 +2341,36 @@ export function EditorWorkspace({
           voiceGender: content.voiceGender ?? "female",
           voiceSpeed: content.voiceSpeed ?? 1,
           elevenlabsVoiceId: elevenlabsVoiceId || undefined,
+          voiceProviderPreference,
           outputWidth: VIDEO_BUILD_DIMENSIONS[effectiveVideoBuildMode].width,
           outputHeight: VIDEO_BUILD_DIMENSIONS[effectiveVideoBuildMode].height,
           buildMode: effectiveVideoBuildMode,
           ...(backgroundVideoRel ? { backgroundVideoRel } : {}),
         }),
       });
-      const data = await parseApiJson<{ error?: string; videoPath?: string }>(res);
+      const data = await parseApiJson<{
+        error?: string;
+        videoPath?: string;
+        voiceProvider?: string;
+        voiceFallbackReason?: string;
+        debug?: unknown;
+      }>(res);
+      // #region agent log
+      fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'live-ffmpeg-initial',hypothesisId:'H1,H2,H3,H4',location:'app/features/editor/EditorWorkspace.tsx:after-build-short',message:'client received build-short response',data:{status:res.status,ok:res.ok,error:data.error,voiceProvider:data.voiceProvider,voiceFallbackReason:data.voiceFallbackReason,debug:data.debug},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       if (!res.ok) throw new Error(data.error || "Video build failed");
       setVideoRel(toOutputRel(data.videoPath as string));
+      if (data.voiceProvider === "openai" && data.voiceFallbackReason) {
+        setVoiceSettingsMsg("Video built with OpenAI TTS after ElevenLabs fallback.");
+        setTimeout(() => setVoiceSettingsMsg(null), 3500);
+      }
       setEditVideoMsg(null);
       setTrimStartInput("0");
       setTrimEndInput("0");
     } catch (e) {
+      // #region agent log
+      fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'live-ffmpeg-initial',hypothesisId:'H1,H2,H3,H4',location:'app/features/editor/EditorWorkspace.tsx:buildVideo-catch',message:'client buildVideo catch',data:{error:e instanceof Error ? e.message : String(e)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       setError(e instanceof Error ? e.message : "Error");
     } finally {
       setBusy(null);
@@ -2873,6 +2965,8 @@ export function EditorWorkspace({
               tone={tone}
               optimiseForVoiceover={aiOptimiseRhythm}
               addEmphasis={aiAddEmphasis}
+              creatorProfiles={creatorProfiles}
+              selectedCreatorProfileId={selectedCreatorProfileId}
               loading={aiBusy}
               error={aiError}
               success={aiSuccess}
@@ -2880,6 +2974,7 @@ export function EditorWorkspace({
               hasPreviousDraft={!!aiPreviousDraft}
               versions={{ versionA, versionB, versionC }}
               voicePreset={voicePreset}
+              voiceProviderPreference={voiceProviderPreference}
               voiceGender={content?.voiceGender ?? "female"}
               voiceSpeed={content?.voiceSpeed ?? 1}
               voicePreviewBusy={voicePreviewBusy}
@@ -2900,6 +2995,7 @@ export function EditorWorkspace({
               onToneChange={setTone}
               onOptimiseChange={setAiOptimiseRhythm}
               onAddEmphasisChange={setAiAddEmphasis}
+              onCreatorProfileChange={setSelectedCreatorProfileId}
               onImprove={() => void runAiScriptImprove("improve")}
               onGenerateVersions={() => void runAiScriptImprove("versions")}
               onRegenerate={() => void runAiScriptImprove("regenerate")}
@@ -2921,6 +3017,7 @@ export function EditorWorkspace({
                 })
               }
               onVoicePresetChange={applyVoicePreset}
+              onVoiceProviderPreferenceChange={setVoiceProviderPreference}
               onVoiceGenderChange={(value) => setContent((c) => (c ? { ...c, voiceGender: value } : c))}
               onVoiceSpeedChange={(value) => setContent((c) => (c ? { ...c, voiceSpeed: value } : c))}
               onElevenlabsVoiceChange={selectElevenlabsVoice}

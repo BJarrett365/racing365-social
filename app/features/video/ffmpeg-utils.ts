@@ -18,6 +18,26 @@ const FALLBACK_PATHS = [
 
 let cachedBin: string | null = null;
 
+export type FfmpegResolutionDebug = {
+  platform: NodeJS.Platform;
+  cwd: string;
+  cachedBin: string | null;
+  envPath: {
+    present: boolean;
+    value: string;
+    isAbsolute: boolean;
+    exists: boolean;
+  };
+  commandV: string | null;
+  fallbackPaths: Array<{ path: string; exists: boolean }>;
+  ffmpegStatic: {
+    value: string | null;
+    exists: boolean;
+  };
+  selected: string;
+  selectedExists: boolean;
+};
+
 function augmentedPathEnv(): string {
   const extra = ["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin", "/usr/bin"];
   return [...extra, process.env.PATH ?? ""].filter(Boolean).join(path.delimiter);
@@ -81,6 +101,30 @@ export function ffmpegBinary(): string {
 
   cachedBin = "ffmpeg";
   return cachedBin;
+}
+
+export function ffmpegResolutionDebug(): FfmpegResolutionDebug {
+  const fromEnv = getServerSecret("FFMPEG_PATH")?.trim() || "";
+  const selected = ffmpegBinary();
+  return {
+    platform: process.platform,
+    cwd: process.cwd(),
+    cachedBin,
+    envPath: {
+      present: Boolean(fromEnv),
+      value: fromEnv,
+      isAbsolute: Boolean(fromEnv && path.isAbsolute(fromEnv)),
+      exists: Boolean(fromEnv && path.isAbsolute(fromEnv) && fs.existsSync(fromEnv)),
+    },
+    commandV: resolveViaCommandV(),
+    fallbackPaths: FALLBACK_PATHS.map((p) => ({ path: p, exists: fs.existsSync(p) })),
+    ffmpegStatic: {
+      value: ffmpegStatic || null,
+      exists: Boolean(ffmpegStatic && fs.existsSync(ffmpegStatic)),
+    },
+    selected,
+    selectedExists: path.isAbsolute(selected) ? fs.existsSync(selected) : false,
+  };
 }
 
 /** Clear cache (e.g. tests) */

@@ -230,7 +230,18 @@ function extractOneFrame(videoAbs: string, posterAbs: string, ss: string): Promi
     p.stderr?.on("data", (c) => {
       err += c.toString();
     });
-    p.on("error", reject);
+    p.on("error", (e) => {
+      const error = e as NodeJS.ErrnoException;
+      if (error.code === "ENOENT") {
+        reject(
+          new Error(
+            `ffmpeg not found (${bin}) while extracting a video poster. Ensure ffmpeg-static is bundled or set FFMPEG_PATH to a valid binary.`,
+          ),
+        );
+        return;
+      }
+      reject(e);
+    });
     p.on("close", (code) => {
       if (code === 0) resolve();
       else reject(new Error(err.slice(-400) || `ffmpeg exit ${code}`));

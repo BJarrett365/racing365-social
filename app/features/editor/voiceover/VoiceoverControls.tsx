@@ -1,7 +1,7 @@
 "use client";
 
 import { R365Button } from "@/app/components/R365Button";
-import type { DeliveryStyle, ToneStyle, VoiceStyle } from "./types";
+import type { CreatorProfileOption, DeliveryStyle, ToneStyle, VoiceStyle } from "./types";
 
 type Props = {
   voiceStyle: VoiceStyle;
@@ -9,12 +9,15 @@ type Props = {
   tone: ToneStyle;
   optimiseForVoiceover: boolean;
   addEmphasis: boolean;
+  creatorProfiles?: CreatorProfileOption[];
+  selectedCreatorProfileId?: string;
   loading: boolean;
   onVoiceStyleChange: (v: VoiceStyle) => void;
   onDeliveryStyleChange: (v: DeliveryStyle) => void;
   onToneChange: (v: ToneStyle) => void;
   onOptimiseChange: (v: boolean) => void;
   onAddEmphasisChange: (v: boolean) => void;
+  onCreatorProfileChange?: (v: string) => void;
   onImprove: () => void;
   onGenerateVersions: () => void;
   onRegenerate: () => void;
@@ -27,12 +30,15 @@ export function VoiceoverControls(props: Props) {
     tone,
     optimiseForVoiceover,
     addEmphasis,
+    creatorProfiles,
+    selectedCreatorProfileId,
     loading,
     onVoiceStyleChange,
     onDeliveryStyleChange,
     onToneChange,
     onOptimiseChange,
     onAddEmphasisChange,
+    onCreatorProfileChange,
     onImprove,
     onGenerateVersions,
     onRegenerate,
@@ -40,6 +46,23 @@ export function VoiceoverControls(props: Props) {
 
   return (
     <div className="rounded-lg border border-[#1f2d26] bg-[#0a0e0c] p-3 space-y-3">
+      <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+        Creator profile
+        <select
+          className="mt-1 w-full rounded-lg border border-[#1f2d26] bg-black px-2 py-2 text-xs text-white"
+          value={selectedCreatorProfileId ?? ""}
+          onChange={(e) => onCreatorProfileChange?.(e.target.value)}
+          disabled={!onCreatorProfileChange}
+        >
+          <option value="">Default journalist style</option>
+          {(creatorProfiles ?? []).map((profile) => (
+            <option key={profile.id} value={profile.id}>
+              {profile.name} · {profile.brand}
+              {profile.sports.length ? ` · ${profile.sports.join(", ")}` : ""}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="grid gap-2 sm:grid-cols-3">
         <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
           Voice style

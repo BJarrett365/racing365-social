@@ -22,6 +22,7 @@ import {
 } from "@/app/lib/language-studio/f365-text-to-image-prompts";
 import { RUNWAY_T2I_PROMPT_MAX, RUNWAY_T2I_RATIOS_NEWS_SHORTS, formatRunwayT2iRatioLabel } from "@/app/lib/runway-text-to-image-constants";
 import { mergeUniqueTagsFromCommaSeparated, uniqueTags } from "@/app/lib/language-studio/tags";
+import { contentStyleFromArticle, sportContextFromArticle } from "@/app/lib/language-studio/article-context";
 import {
   LANGUAGE_CONTENT_STYLES,
   LANGUAGE_LABELS,
@@ -251,11 +252,6 @@ const socialSubsectionClass =
   "rounded-xl border border-[color:var(--border)]/90 bg-[color:var(--surface)] p-3 shadow-sm";
 const targetOptions = Object.entries(LANGUAGE_LABELS).filter(([code]) => code !== "en") as Array<[LanguageCode, string]>;
 const clientLanguageOptions = Object.entries(LANGUAGE_LABELS) as Array<[LanguageCode, string]>;
-function contentStyleFromArticleCategory(category: string | undefined): LanguageContentStyle | null {
-  if (!category?.trim()) return null;
-  const c = category.trim();
-  return (LANGUAGE_CONTENT_STYLES as readonly string[]).includes(c) ? (c as LanguageContentStyle) : null;
-}
 const sportContextOptions = LANGUAGE_SPORT_CONTEXTS;
 const socialPlatformLabels: Record<SocialPost["platform"], string> = {
   appAlerts: "App Alerts",
@@ -950,10 +946,6 @@ export function LanguageStudioClient() {
     [articles, articlesForActivePipeline, selectedArticleId],
   );
 
-  useEffect(() => {
-    const inferred = contentStyleFromArticleCategory(selectedArticle?.category);
-    if (inferred) setContentStyle(inferred);
-  }, [selectedArticle?.id, selectedArticle?.category]);
   const translationArticleIds = articleSelectionMode === "all"
     ? articlesForActivePipeline.map((article) => article.id)
     : selectedArticleIds.length > 0
@@ -969,6 +961,40 @@ export function LanguageStudioClient() {
   const originalForTranslation = selectedTranslation
     ? articles.find((article) => article.id === selectedTranslation.articleId)
     : selectedArticle;
+  const languageContextArticle = (tab === "Review Queue" || tab === "Published") && originalForTranslation
+    ? originalForTranslation
+    : selectedArticle;
+  useEffect(() => {
+    if (!languageContextArticle) return;
+    setContentStyle(contentStyleFromArticle(languageContextArticle));
+    setSportContext(sportContextFromArticle(languageContextArticle, sourceBrands));
+
+    const author = languageContextArticle.author?.trim().toLowerCase();
+    const matchingProfile = author
+      ? activeJournalistProfiles.find(
+          (profile) =>
+            profile.active &&
+            profile.brand === languageContextArticle.sourceBrand &&
+            profile.name.trim().toLowerCase() === author,
+        )
+      : undefined;
+    if (matchingProfile) {
+      setSelectedJournalistProfileId(matchingProfile.id);
+      setJournalistStyle(
+        `${matchingProfile.name} (${matchingProfile.brand}${
+          matchingProfile.sports.length ? ` · ${matchingProfile.sports.join(", ")}` : ""
+        })\n${matchingProfile.styleNotes}`,
+      );
+      if (matchingProfile.articleGuidelines) setEditorialGuidelines(matchingProfile.articleGuidelines);
+    } else {
+      setSelectedJournalistProfileId("");
+    }
+  }, [
+    activeJournalistProfiles,
+    languageContextArticle,
+    sourceBrands,
+    tab,
+  ]);
   const articlesSortedForImports = useMemo(
     () => [...articles].sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""))),
     [articles],

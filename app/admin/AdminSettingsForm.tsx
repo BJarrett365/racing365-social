@@ -45,6 +45,24 @@ type Status = {
   adminTokenRequired: boolean;
 };
 
+type AiUsageProvider = {
+  provider: "openai" | "elevenlabs" | "claude" | "deepseek";
+  label: string;
+  state: "ready" | "missing_key" | "permission_required" | "provider_error" | "unsupported";
+  summary: string;
+  dashboardUrl: string;
+  metrics?: Array<{ label: string; value: string }>;
+  error?: string;
+};
+
+type AiUsageResponse = {
+  ok?: boolean;
+  days?: number;
+  generatedAt?: string;
+  providers?: AiUsageProvider[];
+  error?: string;
+};
+
 const inputClass =
   "mt-1 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] px-3 py-2 text-sm text-white placeholder:text-slate-600";
 
@@ -134,6 +152,9 @@ export function AdminSettingsForm() {
     "Write one punchy social caption for F1 race results in under 20 words.",
   );
   const [captionResult, setCaptionResult] = useState<string | null>(null);
+  const [aiUsageBusy, setAiUsageBusy] = useState(false);
+  const [aiUsage, setAiUsage] = useState<AiUsageResponse | null>(null);
+  const [aiUsageError, setAiUsageError] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<Status | null> => {
     const res = await fetch("/api/admin/settings");
@@ -652,6 +673,24 @@ export function AdminSettingsForm() {
     }
   };
 
+  const loadAiUsage = async () => {
+    setAiUsageBusy(true);
+    setAiUsageError(null);
+    try {
+      const headers: Record<string, string> = {};
+      const tok = adminToken.trim();
+      if (tok) headers["x-admin-token"] = tok;
+      const res = await fetch("/api/admin/ai-usage?days=30", { headers, cache: "no-store" });
+      const data = (await res.json().catch(() => ({}))) as AiUsageResponse;
+      if (!res.ok || !data.ok) throw new Error(data.error || "AI usage dashboard could not load");
+      setAiUsage(data);
+    } catch (e) {
+      setAiUsageError(e instanceof Error ? e.message : "AI usage dashboard could not load");
+    } finally {
+      setAiUsageBusy(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <Panel title="API keys & tools">
@@ -862,6 +901,9 @@ export function AdminSettingsForm() {
               <div>
                 <p className="text-sm font-bold text-white">ElevenLabs</p>
                 <p className="mt-1 text-xs text-slate-500">Voice generation and audio narration.</p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Live uses Netlify <code className="text-slate-400">ELEVENLABS_API_KEY</code> first when set.
+                </p>
               </div>
               <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${status?.elevenlabs.configured ? "border-[#22c55e]/30 bg-[#22c55e]/10 text-[#22c55e]" : "border-slate-700 bg-slate-900/40 text-slate-500"}`}>
                 {status?.elevenlabs.configured ? "Key on file" : "Not set"}
@@ -893,10 +935,33 @@ export function AdminSettingsForm() {
               />
               Remove stored ElevenLabs key
             </label>
-            <div className="mt-3">
-              <R365Button variant="ghost" onClick={() => void testElevenLabsConnection()} disabled={elevenlabsCheckBusy}>
-                {elevenlabsCheckBusy ? "Testing ElevenLabs…" : "Test ElevenLabs key"}
-              </R365Button>
+            <div className="mt-3 rounded-lg border border-[#1f2d26] bg-[#0a0e0c] p-3">
+              <p className="text-[11px] normal-case text-slate-400">
+                Manage keys and usage in ElevenLabs without exposing secret values in this panel.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-3">
+                <a
+                  className="inline-flex text-[11px] font-semibold normal-case text-[#22c55e] hover:underline"
+                  href="https://elevenlabs.io/app/settings/api-keys"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  Open ElevenLabs API keys →
+                </a>
+                <a
+                  className="inline-flex text-[11px] font-semibold normal-case text-[#22c55e] hover:underline"
+                  href="https://elevenlabs.io/app/billing"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  Open ElevenLabs usage / billing →
+                </a>
+              </div>
+              <div className="mt-3">
+                <R365Button variant="ghost" onClick={() => void testElevenLabsConnection()} disabled={elevenlabsCheckBusy}>
+                  {elevenlabsCheckBusy ? "Testing ElevenLabs…" : "Test ElevenLabs key"}
+                </R365Button>
+              </div>
               {elevenlabsCheckMessage && (
                 <p className="mt-2 text-xs normal-case text-[#22c55e]">{elevenlabsCheckMessage}</p>
               )}
@@ -1527,6 +1592,97 @@ export function AdminSettingsForm() {
               ) : null}
             </div>
           </div>
+        </div>
+      </Panel>
+
+      <Panel title="AI billing & usage">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm text-slate-400">
+              Read-only provider usage checks for quota, spend and permission issues. OpenAI and ElevenLabs are connected
+              through provider APIs; Claude and DeepSeek are staged for follow-up connectors.
+            </p>
+            {aiUsage?.generatedAt ? (
+              <p className="mt-2 text-xs text-slate-500">
+                Last refreshed {new Date(aiUsage.generatedAt).toLocaleString()} · {aiUsage.days ?? 30} day window
+              </p>
+            ) : null}
+          </div>
+          <R365Button variant="ghost" onClick={() => void loadAiUsage()} disabled={aiUsageBusy}>
+            {aiUsageBusy ? "Loading usage…" : "Refresh usage"}
+          </R365Button>
+        </div>
+        {aiUsageError ? <p className="mt-3 text-xs font-semibold text-amber-300">{aiUsageError}</p> : null}
+        <div className="mt-4 grid gap-3">
+          {(aiUsage?.providers ?? [
+            {
+              provider: "openai",
+              label: "OpenAI",
+              state: status?.openai.configured ? "permission_required" : "missing_key",
+              summary: status?.openai.configured ? "Refresh usage to check organization cost and token data." : "No OpenAI key is configured.",
+              dashboardUrl: "https://platform.openai.com/usage",
+            },
+            {
+              provider: "elevenlabs",
+              label: "ElevenLabs",
+              state: status?.elevenlabs.configured ? "permission_required" : "missing_key",
+              summary: status?.elevenlabs.configured ? "Refresh usage to check subscription and character limits." : "No ElevenLabs key is configured.",
+              dashboardUrl: "https://elevenlabs.io/app/usage",
+            },
+            {
+              provider: "claude",
+              label: "Claude",
+              state: "unsupported",
+              summary: "Planned connector. Requires Anthropic Admin API access for usage and cost reports.",
+              dashboardUrl: "https://console.anthropic.com/settings/usage",
+            },
+            {
+              provider: "deepseek",
+              label: "DeepSeek",
+              state: "unsupported",
+              summary: "Planned connector. Use dashboard/manual export first, then add app-side usage logging.",
+              dashboardUrl: "https://platform.deepseek.com/usage",
+            },
+          ] as AiUsageProvider[]).map((provider) => (
+            <div key={provider.provider} className="rounded-xl border border-[#1f2d26] bg-[#0a0e0c] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-white">{provider.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">{provider.summary}</p>
+                  {provider.error ? <p className="mt-1 text-[11px] text-amber-300">{provider.error}</p> : null}
+                </div>
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase ${
+                    provider.state === "ready"
+                      ? "border-[#22c55e]/30 bg-[#22c55e]/10 text-[#22c55e]"
+                      : provider.state === "unsupported"
+                        ? "border-slate-700 bg-slate-900/40 text-slate-400"
+                        : "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                  }`}
+                >
+                  {provider.state.replace(/_/g, " ")}
+                </span>
+              </div>
+              {provider.metrics?.length ? (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {provider.metrics.map((metric) => (
+                    <div key={`${provider.provider}-${metric.label}`} className="rounded-lg border border-[#1f2d26] bg-black/20 p-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{metric.label}</p>
+                      <p className="mt-1 text-sm font-bold text-slate-100">{metric.value}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              <a
+                className="mt-3 inline-flex text-[11px] font-semibold normal-case text-[#22c55e] hover:underline"
+                href={provider.dashboardUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                Open {provider.label} usage dashboard →
+              </a>
+            </div>
+          ))}
         </div>
       </Panel>
 

@@ -69,6 +69,42 @@ const DEFAULT_SOURCE_BRANDS: LanguageSourceBrand[] = [
     createdAt: "2026-04-30T00:00:00.000Z",
     updatedAt: "2026-04-30T00:00:00.000Z",
   },
+  {
+    id: "source-sportinglife",
+    name: "Sportinglife",
+    feedUrl: "https://www.sportinglife.com/racing/news",
+    sourceLanguage: "en",
+    parserType: "html-page",
+    active: true,
+    notes: "Sporting Life racing source; defaults to horse racing for Racing365 workflows.",
+    defaultSport: "Horse Racing",
+    createdAt: "2026-04-30T00:00:00.000Z",
+    updatedAt: "2026-04-30T00:00:00.000Z",
+  },
+  {
+    id: "source-racingpost",
+    name: "Racing Post",
+    feedUrl: "https://www.racingpost.com/news",
+    sourceLanguage: "en",
+    parserType: "html-page",
+    active: true,
+    notes: "Racing Post source; defaults to horse racing for Racing365 workflows.",
+    defaultSport: "Horse Racing",
+    createdAt: "2026-04-30T00:00:00.000Z",
+    updatedAt: "2026-04-30T00:00:00.000Z",
+  },
+  {
+    id: "source-at-the-races",
+    name: "At The Races",
+    feedUrl: "https://www.attheraces.com/news",
+    sourceLanguage: "en",
+    parserType: "html-page",
+    active: true,
+    notes: "At The Races source; defaults to horse racing for Racing365 workflows.",
+    defaultSport: "Horse Racing",
+    createdAt: "2026-04-30T00:00:00.000Z",
+    updatedAt: "2026-04-30T00:00:00.000Z",
+  },
 ];
 
 const DEFAULT_LANGUAGE_RULES: LanguageRule[] = [
@@ -235,7 +271,10 @@ function seedGovernance(data: LanguageStudioData): LanguageStudioData {
   for (const row of DEFAULT_GUARDRAILS) data.guardrails[row.id] ??= row;
   for (const row of DEFAULT_PROTECTED_TERMS) data.protectedTerms[row.id] ??= row;
   for (const row of DEFAULT_MARKET_RULES) data.marketRules[row.id] ??= row;
-  for (const row of DEFAULT_SPORT_RULES) data.sportRules[row.id] ??= row;
+  for (const row of DEFAULT_SPORT_RULES) {
+    const existing = data.sportRules[row.id];
+    data.sportRules[row.id] = existing && existing.updatedAt !== existing.createdAt ? existing : row;
+  }
   for (const row of DEFAULT_COMPLIANCE_NOTES) data.complianceNotes[row.id] ??= row;
   dedupeJournalistProfiles(data);
   return data;

@@ -17,6 +17,15 @@ type Body = {
   optimiseForVoiceover: boolean;
   addEmphasis: boolean;
   generateThreeVersions?: boolean;
+  journalistProfile?: {
+    id?: string;
+    name?: string;
+    brand?: string;
+    sports?: string[];
+    styleNotes?: string;
+    articleGuidelines?: string;
+    exampleTitles?: string[];
+  };
   fields: {
     intro?: string;
     "tip-1"?: string;
@@ -74,9 +83,40 @@ function parseAiJson(raw: unknown): AiPayload | null {
   return payload;
 }
 
+function controlGuidance(body: Body): string[] {
+  const voiceStyle: Record<VoiceStyle, string> = {
+    Journalist: "Lead with the strongest verified fact, sound like an experienced sports journalist, and keep the wording broadcast-clean.",
+    "Punchy Tips": "Tighter, sharper and more selection-led. Short sentences, clear picks, no unsupported betting claims.",
+    "Calm / Studio": "Measured studio delivery. Smooth transitions, composed authority and no hype.",
+    "Fast Picks": "High-tempo short-form style. Very concise lines, immediate value and clean scene-by-scene rhythm.",
+  };
+  const deliveryStyle: Record<DeliveryStyle, string> = {
+    Smooth: "Use flowing sentences with natural breath points.",
+    Balanced: "Mix short punchy lines with enough context for clarity.",
+    Fast: "Use compact clauses and avoid long subordinate sentences.",
+  };
+  const tone: Record<ToneStyle, string> = {
+    Neutral: "Factual and useful, with no extra opinion.",
+    Confident: "Authoritative and decisive while staying source-grounded.",
+    Urgent: "Immediate and energetic, but never sensational or misleading.",
+  };
+  return [
+    `Voice style instruction: ${voiceStyle[body.voiceStyle]}`,
+    `Delivery instruction: ${deliveryStyle[body.deliveryStyle]}`,
+    `Tone instruction: ${tone[body.tone]}`,
+    body.optimiseForVoiceover
+      ? "Voiceover craft: write for spoken rhythm, breath, scene timing and clean pronunciation."
+      : "Voiceover craft: prioritise accurate editorial copy.",
+    body.addEmphasis
+      ? "Emphasis: make the key pick, result, name or turning point land clearly without ALL CAPS noise."
+      : "Emphasis: keep delivery even and restrained.",
+  ];
+}
+
 async function buildPrompt(body: Body, brandGuidelinesAppendix: string | undefined, apiDefaultPrompt: string): Promise<string> {
   const f = body.fields;
   const custom = body.customPrompt?.trim() || apiDefaultPrompt;
+  const profile = body.journalistProfile;
   const railsByFormat = (await readGuardRailsAsync()).rails;
   const formatKey = body.format as GuardRailFormat;
   const guardRails = railsByFormat[formatKey]?.trim();
@@ -100,6 +140,23 @@ async function buildPrompt(body: Body, brandGuidelinesAppendix: string | undefin
     `optimise_for_voiceover: ${body.optimiseForVoiceover ? "true" : "false"}`,
     `add_emphasis: ${body.addEmphasis ? "true" : "false"}`,
     `generate_three_versions: ${body.generateThreeVersions ? "true" : "false"}`,
+    "",
+    "Dropdown interpretation:",
+    ...controlGuidance(body),
+    "",
+    ...(profile?.name || profile?.styleNotes
+      ? [
+          "Selected creator profile learning:",
+          `name: ${profile.name ?? ""}`,
+          `brand: ${profile.brand ?? ""}`,
+          `sports: ${Array.isArray(profile.sports) ? profile.sports.join(", ") : ""}`,
+          `style_notes: ${profile.styleNotes ?? ""}`,
+          `article_guidelines: ${profile.articleGuidelines ?? ""}`,
+          `example_titles: ${Array.isArray(profile.exampleTitles) ? profile.exampleTitles.slice(0, 6).join(" | ") : ""}`,
+          "Use this as a style guide only. Do not copy phrases or invent facts from examples.",
+          "",
+        ]
+      : []),
     "",
     "Input fields:",
     `format: ${body.format}`,

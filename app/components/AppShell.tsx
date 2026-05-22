@@ -16,7 +16,7 @@ const plexaFont = Montserrat({
 const nav = [
   { href: "/", label: "Dashboard" },
   { href: "/#studios", label: "Studios", scroll: true },
-  { href: "/tools", label: "Tools" },
+  { href: "/configure", label: "Configure" },
   { href: "/library", label: "Library" },
   { href: "/admin", label: "Admin" },
 ];
@@ -24,6 +24,10 @@ const nav = [
 const footerLinks = [
   { href: "/product", label: "Product" },
   { href: "/how-it-works", label: "How It Works" },
+  { href: "/knowledge-base", label: "Knowledge Base" },
+  { href: "/configure", label: "Configure" },
+  { href: "/tools", label: "Tools" },
+  { href: "/admin/provider-keys-and-platform-services", label: "Integrations" },
   { href: "/editing-studio", label: "Schedule Studio" },
   { href: "/live", label: "Live Control" },
   { href: "/prompts", label: "Prompts" },
@@ -75,11 +79,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </AppNavLink>
               <StudiosNavMenu />
               <AppNavLink
-                href="/tools"
+                href="/configure"
                 className="app-nav-link rounded-full px-3 py-2 transition"
                 style={{ color: "var(--text-secondary)" }}
               >
-                Tools
+                Configure
               </AppNavLink>
               <AppNavLink
                 href="/library"

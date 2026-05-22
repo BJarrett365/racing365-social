@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import { NextResponse } from "next/server";
 import { renderSceneToPng, withSharedPuppeteerBrowser } from "@/app/features/render/scene-renderer";
-import { getAudioProvider } from "@/app/features/audio";
+import { normalizeVoiceProviderPreference, resolveVoiceTrackWithFallback } from "@/app/features/audio";
 import { buildShortVideo } from "@/app/features/video/video-builder";
 import { assertVoiceRecordingRel, normalizeContentIdForFilename } from "@/app/lib/editor-upload";
 import { buildVideoSlug } from "@/app/lib/seo-slug";
@@ -23,6 +23,7 @@ type Body = {
   voiceGender?: VoiceGender;
   voiceSpeed?: number;
   elevenlabsVoiceId?: string;
+  voiceProviderPreference?: string;
   voiceRecordingRel?: string;
   burnSubtitles?: boolean;
 };
@@ -107,11 +108,13 @@ export async function POST(req: Request) {
       audioPath = path.join(outputDir(), ...norm.split("/"));
       await fs.access(audioPath);
     } else {
-      audioPath = await (await getAudioProvider()).resolveVoiceTrack(script, contentId, {
+      const audio = await resolveVoiceTrackWithFallback(script, contentId, {
         gender,
         speed,
         voiceId: body.elevenlabsVoiceId?.trim() || undefined,
+        providerPreference: normalizeVoiceProviderPreference(body.voiceProviderPreference),
       });
+      audioPath = audio.audioPath;
     }
 
     const seoTitle = (template.title || "PlanetF1 News Short").slice(0, 300);

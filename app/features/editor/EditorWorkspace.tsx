@@ -135,6 +135,15 @@ function toOutputRel(absPath?: string) {
   return normalized;
 }
 
+async function probeExistingBuiltVideo(contentId: string): Promise<string | null> {
+  const candidates = [`video/${contentId}-short-edited.mp4`, `video/${contentId}-short.mp4`];
+  for (const rel of candidates) {
+    const res = await fetch(studioApiPath(`/api/video-meta?rel=${encodeURIComponent(rel)}`), { cache: "no-store" });
+    if (res.ok) return rel;
+  }
+  return null;
+}
+
 function sanitizeDownloadPart(value: string): string {
   const cleaned = value
     .trim()
@@ -403,6 +412,7 @@ export function EditorWorkspace({
   const [error, setError] = useState<string | null>(null);
   const [videoBuildMode, setVideoBuildMode] = useState<VideoBuildMode>(initialVideoBuildMode);
   const [videoRel, setVideoRel] = useState<string | null>(null);
+  const [videoPreviewNonce, setVideoPreviewNonce] = useState(0);
   const [burnSubtitles, setBurnSubtitles] = useState(false);
   const [previewSceneId, setPreviewSceneId] = useState<string | null>(null);
   /** Background stills: output/images/library/{contentId}/ (new) or legacy uploads/{contentId}/ */
@@ -935,6 +945,11 @@ export function EditorWorkspace({
       setEditVideoMsg(null);
       setTrimStartInput("0");
       setTrimEndInput("0");
+      const existingVideo = await probeExistingBuiltVideo(id);
+      if (existingVideo && !signal?.aborted) {
+        setVideoRel(existingVideo);
+        setVideoPreviewNonce((n) => n + 1);
+      }
     } catch (e) {
       if (signal?.aborted) return;
       if (e instanceof DOMException && e.name === "AbortError") return;
@@ -1067,7 +1082,7 @@ export function EditorWorkspace({
       return;
     }
     let cancelled = false;
-    void fetch(`/api/video-meta?rel=${encodeURIComponent(videoRel)}`)
+    void fetch(studioApiPath(`/api/video-meta?rel=${encodeURIComponent(videoRel)}`))
       .then(async (r) => {
         const t = await r.text();
         try {
@@ -1091,7 +1106,7 @@ export function EditorWorkspace({
   useEffect(() => {
     const editedRel = `video/${contentId}-short-edited.mp4`;
     let cancelled = false;
-    void fetch(`/api/video-meta?rel=${encodeURIComponent(editedRel)}`)
+    void fetch(studioApiPath(`/api/video-meta?rel=${encodeURIComponent(editedRel)}`))
       .then((r) => {
         if (!cancelled) setEditedCutOnDisk(r.ok);
       })
@@ -2354,6 +2369,7 @@ export function EditorWorkspace({
       if (buildResult.error) throw new Error(sanitizeVideoBuildError(buildResult.error));
       if (!buildResult.videoPath) throw new Error("Video build finished without returning a video path.");
       setVideoRel(toOutputRel(buildResult.videoPath));
+      setVideoPreviewNonce((n) => n + 1);
       if (buildResult.voiceProvider === "openai" && buildResult.voiceFallbackReason) {
         setVoiceSettingsMsg("Video built with OpenAI TTS after ElevenLabs fallback.");
         setTimeout(() => setVoiceSettingsMsg(null), 3500);
@@ -3903,11 +3919,17 @@ export function EditorWorkspace({
           <Panel title="Video">
             {videoRel ? (
               <video
-                src={fileUrl(videoRel)}
+                key={`${videoRel}-${videoPreviewNonce}`}
+                src={fileUrl(videoRel, videoPreviewNonce)}
                 controls
                 playsInline
                 title={content?.headline ?? `${BRAND_SHORT_SINGULAR} preview`}
                 className={`${previewFrameClass} object-contain bg-black rounded-md border border-[#1f2d26]`}
+                onError={() => {
+                  setError(
+                    "Video preview could not load. If the build just finished, wait a few seconds and refresh — otherwise run Build video again after the latest deploy.",
+                  );
+                }}
               />
             ) : (
               <div

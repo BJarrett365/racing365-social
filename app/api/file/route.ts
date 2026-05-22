@@ -9,6 +9,14 @@ import { assetsManifestPath, outputDir } from "@/app/lib/paths";
 
 const PREVIEW_CACHE_CONTROL = "no-store, max-age=0, must-revalidate";
 
+/** Normalise `rel` query values (`/video/foo.mp4` → `video/foo.mp4`) for blob lookup and disk paths. */
+function normalizeRequestRel(raw: string | null): string | null {
+  if (!raw) return null;
+  const rel = raw.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!rel || rel.includes("..")) return null;
+  return rel;
+}
+
 function normRel(r: string): string {
   return r.split(path.sep).join("/");
 }
@@ -62,15 +70,9 @@ function dispositionFilenameForRel(
 /** Serves files under /output only (for previews). Query: rel=images/foo/bar.png&download=1 */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const rel = searchParams.get("rel");
-  if (!rel || rel.includes("..")) {
+  const rel = normalizeRequestRel(searchParams.get("rel"));
+  if (!rel) {
     return NextResponse.json({ error: "Invalid path" }, { status: 400 });
-  }
-
-  const root = outputDir();
-  const full = path.resolve(root, rel);
-  if (!full.startsWith(root)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // Blob-backed library assets (e.g. Netlify) — avoid relying on local disk first.
@@ -116,6 +118,12 @@ export async function GET(req: Request) {
       ) as ArrayBuffer;
       return new NextResponse(body, { headers });
     }
+  }
+
+  const root = outputDir();
+  const full = path.resolve(root, rel);
+  if (!full.startsWith(root)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {

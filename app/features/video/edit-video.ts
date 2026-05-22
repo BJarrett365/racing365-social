@@ -10,7 +10,7 @@ import {
 } from "@/app/lib/video-output-paths";
 import { ffmpegBinary, probeMediaDurationSec, FFMPEG_LIBX264_MP4_ARGS } from "@/app/features/video/ffmpeg-utils";
 import { BRAND_ENCODER } from "@/app/lib/brand";
-import { persistVideoOutputToBlob } from "@/app/lib/video-blob-assets";
+import { persistVideoOutputToBlob, readVideoBlobAsset } from "@/app/lib/video-blob-assets";
 
 function runFfmpeg(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -134,9 +134,17 @@ async function setManifestEditedVideo(contentId: string, editedRelNorm: string):
   }
 }
 
-/** Duration for any `video/*.mp4` under output. */
+/** Duration for any `video/*.mp4` under output (disk or Netlify blob). */
 export async function probeVideoRelDurationSec(videoRel: string): Promise<number> {
-  const { abs } = assertVideoOutputRel(videoRel);
-  await fs.access(abs);
-  return probeMediaDurationSec(abs);
+  const { abs, norm } = assertVideoOutputRel(videoRel);
+  try {
+    await fs.access(abs);
+    return probeMediaDurationSec(abs);
+  } catch {
+    const blob = await readVideoBlobAsset(norm);
+    if (!blob) throw new Error("Video not found");
+    await fs.mkdir(path.dirname(abs), { recursive: true });
+    await fs.writeFile(abs, blob.bytes);
+    return probeMediaDurationSec(abs);
+  }
 }

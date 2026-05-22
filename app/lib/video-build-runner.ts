@@ -1,7 +1,7 @@
 import { buildShortPayload, type BuildShortRequestBody } from "@/app/lib/build-short-service";
 import { assertFfmpegAvailable, ffmpegResolutionDebug } from "@/app/features/video/ffmpeg-utils";
 import { shouldUseNetlifyBlobStore } from "@/app/lib/netlify-blob-json";
-import { persistVideoOutputToBlob, outputRelFromAbs } from "@/app/lib/video-blob-assets";
+import { persistVideoOutputToBlob, outputRelFromAbs, readVideoBlobAsset } from "@/app/lib/video-blob-assets";
 import {
   completeVideoBuildJob,
   failVideoBuildJob,
@@ -58,6 +58,13 @@ export async function runVideoBuildJob(jobId: string, body: BuildShortRequestBod
     }
     const videoRelForClient =
       persistedRel ?? outputRelFromAbs(result.videoPath) ?? result.videoPath.replace(/^\/+/, "");
+    if (shouldUseNetlifyBlobStore() && persistedRel) {
+      const verify = await readVideoBlobAsset(persistedRel);
+      if (!verify?.bytes.byteLength) {
+        await failVideoBuildJob(jobId, "Video was saved to blob storage but could not be read back for preview.");
+        return;
+      }
+    }
     await completeVideoBuildJob(jobId, { ...result, videoPath: videoRelForClient });
     console.info("[video-build] completed", { jobId, videoPath: videoRelForClient });
   } catch (e) {

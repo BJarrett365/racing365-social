@@ -6,6 +6,7 @@ import { isSafeContentId, normalizeContentIdForFilename } from "@/app/lib/editor
 import { ffmpegBinary } from "@/app/features/video/ffmpeg-utils";
 import { shouldUseNetlifyBlobStore } from "@/app/lib/netlify-blob-json";
 import { readLibraryBlobAsset, writeLibraryBlobAsset } from "@/app/lib/library-blob-assets";
+import { writeVideoBlobAsset } from "@/app/lib/video-blob-assets";
 
 export { isSafeContentId, normalizeContentIdForFilename };
 
@@ -319,8 +320,13 @@ export async function saveEditorUploads(
         : ".mp4";
     const vname = `custom-bg${ext}`;
     const vabs = path.join(dir, vname);
-    await fs.writeFile(vabs, Buffer.from(await video.arrayBuffer()));
-    out.backgroundVideoRel = path.join("uploads", contentId, vname).split(path.sep).join("/");
+    const buf = Buffer.from(await video.arrayBuffer());
+    await fs.writeFile(vabs, buf);
+    const rel = path.join("uploads", contentId, vname).split(path.sep).join("/");
+    if (shouldUseNetlifyBlobStore()) {
+      await writeVideoBlobAsset(rel, buf);
+    }
+    out.backgroundVideoRel = rel;
 
     const posterName = "custom-bg-video-frame.png";
     const posterAbs = path.join(dir, posterName);

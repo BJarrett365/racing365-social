@@ -4,6 +4,7 @@ import path from "path";
 import { spawn, spawnSync } from "child_process";
 import ffmpegStatic from "ffmpeg-static";
 import { isNetlifyHostedLambdaRuntime, usesEphemeralOutputRootRuntime } from "@/app/lib/netlify-hosted-runtime";
+import { projectRoot } from "@/app/lib/paths";
 import { getServerSecret } from "@/app/lib/server-secrets";
 
 /**
@@ -205,6 +206,73 @@ export const FFMPEG_LIBX264_MP4_ARGS = [
   "-movflags",
   "+faststart",
 ] as const;
+
+/** Faster encode on Netlify Lambdas — live builds can exceed default `fast` by several minutes. */
+export const FFMPEG_LIBX264_MP4_ARGS_HOSTED = [
+  "-c:v",
+  "libx264",
+  "-preset",
+  "ultrafast",
+  "-crf",
+  "23",
+  "-pix_fmt",
+  "yuv420p",
+  "-movflags",
+  "+faststart",
+] as const;
+
+export function ffmpegMp4VideoEncodeArgs(): readonly string[] {
+  return isNetlifyHostedLambdaRuntime() ? FFMPEG_LIBX264_MP4_ARGS_HOSTED : FFMPEG_LIBX264_MP4_ARGS;
+}
+
+const HOSTED_FFMPEG_TIMEOUT_MS = 12 * 60 * 1000;
+
+export function runFfmpeg(args: string[], options?: { timeoutMs?: number }): Promise<void> {
+  const timeoutMs =
+    options?.timeoutMs ??
+    (isNetlifyHostedLambdaRuntime() ? HOSTED_FFMPEG_TIMEOUT_MS : 0);
+
+  return new Promise((resolve, reject) => {
+    const bin = ffmpegBinary();
+    const p = spawn(bin, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      cwd: projectRoot(),
+    });
+    let err = "";
+    p.stderr?.on("data", (c) => {
+      err += c.toString();
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (timeoutMs > 0) {
+      timer = setTimeout(() => {
+        p.kill("SIGKILL");
+        reject(
+          new Error(
+            `FFmpeg timed out after ${Math.round(timeoutMs / 60_000)} minutes. Try fewer scenes, shorter script, or disable motion backdrop for a faster build.`,
+          ),
+        );
+      }, timeoutMs);
+    }
+    p.on("error", (e) => {
+      if (timer) clearTimeout(timer);
+      const errObj = e as NodeJS.ErrnoException;
+      if (errObj.code === "ENOENT") {
+        reject(
+          new Error(
+            `ffmpeg not found (${bin}). Run \`npm install\` (project includes ffmpeg-static) or set FFMPEG_PATH in .env.local to your binary (e.g. /opt/homebrew/bin/ffmpeg).`,
+          ),
+        );
+        return;
+      }
+      reject(e);
+    });
+    p.on("close", (code) => {
+      if (timer) clearTimeout(timer);
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg exited ${code}: ${err.slice(-1200)}`));
+    });
+  });
+}
 
 const DURATION_RE = /Duration:\s*(\d+):(\d+):(\d+\.?\d*)/;
 

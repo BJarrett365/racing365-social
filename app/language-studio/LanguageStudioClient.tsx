@@ -23,6 +23,7 @@ import {
 import { RUNWAY_T2I_PROMPT_MAX, RUNWAY_T2I_RATIOS_NEWS_SHORTS, formatRunwayT2iRatioLabel } from "@/app/lib/runway-text-to-image-constants";
 import { mergeUniqueTagsFromCommaSeparated, uniqueTags } from "@/app/lib/language-studio/tags";
 import { contentStyleFromArticle, sportContextFromArticle } from "@/app/lib/language-studio/article-context";
+import { defaultRewriteStyleForContentStyle } from "@/app/lib/language-studio/content-style-prompts";
 import {
   LANGUAGE_CONTENT_STYLES,
   LANGUAGE_LABELS,
@@ -864,7 +865,7 @@ export function LanguageStudioClient() {
   const [targetLanguages, setTargetLanguages] = useState<LanguageCode[]>(["es"]);
   const [providerMode, setProviderMode] = useState<LanguageProviderMode>("openai");
   const [translationMode, setTranslationMode] = useState<TranslationMode>("translate-localise");
-  const [rewriteStyle, setRewriteStyle] = useState("Original editorial rewrite for Google: fresh structure, sharp intro, natural expert sports tone, no synonym spinning. Remove internal links to the source site (nav hubs, tips indexes, racecards, homepages); keep only essential external factual links.");
+  const [rewriteStyle, setRewriteStyle] = useState(() => defaultRewriteStyleForContentStyle("News"));
   const [contentStyle, setContentStyle] = useState<LanguageContentStyle>("News");
   const [sportContext, setSportContext] = useState<LanguageSportContext>("Formula 1");
   const [journalistStyle, setJournalistStyle] = useState("");
@@ -920,6 +921,11 @@ export function LanguageStudioClient() {
     () => uniqueJournalistProfiles(journalistProfiles).filter((row) => row.active),
     [journalistProfiles],
   );
+  const applyContentStyle = (style: LanguageContentStyle) => {
+    setContentStyle(style);
+    setRewriteStyle(defaultRewriteStyleForContentStyle(style));
+  };
+
   const applyJournalistProfile = (profileId: string) => {
     const profile = activeJournalistProfiles.find((row) => row.id === profileId);
     setSelectedJournalistProfileId(profileId);
@@ -966,7 +972,9 @@ export function LanguageStudioClient() {
     : selectedArticle;
   useEffect(() => {
     if (!languageContextArticle) return;
-    setContentStyle(contentStyleFromArticle(languageContextArticle));
+    const detectedStyle = contentStyleFromArticle(languageContextArticle);
+    setContentStyle(detectedStyle);
+    setRewriteStyle(defaultRewriteStyleForContentStyle(detectedStyle));
     setSportContext(sportContextFromArticle(languageContextArticle, sourceBrands));
 
     const author = languageContextArticle.author?.trim().toLowerCase();
@@ -2282,7 +2290,7 @@ export function LanguageStudioClient() {
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="text-xs font-semibold uppercase text-slate-500">
                   Content style
-                  <select className={inputClass} value={contentStyle} onChange={(e) => setContentStyle(e.target.value as LanguageContentStyle)}>
+                  <select className={inputClass} value={contentStyle} onChange={(e) => applyContentStyle(e.target.value as LanguageContentStyle)}>
                     {LANGUAGE_CONTENT_STYLES.map((style) => <option key={style} value={style}>{style}</option>)}
                   </select>
                 </label>
@@ -2445,7 +2453,7 @@ export function LanguageStudioClient() {
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="text-xs font-semibold uppercase text-slate-500">
                   Content style
-                  <select className={inputClass} value={contentStyle} onChange={(e) => setContentStyle(e.target.value as LanguageContentStyle)}>
+                  <select className={inputClass} value={contentStyle} onChange={(e) => applyContentStyle(e.target.value as LanguageContentStyle)}>
                     {LANGUAGE_CONTENT_STYLES.map((style) => <option key={style} value={style}>{style}</option>)}
                   </select>
                 </label>

@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import type { ManifestEntry } from "@/app/lib/asset-manifest";
 import { deleteVoiceRecordingsForContentId } from "@/app/lib/editor-upload";
+import { deleteVideoBlobAsset } from "@/app/lib/video-blob-assets";
 import {
   assetsManifestPath,
   editorUploadDir,
@@ -88,6 +89,8 @@ export async function deleteBuild(opts: DeleteBuildOptions): Promise<{ deleted: 
 
   await tryFile(path.join("video", `${contentId}-short.mp4`));
   await tryFile(path.join("video", `${contentId}-short-edited.mp4`));
+  await deleteVideoBlobAsset(path.join("video", `${contentId}-short.mp4`));
+  await deleteVideoBlobAsset(path.join("video", `${contentId}-short-edited.mp4`));
   await tryFile(path.join("subtitles", `${contentId}.srt`));
   await tryFile(`concat-${contentId}.txt`);
 

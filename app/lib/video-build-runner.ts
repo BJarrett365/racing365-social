@@ -1,5 +1,7 @@
 import { buildShortPayload, type BuildShortRequestBody } from "@/app/lib/build-short-service";
 import { assertFfmpegAvailable, ffmpegResolutionDebug } from "@/app/features/video/ffmpeg-utils";
+import { shouldUseNetlifyBlobStore } from "@/app/lib/netlify-blob-json";
+import { persistVideoOutputToBlob } from "@/app/lib/video-blob-assets";
 import {
   completeVideoBuildJob,
   failVideoBuildJob,
@@ -8,8 +10,9 @@ import {
 } from "@/app/lib/video-build-jobs";
 
 export async function runVideoBuildJob(jobId: string, body: BuildShortRequestBody): Promise<void> {
+  let heartbeatPhase = "starting";
   const heartbeat = setInterval(() => {
-    void touchVideoBuildJobProgress(jobId, "encoding");
+    void touchVideoBuildJobProgress(jobId, heartbeatPhase);
   }, 12_000);
 
   try {
@@ -22,9 +25,11 @@ export async function runVideoBuildJob(jobId: string, body: BuildShortRequestBod
     }
 
     await markVideoBuildJobRunning(jobId);
-    await touchVideoBuildJobProgress(jobId, "voice");
+    heartbeatPhase = "voice";
+    await touchVideoBuildJobProgress(jobId, heartbeatPhase);
     const result = await buildShortPayload(body, {
       onProgress: async (phase) => {
+        heartbeatPhase = phase;
         await touchVideoBuildJobProgress(jobId, phase);
       },
     });
@@ -34,6 +39,16 @@ export async function runVideoBuildJob(jobId: string, body: BuildShortRequestBod
     }
     if (!result.videoPath) {
       await failVideoBuildJob(jobId, "Video build finished without returning a video path.");
+      return;
+    }
+    heartbeatPhase = "saving";
+    await touchVideoBuildJobProgress(jobId, heartbeatPhase);
+    const persistedRel = await persistVideoOutputToBlob(result.videoPath);
+    if (shouldUseNetlifyBlobStore() && !persistedRel) {
+      await failVideoBuildJob(
+        jobId,
+        "Video encoded but could not persist to blob storage. Preview would be unavailable on live.",
+      );
       return;
     }
     await completeVideoBuildJob(jobId, result);

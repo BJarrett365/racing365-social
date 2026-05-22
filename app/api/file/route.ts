@@ -4,6 +4,7 @@ import path from "path";
 import type { ManifestEntry } from "@/app/lib/asset-manifest";
 import { readAudioStudioBlobAsset } from "@/app/lib/audio-studio-store";
 import { readLibraryBlobAsset } from "@/app/lib/library-blob-assets";
+import { readVideoBlobAsset } from "@/app/lib/video-blob-assets";
 import { assetsManifestPath, outputDir } from "@/app/lib/paths";
 
 const PREVIEW_CACHE_CONTROL = "no-store, max-age=0, must-revalidate";
@@ -88,6 +89,30 @@ export async function GET(req: Request) {
       const body = libBlob.bytes.buffer.slice(
         libBlob.bytes.byteOffset,
         libBlob.bytes.byteOffset + libBlob.bytes.byteLength,
+      ) as ArrayBuffer;
+      return new NextResponse(body, { headers });
+    }
+  }
+
+  if (
+    (rel.startsWith("video/") && rel.toLowerCase().endsWith(".mp4")) ||
+    (rel.startsWith("uploads/") && /\.(mp4|webm|mov)$/i.test(rel))
+  ) {
+    const videoBlob = await readVideoBlobAsset(rel);
+    if (videoBlob) {
+      const headers: Record<string, string> = {
+        "Content-Type": videoBlob.contentType,
+        "Cache-Control": PREVIEW_CACHE_CONTROL,
+        "X-Asset-Rel": videoBlob.rel,
+      };
+      const ext = path.extname(videoBlob.rel).toLowerCase();
+      const entry = await manifestEntryForRel(rel);
+      const filename = dispositionFilenameForRel(rel, path.basename(videoBlob.rel), ext, entry).replace(/"/g, "");
+      const dispType = searchParams.get("download") === "1" ? "attachment" : "inline";
+      headers["Content-Disposition"] = `${dispType}; filename="${filename}"`;
+      const body = videoBlob.bytes.buffer.slice(
+        videoBlob.bytes.byteOffset,
+        videoBlob.bytes.byteOffset + videoBlob.bytes.byteLength,
       ) as ArrayBuffer;
       return new NextResponse(body, { headers });
     }

@@ -3704,7 +3704,18 @@ export function EditorWorkspace({
         {busy && (
           <p className="text-sm text-[#eab308]">
             Working: {busy}
-            {busy === "video" && videoBuildStatus ? ` (${videoBuildStatus})` : ""}…
+            {busy === "video" && videoBuildStatus
+              ? ` (${videoBuildStatus === "voice"
+                  ? "generating voiceover"
+                  : videoBuildStatus === "encoding"
+                    ? "encoding video — live builds can take several minutes"
+                    : videoBuildStatus === "saving"
+                      ? "saving video for preview"
+                      : videoBuildStatus === "starting"
+                        ? "starting build worker"
+                        : videoBuildStatus})`
+              : ""}
+            …
           </p>
         )}
         {error && <p className="text-sm text-red-400">{error}</p>}

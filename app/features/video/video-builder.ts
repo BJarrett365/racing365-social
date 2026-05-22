@@ -1,6 +1,5 @@
 import fs from "fs/promises";
 import path from "path";
-import { spawn } from "child_process";
 import {
   outputSubtitlesDir,
   outputVideoDir,
@@ -8,12 +7,13 @@ import {
   assetsManifestPath,
   projectRoot,
 } from "@/app/lib/paths";
-import { ffmpegBinary, probeHasAudioStream, probeMediaDurationSec, FFMPEG_LIBX264_MP4_ARGS } from "./ffmpeg-utils";
+import { ffmpegBinary, probeHasAudioStream, probeMediaDurationSec, ffmpegMp4VideoEncodeArgs, runFfmpeg } from "./ffmpeg-utils";
 import { buildNewsShortAss, type NewsShortAssStyle } from "@/app/features/content/news-short-ass";
 import { buildSrt, type SubtitleCue } from "@/app/features/content/subtitle-generator";
 import type { ManifestEntry } from "@/app/lib/asset-manifest";
 import { assertAudioAssetRel, assertCrossContentBackdropRel } from "@/app/lib/editor-upload";
 import { readLibraryBlobAsset } from "@/app/lib/library-blob-assets";
+import { materializeVideoAssetToDisk } from "@/app/lib/video-blob-assets";
 import { BRAND_ENCODER, BRAND_MARK } from "@/app/lib/brand";
 import { upsertLibraryMetadata } from "@/app/lib/library-metadata";
 import type { BackingMusicConfig, VideoRecordCirclePosition, VideoRecordLayout } from "@/app/features/news-shorts/types";
@@ -243,36 +243,6 @@ async function writeConcatFile(scenes: SceneClip[], concatPath: string) {
   await fs.writeFile(concatPath, lines.join("\n"), "utf-8");
 }
 
-function runFfmpeg(args: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const bin = ffmpegBinary();
-    const p = spawn(bin, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      cwd: projectRoot(),
-    });
-    let err = "";
-    p.stderr?.on("data", (c) => {
-      err += c.toString();
-    });
-    p.on("error", (e) => {
-      const err = e as NodeJS.ErrnoException;
-      if (err.code === "ENOENT") {
-        reject(
-          new Error(
-            `ffmpeg not found (${bin}). Run \`npm install\` (project includes ffmpeg-static) or set FFMPEG_PATH in .env.local to your binary (e.g. /opt/homebrew/bin/ffmpeg).`,
-          ),
-        );
-        return;
-      }
-      reject(e);
-    });
-    p.on("close", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`ffmpeg exited ${code}: ${err.slice(-1200)}`));
-    });
-  });
-}
-
 function buildImageChain(
   scenes: SceneClip[],
   ow: number,
@@ -310,6 +280,19 @@ async function materializeSceneImagePath(imagePath: string, contentId: string, i
     return out;
   }
   return path.resolve(projectRoot(), imagePath);
+}
+
+async function resolveVideoAssetAbs(rel: string): Promise<string> {
+  const normalized = rel.split(path.sep).join("/").replace(/^\/+/, "");
+  const abs = path.normalize(path.join(outputDir(), ...normalized.split("/")));
+  try {
+    await fs.access(abs);
+    return abs;
+  } catch {
+    const materialized = await materializeVideoAssetToDisk(normalized);
+    if (materialized) return materialized;
+    throw new Error(`Video asset missing: ${normalized}`);
+  }
 }
 
 /** RGBA foreground for overlay on motion background */
@@ -535,10 +518,8 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
     try {
       assertCrossContentBackdropRel(backdropRel);
       assertCrossContentBackdropRel(cameraOverlayRelIn);
-      bgVideoAbs = path.normalize(path.join(outputDir(), ...backdropRel.split("/")));
-      camOverlayAbs = path.normalize(path.join(outputDir(), ...cameraOverlayRelIn.split("/")));
-      await fs.access(bgVideoAbs);
-      await fs.access(camOverlayAbs);
+      bgVideoAbs = await resolveVideoAssetAbs(backdropRel);
+      camOverlayAbs = await resolveVideoAssetAbs(cameraOverlayRelIn);
     } catch {
       throw new Error(
         "Backdrop or camera overlay video missing or invalid — check Background (before render) paths and your saved camera recording, then build again.",
@@ -548,8 +529,7 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
     singleMotionBgRel = backdropRel;
     try {
       assertCrossContentBackdropRel(backdropRel);
-      bgVideoAbs = path.normalize(path.join(outputDir(), ...backdropRel.split("/")));
-      await fs.access(bgVideoAbs);
+      bgVideoAbs = await resolveVideoAssetAbs(backdropRel);
     } catch {
       throw new Error(
         "Background video missing or invalid — re-save your video upload, render scenes with video background, then build again.",
@@ -776,7 +756,7 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
             targetStr,
             "-r",
             "30",
-            ...FFMPEG_LIBX264_MP4_ARGS,
+            ...ffmpegMp4VideoEncodeArgs(),
             "-c:a",
             "aac",
             "-metadata",
@@ -807,7 +787,7 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
             targetStr,
             "-r",
             "30",
-            ...FFMPEG_LIBX264_MP4_ARGS,
+            ...ffmpegMp4VideoEncodeArgs(),
             "-c:a",
             "aac",
             "-metadata",
@@ -916,7 +896,7 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
             targetStr,
             "-r",
             "30",
-            ...FFMPEG_LIBX264_MP4_ARGS,
+            ...ffmpegMp4VideoEncodeArgs(),
             "-c:a",
             "aac",
             "-metadata",
@@ -949,7 +929,7 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
             targetStr,
             "-r",
             "30",
-            ...FFMPEG_LIBX264_MP4_ARGS,
+            ...ffmpegMp4VideoEncodeArgs(),
             "-c:a",
             "aac",
             "-metadata",
@@ -1004,7 +984,7 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
       targetStr,
       "-r",
       "30",
-      ...FFMPEG_LIBX264_MP4_ARGS,
+      ...ffmpegMp4VideoEncodeArgs(),
       "-c:a",
       "aac",
       "-metadata",

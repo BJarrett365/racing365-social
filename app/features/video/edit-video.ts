@@ -10,6 +10,7 @@ import {
 } from "@/app/lib/video-output-paths";
 import { ffmpegBinary, probeMediaDurationSec, FFMPEG_LIBX264_MP4_ARGS } from "@/app/features/video/ffmpeg-utils";
 import { BRAND_ENCODER } from "@/app/lib/brand";
+import { persistVideoOutputToBlob } from "@/app/lib/video-blob-assets";
 
 function runFfmpeg(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -101,6 +102,7 @@ export async function trimVideoToEdited(params: TrimVideoParams): Promise<{
   ]);
 
   await setManifestEditedVideo(contentId, outNorm);
+  await persistVideoOutputToBlob(outAbs);
 
   return {
     videoRel: outNorm,

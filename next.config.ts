@@ -23,6 +23,11 @@ const nextConfig: NextConfig = {
 
 if (process.env.USE_TURBO !== "1") {
   nextConfig.webpack = (config, { dev, isServer }) => {
+    if (dev) {
+      // Filesystem pack cache + HMR on macOS often races (ENOENT on .pack.gz_ rename,
+      // missing app-paths-manifest.json). Memory cache is slower but stable for local dev.
+      config.cache = { type: "memory" };
+    }
     if (dev && isServer && process.env.NEXT_WEBPACK_NO_SERVER_SPLIT_CHUNKS !== "0") {
       // Without this, `next dev` can emit `webpack-runtime.js` that requires
       // `./vendor-chunks/*.js` before those files exist → 500 / MODULE_NOT_FOUND.
@@ -38,7 +43,7 @@ if (process.env.USE_TURBO !== "1") {
       config.watchOptions = {
         ...config.watchOptions,
         poll: 1000,
-        aggregateTimeout: 300,
+        aggregateTimeout: 1000,
       };
     }
     return config;

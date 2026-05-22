@@ -153,8 +153,17 @@ if (useTurbo) {
   delete devEnv.TURBOPACK;
   delete devEnv.IS_TURBOPACK_TEST;
 }
-if (devEnv.WATCHPACK_POLLING === undefined || devEnv.WATCHPACK_POLLING === "") {
+// Webpack dev already polls in next.config.ts (NEXT_WEBPACK_POLL !== "0"). Running Watchpack
+// polling at the same time races incremental rebuilds and deletes manifests mid-request
+// (ENOENT app-paths-manifest.json / page.js). Opt in: WATCHPACK_POLLING=true
+if (!useTurbo && (devEnv.WATCHPACK_POLLING === undefined || devEnv.WATCHPACK_POLLING === "")) {
+  devEnv.WATCHPACK_POLLING = "false";
+} else if (useTurbo && (devEnv.WATCHPACK_POLLING === undefined || devEnv.WATCHPACK_POLLING === "")) {
   devEnv.WATCHPACK_POLLING = "true";
+}
+// Webpack poll + memory cache is enough on macOS; dual poll was corrupting .next manifests.
+if (!useTurbo && (devEnv.NEXT_WEBPACK_POLL === undefined || devEnv.NEXT_WEBPACK_POLL === "")) {
+  devEnv.NEXT_WEBPACK_POLL = "0";
 }
 
 console.error(
@@ -163,8 +172,11 @@ console.error(
     `[run-dev] Open: http://127.0.0.1:${devPort}/  or  http://localhost:${devPort}/\n` +
     `[run-dev] Quick restart: npm run dev:restart\n` +
     `[run-dev] If the site is blank or 500: npm run dev:restart  (or dev:kill-port then dev)\n` +
-    (!useTurbo && devEnv.WATCHPACK_POLLING === "true"
-      ? `[run-dev] WATCHPACK_POLLING=true + next.config webpack poll (dev). Disable poll: NEXT_WEBPACK_POLL=0; disable both: WATCHPACK_POLLING=0\n`
+    (!useTurbo
+      ? devEnv.WATCHPACK_POLLING === "true"
+        ? `[run-dev] WATCHPACK_POLLING=true — dual poll can corrupt .next; prefer default (false).\n`
+        : `[run-dev] Stable dev defaults: WATCHPACK_POLLING=false, NEXT_WEBPACK_POLL=0, webpack memory cache.\n` +
+          `[run-dev] If file changes are not detected: NEXT_WEBPACK_POLL=1 npm run dev\n`
       : "") +
     `[run-dev] Language Studio import crons: set ENABLE_DEV_CRON_POLL=1 to poll this server like npm start; otherwise nothing calls /api/cron/language-imports until you refresh manually.\n` +    
     `[run-dev] Do not use npm start until you run npm run build.\n` +

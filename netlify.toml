@@ -15,7 +15,10 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+[functions]
+  directory = "netlify/functions"
+
 # Note: Do not set `[functions] timeout` here — some Netlify + Next.js config parsers reject it at the
 # "Reading and parsing configuration files" stage. Raise the synchronous function limit in the UI instead:
 # Site configuration → Build & deploy → Functions → Function timeout (e.g. 26s on supported plans).
-# Long video builds return 202, then finish via after() with progress heartbeats (maxDuration 300).
+# Long video builds use netlify/functions/build-short-background.mts (15 minute background limit).

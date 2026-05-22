@@ -115,9 +115,8 @@ export const PRIMARY_STUDIO_CARDS: StudioDashboardCard[] = [
     href: "/editing-studio",
     heading: "Editorial scheduling and social workflow",
     description: "Manage projects, copy, media, previews and export-ready schedule items.",
-    cta: "Coming soon",
-    accent: "muted",
-    status: "Coming soon",
+    cta: "Open Schedule Studio",
+    accent: "green",
     navGroup: "roadmap",
   },
   {

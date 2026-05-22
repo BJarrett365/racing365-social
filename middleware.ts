@@ -106,6 +106,9 @@ export async function middleware(request: NextRequest) {
   const rawPath = request.nextUrl.pathname;
   const pathname = stripAppPathPrefix(rawPath);
 
+  // Netlify background/serverless functions must not redirect to login (POST would become 405).
+  if (pathname.startsWith("/.netlify/functions/")) return NextResponse.next();
+
   if (pathname.startsWith("/_next")) return NextResponse.next();
   if (isPublicPath(pathname) || /\.[a-z0-9]+$/i.test(pathname)) return NextResponse.next();
   const session = await validSession(request);

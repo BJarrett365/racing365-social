@@ -13,16 +13,33 @@ function siteOriginFromRequest(req: Request): string {
   return new URL(req.url).origin;
 }
 
+function internalBuildAuthHeader(): string | undefined {
+  const secret = process.env.CRON_SECRET?.trim();
+  return secret ? `Bearer ${secret}` : undefined;
+}
+
 async function invokeBackgroundBuild(origin: string, jobId: string, body: BuildShortRequestBody): Promise<void> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const auth = internalBuildAuthHeader();
+  if (auth) headers.Authorization = auth;
+
   const res = await fetch(`${origin}/.netlify/functions/build-short-background`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
+    redirect: "manual",
     body: JSON.stringify({ jobId, body }),
   });
+  if (res.status >= 300 && res.status < 400) {
+    const location = res.headers.get("location") ?? "";
+    throw new Error(`Background build invoke was redirected (${res.status}) to ${location || "login"}`);
+  }
   if (!res.ok && res.status !== 202) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `Background build invoke failed (${res.status})`);
   }
+  // #region agent log
+  fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'post-fix',hypothesisId:'H8',location:'app/api/build-short/route.ts:invokeBackgroundBuild',message:'background invoke accepted',data:{status:res.status,hasAuth:Boolean(auth)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
 }
 
 export async function GET(req: Request) {

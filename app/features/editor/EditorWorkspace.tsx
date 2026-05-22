@@ -125,13 +125,14 @@ function fileUrl(rel: string, cacheBust?: number) {
 
 function toOutputRel(absPath?: string) {
   if (!absPath) return "";
+  const normalized = absPath.replace(/\\/g, "/").replace(/^\/+/, "");
   const marker = "/output/";
   const idx = absPath.indexOf(marker);
-  if (idx === -1) {
-    const parts = absPath.split("output/");
-    return parts.length > 1 ? parts[parts.length - 1] : absPath;
-  }
-  return absPath.slice(idx + marker.length);
+  if (idx >= 0) return absPath.slice(idx + marker.length).replace(/^\/+/, "");
+  const parts = absPath.split("output/");
+  if (parts.length > 1) return parts[parts.length - 1]!.replace(/^\/+/, "");
+  if (normalized.startsWith("video/") || normalized.startsWith("uploads/")) return normalized;
+  return normalized;
 }
 
 function sanitizeDownloadPart(value: string): string {

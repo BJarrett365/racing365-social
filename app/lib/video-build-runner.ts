@@ -1,7 +1,7 @@
 import { buildShortPayload, type BuildShortRequestBody } from "@/app/lib/build-short-service";
 import { assertFfmpegAvailable, ffmpegResolutionDebug } from "@/app/features/video/ffmpeg-utils";
 import { shouldUseNetlifyBlobStore } from "@/app/lib/netlify-blob-json";
-import { persistVideoOutputToBlob } from "@/app/lib/video-blob-assets";
+import { persistVideoOutputToBlob, outputRelFromAbs } from "@/app/lib/video-blob-assets";
 import {
   completeVideoBuildJob,
   failVideoBuildJob,
@@ -56,8 +56,10 @@ export async function runVideoBuildJob(jobId: string, body: BuildShortRequestBod
       );
       return;
     }
-    await completeVideoBuildJob(jobId, result);
-    console.info("[video-build] completed", { jobId, videoPath: result.videoPath });
+    const videoRelForClient =
+      persistedRel ?? outputRelFromAbs(result.videoPath) ?? result.videoPath.replace(/^\/+/, "");
+    await completeVideoBuildJob(jobId, { ...result, videoPath: videoRelForClient });
+    console.info("[video-build] completed", { jobId, videoPath: videoRelForClient });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
     console.error("[video-build] failed", { jobId, message });

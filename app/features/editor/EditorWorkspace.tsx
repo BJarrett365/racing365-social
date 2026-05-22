@@ -436,6 +436,7 @@ export function EditorWorkspace({
   );
   const [backdropLibraryBusy, setBackdropLibraryBusy] = useState(false);
   const [libraryBrowseQuery, setLibraryBrowseQuery] = useState("");
+  const [librarySportFilter, setLibrarySportFilter] = useState("All sports");
   const [motionBackdropOpaqueOpacity, setMotionBackdropOpaqueOpacity] = useState(0.3);
   const [motionBackdropDimStrength, setMotionBackdropDimStrength] = useState(0.45);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
@@ -532,6 +533,7 @@ export function EditorWorkspace({
     setBackdropLibraryKind(null);
     setBackdropLibraryData(null);
     setLibraryBrowseQuery("");
+    setLibrarySportFilter("All sports");
   }, []);
 
   const selectedCreatorProfile = useMemo(
@@ -607,16 +609,44 @@ export function EditorWorkspace({
   const libraryImagesFiltered = useMemo(() => {
     const imgs = backdropLibraryData?.images ?? [];
     const q = libraryBrowseQuery.trim().toLowerCase();
-    if (!q) return imgs;
-    return imgs.filter((rel) => rel.toLowerCase().includes(q));
-  }, [backdropLibraryData?.images, libraryBrowseQuery]);
+    return imgs.filter((rel) => {
+      const lower = rel.toLowerCase();
+      const sportOk = librarySportFilter === "All sports" || lower.includes(librarySportFilter.toLowerCase());
+      const queryOk = !q || lower.includes(q);
+      return sportOk && queryOk;
+    });
+  }, [backdropLibraryData?.images, libraryBrowseQuery, librarySportFilter]);
 
   const libraryVideosFiltered = useMemo(() => {
     const vids = backdropLibraryData?.videos ?? [];
     const q = libraryBrowseQuery.trim().toLowerCase();
-    if (!q) return vids;
-    return vids.filter((rel) => rel.toLowerCase().includes(q));
-  }, [backdropLibraryData?.videos, libraryBrowseQuery]);
+    return vids.filter((rel) => {
+      const lower = rel.toLowerCase();
+      const sportOk = librarySportFilter === "All sports" || lower.includes(librarySportFilter.toLowerCase());
+      const queryOk = !q || lower.includes(q);
+      return sportOk && queryOk;
+    });
+  }, [backdropLibraryData?.videos, libraryBrowseQuery, librarySportFilter]);
+
+  const librarySportOptions = useMemo(() => {
+    const rels = [...(backdropLibraryData?.images ?? []), ...(backdropLibraryData?.videos ?? [])];
+    const sports = [
+      ["Football", ["football", "f365", "premier-league", "champions-league", "europa", "fa-cup"]],
+      ["Horse Racing", ["racing", "horse", "racecard", "racing365", "cheltenham", "ascot"]],
+      ["Formula 1", ["formula-1", "f1", "planetf1", "grand-prix"]],
+      ["Rugby Union", ["rugby-union", "planet-rugby", "six-nations"]],
+      ["Rugby League", ["rugby-league", "super-league"]],
+      ["Cricket", ["cricket", "ashes"]],
+      ["Golf", ["golf", "masters", "ryder-cup"]],
+      ["Tennis", ["tennis", "wimbledon", "atp", "wta"]],
+    ] as const;
+    return [
+      "All sports",
+      ...sports
+        .filter(([, needles]) => rels.some((rel) => needles.some((needle) => rel.toLowerCase().includes(needle))))
+        .map(([sport]) => sport),
+    ];
+  }, [backdropLibraryData?.images, backdropLibraryData?.videos]);
 
   const t2iPreviewUrl = useMemo(() => {
     if (!t2iTaskJson || t2iTaskJson.status !== "SUCCEEDED") return null;
@@ -2365,7 +2395,8 @@ export function EditorWorkspace({
       // #endregion
       if (data.error) throw new Error(data.error);
       if (!res.ok) throw new Error(data.error || "Video build failed");
-      setVideoRel(toOutputRel(data.videoPath as string));
+      if (!data.videoPath) throw new Error("Video build finished without returning a video path.");
+      setVideoRel(toOutputRel(data.videoPath));
       if (data.voiceProvider === "openai" && data.voiceFallbackReason) {
         setVoiceSettingsMsg("Video built with OpenAI TTS after ElevenLabs fallback.");
         setTimeout(() => setVoiceSettingsMsg(null), 3500);
@@ -4008,31 +4039,31 @@ export function EditorWorkspace({
         }}
       >
         <div
-          className="flex max-h-[min(92vh,940px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-600 bg-slate-950 shadow-2xl"
+          className="flex max-h-[min(92vh,940px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-primary)] shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-700 bg-slate-900 px-4 py-3">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3">
             <h2
               id="editor-backdrop-library-title"
-              className="text-sm font-black uppercase tracking-wide text-slate-100"
+              className="text-sm font-black uppercase tracking-wide text-[color:var(--text-primary)]"
             >
               Browse library
             </h2>
             <button
               type="button"
-              className="rounded-md border border-slate-600 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800"
+              className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1.5 text-xs font-semibold text-[color:var(--text-secondary)] hover:bg-[color:var(--surface-hover)] hover:text-[color:var(--text-primary)]"
               onClick={closeBackdropLibraryPicker}
             >
               Close
             </button>
           </div>
-          <div className="flex shrink-0 gap-2 border-b border-slate-800 bg-slate-900/95 px-3 py-2">
+          <div className="flex shrink-0 gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2">
             <button
               type="button"
               className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
                 backdropLibraryKind === "image"
-                  ? "bg-[#1f2d26] text-[#86efac] ring-1 ring-[#22c55e]/40"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                  ? "bg-[color:var(--accent-soft)] text-[color:var(--primary)] ring-1 ring-[color:var(--accent)]/40"
+                  : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-hover)] hover:text-[color:var(--text-primary)]"
               }`}
               onClick={() => setBackdropLibraryKind("image")}
             >
@@ -4042,23 +4073,34 @@ export function EditorWorkspace({
               type="button"
               className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
                 backdropLibraryKind === "video"
-                  ? "bg-[#1f2d26] text-[#86efac] ring-1 ring-[#22c55e]/40"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                  ? "bg-[color:var(--accent-soft)] text-[color:var(--primary)] ring-1 ring-[color:var(--accent)]/40"
+                  : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-hover)] hover:text-[color:var(--text-primary)]"
               }`}
               onClick={() => setBackdropLibraryKind("video")}
             >
               Motion ({backdropLibraryData?.videos.length ?? 0})
             </button>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-800 px-4 py-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2">
+            <select
+              value={librarySportFilter}
+              onChange={(e) => setLibrarySportFilter(e.target.value)}
+              className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-1.5 text-xs font-semibold text-[color:var(--text-primary)]"
+            >
+              {librarySportOptions.map((sport) => (
+                <option key={sport} value={sport}>
+                  {sport}
+                </option>
+              ))}
+            </select>
             <input
               type="search"
               value={libraryBrowseQuery}
               onChange={(e) => setLibraryBrowseQuery(e.target.value)}
               placeholder="Filter by path…"
-              className="min-w-[12rem] flex-1 rounded-md border border-slate-600 bg-slate-900 px-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-500"
+              className="min-w-[12rem] flex-1 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-1.5 text-xs text-[color:var(--text-primary)] placeholder:text-[color:var(--text-muted)]"
             />
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-[color:var(--text-muted)]">
               {backdropLibraryKind === "image"
                 ? `${libraryImagesFiltered.length} shown`
                 : `${libraryVideosFiltered.length} shown`}
@@ -4069,7 +4111,7 @@ export function EditorWorkspace({
               }
               target="_blank"
               rel="noreferrer"
-              className="shrink-0 text-xs font-semibold text-[#86efac] underline hover:text-[#bbf7d0]"
+              className="shrink-0 text-xs font-semibold text-[color:var(--accent)] underline hover:text-[color:var(--accent-hover)]"
             >
               Open full library
             </a>
@@ -4119,7 +4161,7 @@ export function EditorWorkspace({
                 {libraryVideosFiltered.map((rel) => (
                   <div
                     key={rel}
-                    className="flex flex-col rounded-lg border border-slate-700 bg-black/50 p-2 shadow-inner"
+                    className="flex flex-col rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-2 shadow-inner"
                   >
                     <video
                       src={`/api/file?rel=${encodeURIComponent(rel)}`}
@@ -4130,7 +4172,7 @@ export function EditorWorkspace({
                       preload="metadata"
                       className="mx-auto aspect-[9/16] w-full max-h-72 rounded-md bg-black object-contain"
                     />
-                    <p className="mt-2 line-clamp-3 break-all font-mono text-[9px] leading-tight text-slate-500">
+                      <p className="mt-2 line-clamp-3 break-all font-mono text-[9px] leading-tight text-[color:var(--text-muted)]">
                       {rel}
                     </p>
                     <button

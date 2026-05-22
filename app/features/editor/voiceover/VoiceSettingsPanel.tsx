@@ -108,12 +108,12 @@ export function VoiceSettingsPanel({
         .slice(0, 6)
     : [];
   return (
-    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">Voice settings</p>
-      <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">
+    <div className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-[color:var(--text-primary)] shadow-sm">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">Voice settings</p>
+      <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
         Voice preset
         <select
-          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 shadow-sm outline-none transition focus:border-[#eab308] focus:ring-2 focus:ring-[#eab308]/20"
+          className="mt-2 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2.5 text-sm font-semibold text-[color:var(--text-primary)] shadow-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20"
           value={voicePreset}
           onChange={(e) => onPresetChange(e.target.value as VoicePreset)}
         >
@@ -124,10 +124,10 @@ export function VoiceSettingsPanel({
           ))}
         </select>
       </label>
-      <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">
+      <label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
         Audio provider
         <select
-          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 shadow-sm outline-none transition focus:border-[#16a34a] focus:ring-2 focus:ring-[#16a34a]/20"
+          className="mt-2 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2.5 text-sm font-semibold text-[color:var(--text-primary)] shadow-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20"
           value={voiceProviderPreference ?? "auto"}
           onChange={(e) => onVoiceProviderPreferenceChange?.(e.target.value as VoiceProviderPreference)}
         >
@@ -135,11 +135,11 @@ export function VoiceSettingsPanel({
           <option value="elevenlabs">ElevenLabs premium voices</option>
           <option value="openai">OpenAI TTS cheaper backup</option>
         </select>
-        <span className="mt-2 block text-xs normal-case leading-relaxed tracking-normal text-slate-500">
+        <span className="mt-2 block text-xs normal-case leading-relaxed tracking-normal text-[color:var(--text-secondary)]">
           OpenAI TTS is the cheaper backup if ElevenLabs credits run out. In Auto mode the build tries ElevenLabs first, then switches to OpenAI when available.
         </span>
       </label>
-      <label className={`block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 ${voiceProviderPreference === "openai" ? "opacity-60" : ""}`}>
+      <label className={`block text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--text-muted)] ${voiceProviderPreference === "openai" ? "opacity-60" : ""}`}>
         ElevenLabs voice
         <div className="mt-2 flex flex-wrap gap-1.5">
           {useCaseOptions.map((option) => (
@@ -150,7 +150,7 @@ export function VoiceSettingsPanel({
               className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition ${
                 useCaseFilter === option
                   ? "border-[#16a34a] bg-[#16a34a] text-white shadow-sm"
-                  : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white"
+                  : "border-[color:var(--border)] bg-[color:var(--surface-muted)] text-[color:var(--text-secondary)] hover:border-[color:var(--accent)] hover:bg-[color:var(--surface-hover)]"
               }`}
             >
               {prettyLabel(option)}
@@ -158,7 +158,7 @@ export function VoiceSettingsPanel({
           ))}
         </div>
         <select
-          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 shadow-sm outline-none transition focus:border-[#eab308] focus:ring-2 focus:ring-[#eab308]/20 disabled:bg-slate-100 disabled:text-slate-400"
+          className="mt-2 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2.5 text-sm font-semibold text-[color:var(--text-primary)] shadow-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent)]/20 disabled:opacity-60"
           value={elevenlabsVoiceId}
           onChange={(e) => onElevenlabsVoiceChange(e.target.value)}
           disabled={voiceProviderPreference === "openai" || voicesLoading || filteredVoices.length === 0}
@@ -183,15 +183,15 @@ export function VoiceSettingsPanel({
         </select>
       </label>
       {selectedVoice && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-bold text-slate-800">{selectedVoice.name}</p>
+            <p className="text-sm font-bold text-[color:var(--text-primary)]">{selectedVoice.name}</p>
             <span className="rounded-full border border-[#1d4ed8]/20 bg-[#1d4ed8] px-2.5 py-1 text-[10px] font-bold text-white shadow-sm">
               Using now
             </span>
           </div>
           {selectedVoice.description ? (
-            <p className="mt-2 text-xs leading-relaxed text-slate-600">{selectedVoice.description}</p>
+            <p className="mt-2 text-xs leading-relaxed text-[color:var(--text-secondary)]">{selectedVoice.description}</p>
           ) : null}
           <div className="mt-2 flex flex-wrap gap-1.5">
             {selectedVoice.category ? (
@@ -202,7 +202,7 @@ export function VoiceSettingsPanel({
             {selectedBadges.map(([key, value]) => (
               <span
                 key={key}
-                className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-700"
+                className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-1 text-[10px] font-semibold text-[color:var(--text-secondary)]"
               >
                 {prettyLabel(key)}: {prettyLabel(value)}
               </span>
@@ -211,16 +211,16 @@ export function VoiceSettingsPanel({
         </div>
       )}
       {voiceDiagnostics && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 text-xs text-[color:var(--text-secondary)]">
           <p>
-            Voices loaded: <span className="font-bold text-slate-900">{voiceDiagnostics.totalDefaults}</span>
+            Voices loaded: <span className="font-bold text-[color:var(--text-primary)]">{voiceDiagnostics.totalDefaults}</span>
             {typeof voiceDiagnostics.myVoicesCount === "number" && voiceDiagnostics.myVoicesCount > 0 ? (
               <>
                 {" "}
                 · <span className="font-bold text-[#15803d]">Your voices: {voiceDiagnostics.myVoicesCount}</span>
               </>
             ) : null}{" "}
-            · With labels: <span className="font-bold text-slate-900">{voiceDiagnostics.labelledDefaults}</span>
+            · With labels: <span className="font-bold text-[color:var(--text-primary)]">{voiceDiagnostics.labelledDefaults}</span>
           </p>
           {voiceDiagnostics.unlabelledDefaults > 0 && (
             <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-amber-800">
@@ -245,7 +245,7 @@ export function VoiceSettingsPanel({
           ["female", "Female voice"],
           ["male", "Male voice"],
         ] as const).map(([value, label]) => (
-          <label key={value} className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+          <label key={value} className="flex cursor-pointer items-center gap-2 text-sm font-medium text-[color:var(--text-secondary)]">
             <input
               type="radio"
               name="voice-gender"
@@ -259,7 +259,7 @@ export function VoiceSettingsPanel({
       </div>
 
       <label className="block">
-        <span className="text-xs font-bold uppercase tracking-wide text-slate-600">
+        <span className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
           Speed / tempo <span className="font-mono font-normal normal-case text-[#22d3ee]">{voiceSpeed.toFixed(2)}×</span>
         </span>
         <input
@@ -271,7 +271,7 @@ export function VoiceSettingsPanel({
           value={voiceSpeed}
           onChange={(e) => onVoiceSpeedChange(Number(e.target.value))}
         />
-        <div className="mt-2 grid grid-cols-4 gap-2 text-[10px] font-medium text-slate-500">
+        <div className="mt-2 grid grid-cols-4 gap-2 text-[10px] font-medium text-[color:var(--text-muted)]">
           <span>0.85 slower / dramatic</span>
           <span>1.0 normal</span>
           <span>1.15 Shorts</span>

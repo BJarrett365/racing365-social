@@ -1,4 +1,4 @@
-import { LanguageStudioClient } from "@/app/language-studio/LanguageStudioClient";
+import { LanguageStudioShell } from "@/app/language-studio/LanguageStudioShell";
 import { BRAND_SUITE } from "@/app/lib/brand";
 
 export const metadata = {
@@ -8,5 +8,5 @@ export const metadata = {
 };
 
 export default function LanguageStudioPage() {
-  return <LanguageStudioClient />;
+  return <LanguageStudioShell />;
 }

@@ -153,17 +153,12 @@ if (useTurbo) {
   delete devEnv.TURBOPACK;
   delete devEnv.IS_TURBOPACK_TEST;
 }
-// Webpack dev already polls in next.config.ts (NEXT_WEBPACK_POLL !== "0"). Running Watchpack
-// polling at the same time races incremental rebuilds and deletes manifests mid-request
-// (ENOENT app-paths-manifest.json / page.js). Opt in: WATCHPACK_POLLING=true
+// Webpack dev polls in next.config.ts when NEXT_WEBPACK_POLL !== "0". Running Watchpack
+// polling at the same time races incremental rebuilds (ENOENT manifests). Opt in: WATCHPACK_POLLING=true
 if (!useTurbo && (devEnv.WATCHPACK_POLLING === undefined || devEnv.WATCHPACK_POLLING === "")) {
   devEnv.WATCHPACK_POLLING = "false";
 } else if (useTurbo && (devEnv.WATCHPACK_POLLING === undefined || devEnv.WATCHPACK_POLLING === "")) {
   devEnv.WATCHPACK_POLLING = "true";
-}
-// Webpack poll + memory cache is enough on macOS; dual poll was corrupting .next manifests.
-if (!useTurbo && (devEnv.NEXT_WEBPACK_POLL === undefined || devEnv.NEXT_WEBPACK_POLL === "")) {
-  devEnv.NEXT_WEBPACK_POLL = "0";
 }
 
 console.error(
@@ -174,9 +169,11 @@ console.error(
     `[run-dev] If the site is blank or 500: npm run dev:restart  (or dev:kill-port then dev)\n` +
     (!useTurbo
       ? devEnv.WATCHPACK_POLLING === "true"
-        ? `[run-dev] WATCHPACK_POLLING=true — dual poll can corrupt .next; prefer default (false).\n`
-        : `[run-dev] Stable dev defaults: WATCHPACK_POLLING=false, NEXT_WEBPACK_POLL=0, webpack memory cache.\n` +
-          `[run-dev] If file changes are not detected: NEXT_WEBPACK_POLL=1 npm run dev\n`
+        ? `[run-dev] WATCHPACK_POLLING=true + webpack poll — dual poll can corrupt .next; prefer WATCHPACK_POLLING=false (default).\n`
+        : `[run-dev] Stable dev: WATCHPACK_POLLING=false, memory cache, server splitChunks off.\n` +
+          `[run-dev] After dev:restart, routes warm sequentially (~15s) — wait before opening tabs.\n` +
+          `[run-dev] If ENOENT manifests: npm run dev:restart then wait for [warm-dev] Done.\n` +
+          `[run-dev] Rock-solid local (no HMR): npm run dev:stable\n`
       : "") +
     `[run-dev] Language Studio import crons: set ENABLE_DEV_CRON_POLL=1 to poll this server like npm start; otherwise nothing calls /api/cron/language-imports until you refresh manually.\n` +    
     `[run-dev] Do not use npm start until you run npm run build.\n` +
@@ -232,6 +229,22 @@ const child = spawn(process.execPath, args, {
   stdio: "inherit",
   env: { ...devEnv, NEXT_DIST_DIR: distDir },
 });
+
+/** After a clean dist wipe, pre-compile routes sequentially so the first browser load does not race manifests. */
+if (process.env.FORCE_CLEAN_DEV_DIST === "1" && process.env.DEV_WARM_ON_START !== "0") {
+  setTimeout(() => {
+    const warm = spawn(process.execPath, [join(__dirname, "warm-dev.cjs")], {
+      cwd: root,
+      stdio: "inherit",
+      env: { ...devEnv, PORT: devPort, NEXT_DIST_DIR: distDir },
+    });
+    warm.on("exit", (code) => {
+      if (code && code !== 0) {
+        console.error("[run-dev] Route warm failed — wait a few seconds, then hard-refresh, or run: npm run dev:warm");
+      }
+    });
+  }, 8_000);
+}
 
 if (
   devCronPollEnabled &&

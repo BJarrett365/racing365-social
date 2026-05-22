@@ -19,27 +19,24 @@ const nextConfig: NextConfig = {
   // Keep native/heavy deps and Supabase out of webpack vendor chunks — avoids missing
   // `./vendor-chunks/@supabase.js` when the dev bundle graph is interrupted or mismatched.
   serverExternalPackages: ["puppeteer", "@sparticuz/chromium", "ffmpeg-static", "@supabase/supabase-js"],
+  onDemandEntries: {
+    maxInactiveAge: 60 * 1000,
+    pagesBufferLength: 8,
+  },
 };
 
 if (process.env.USE_TURBO !== "1") {
   nextConfig.webpack = (config, { dev, isServer }) => {
     if (dev) {
-      // Filesystem pack cache + HMR on macOS often races (ENOENT on .pack.gz_ rename,
-      // missing app-paths-manifest.json). Memory cache is slower but stable for local dev.
       config.cache = { type: "memory" };
     }
-    if (dev && isServer && process.env.NEXT_WEBPACK_NO_SERVER_SPLIT_CHUNKS !== "0") {
-      // Without this, `next dev` can emit `webpack-runtime.js` that requires
-      // `./vendor-chunks/*.js` before those files exist → 500 / MODULE_NOT_FOUND.
-      // A single server bundle avoids that race (macOS + poll watchers makes it more likely).
+    if (dev && isServer) {
       config.optimization = {
         ...config.optimization,
         splitChunks: false,
       };
     }
     if (dev && process.env.NEXT_WEBPACK_POLL !== "0") {
-      // Avoid EMFILE / half-built dev bundles when native file watchers fail (common on macOS).
-      // Disable: NEXT_WEBPACK_POLL=0 npm run dev
       config.watchOptions = {
         ...config.watchOptions,
         poll: 1000,

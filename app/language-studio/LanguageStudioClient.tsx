@@ -896,6 +896,8 @@ export function LanguageStudioClient() {
   const deeplinkListRefetchDoneRef = useRef(false);
   /** Preserve `?tab=` from the save deeplink until `articleId` resolves (otherwise we always forced Rewrite). */
   const deeplinkPreferredTabRef = useRef<LanguageStudioTab | null>(null);
+  /** Auto-detect content style only when the context article id changes — not on every list refetch. */
+  const lastStyleContextArticleIdRef = useRef("");
   const socialUploadInputRef = useRef<HTMLInputElement>(null);
   const [socialUploadCtx, setSocialUploadCtx] = useState<{ platform: SocialPost["platform"]; kind: "image" | "video" } | null>(null);
   const [expandedSocialPlatforms, setExpandedSocialPlatforms] = useState<Partial<Record<SocialPost["platform"], boolean>>>(
@@ -967,22 +969,36 @@ export function LanguageStudioClient() {
   const originalForTranslation = selectedTranslation
     ? articles.find((article) => article.id === selectedTranslation.articleId)
     : selectedArticle;
-  const languageContextArticle = (tab === "Review Queue" || tab === "Published") && originalForTranslation
-    ? originalForTranslation
-    : selectedArticle;
+  const languageContextArticle = useMemo(
+    () =>
+      (tab === "Review Queue" || tab === "Published") && originalForTranslation
+        ? originalForTranslation
+        : selectedArticle,
+    [tab, originalForTranslation, selectedArticle],
+  );
+  const languageContextArticleId = languageContextArticle?.id ?? "";
   useEffect(() => {
-    if (!languageContextArticle) return;
-    const detectedStyle = contentStyleFromArticle(languageContextArticle);
+    if (!languageContextArticleId) {
+      lastStyleContextArticleIdRef.current = "";
+      return;
+    }
+    if (lastStyleContextArticleIdRef.current === languageContextArticleId) return;
+    lastStyleContextArticleIdRef.current = languageContextArticleId;
+
+    const article = languageContextArticle;
+    if (!article) return;
+
+    const detectedStyle = contentStyleFromArticle(article);
     setContentStyle(detectedStyle);
     setRewriteStyle(defaultRewriteStyleForContentStyle(detectedStyle));
-    setSportContext(sportContextFromArticle(languageContextArticle, sourceBrands));
+    setSportContext(sportContextFromArticle(article, sourceBrands));
 
-    const author = languageContextArticle.author?.trim().toLowerCase();
+    const author = article.author?.trim().toLowerCase();
     const matchingProfile = author
       ? activeJournalistProfiles.find(
           (profile) =>
             profile.active &&
-            profile.brand === languageContextArticle.sourceBrand &&
+            profile.brand === article.sourceBrand &&
             profile.name.trim().toLowerCase() === author,
         )
       : undefined;
@@ -997,12 +1013,7 @@ export function LanguageStudioClient() {
     } else {
       setSelectedJournalistProfileId("");
     }
-  }, [
-    activeJournalistProfiles,
-    languageContextArticle,
-    sourceBrands,
-    tab,
-  ]);
+  }, [activeJournalistProfiles, languageContextArticle, languageContextArticleId, sourceBrands]);
   const articlesSortedForImports = useMemo(
     () => [...articles].sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""))),
     [articles],
@@ -1081,24 +1092,25 @@ export function LanguageStudioClient() {
   }, [articles, dashboardDay, dashboardMonth, exportsRows, translations]);
 
   const loadAll = useCallback(async () => {
-    const [articleRes, transRes, glossaryRes, rulesRes, exportsRes, clientsRes, sourceBrandsRes, governanceRes] = await Promise.all([
-      fetch(studioApiPath("/api/language/articles")),
-      fetch(studioApiPath("/api/language/translations")),
-      fetch(studioApiPath("/api/language/glossary")),
-      fetch(studioApiPath("/api/language/rules")),
-      fetch(studioApiPath("/api/language/exports")),
-      fetch(studioApiPath("/api/language/clients")),
-      fetch(studioApiPath("/api/language/source-brands")),
-      fetch(studioApiPath("/api/language/governance")),
+    /** Sequential waves — 8 parallel `/api/language/*` compiles on first load race webpack dev output. */
+    const fetchJson = async (path: string) => {
+      const res = await fetch(studioApiPath(path));
+      return res.json();
+    };
+    const articleData = await fetchJson("/api/language/articles");
+    const transData = await fetchJson("/api/language/translations");
+    const [glossaryData, rulesData] = await Promise.all([
+      fetchJson("/api/language/glossary"),
+      fetchJson("/api/language/rules"),
     ]);
-    const articleData = await articleRes.json();
-    const transData = await transRes.json();
-    const glossaryData = await glossaryRes.json();
-    const rulesData = await rulesRes.json();
-    const exportsData = await exportsRes.json();
-    const clientsData = await clientsRes.json();
-    const sourceBrandsData = await sourceBrandsRes.json();
-    const governanceData = await governanceRes.json();
+    const [exportsData, clientsData] = await Promise.all([
+      fetchJson("/api/language/exports"),
+      fetchJson("/api/language/clients"),
+    ]);
+    const [sourceBrandsData, governanceData] = await Promise.all([
+      fetchJson("/api/language/source-brands"),
+      fetchJson("/api/language/governance"),
+    ]);
     const loadedArticles = (articleData.articles ?? []).map((article: Article) => normaliseArticle(article));
     const articleById = new Map<string, Article>(loadedArticles.map((article: Article) => [article.id, article]));
     setArticles(loadedArticles);

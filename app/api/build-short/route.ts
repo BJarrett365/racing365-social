@@ -1,53 +1,84 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { buildShortPayload, type BuildShortRequestBody } from "@/app/lib/build-short-service";
 import { ffmpegResolutionDebug } from "@/app/features/video/ffmpeg-utils";
 import { isNetlifyHostedLambdaRuntime } from "@/app/lib/netlify-hosted-runtime";
+import { runVideoBuildJob } from "@/app/lib/video-build-runner";
 import {
   createVideoBuildJob,
   failVideoBuildJob,
   resolveStaleVideoBuildJob,
 } from "@/app/lib/video-build-jobs";
 
-export const maxDuration = 300;
+/** Fallback inline encode on Netlify when the background function is unreachable (still capped by hosting). */
+export const maxDuration = 900;
 
-function siteOriginFromRequest(req: Request): string {
+function siteOrigin(req: Request): string {
+  const fromEnv = process.env.DEPLOY_PRIME_URL?.trim() || process.env.URL?.trim();
+  if (fromEnv) {
+    try {
+      return new URL(fromEnv).origin;
+    } catch {
+      /* fall through */
+    }
+  }
   return new URL(req.url).origin;
 }
 
-function internalBuildAuthHeader(): string | undefined {
+function internalBuildAuthHeader(): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
   const secret = process.env.CRON_SECRET?.trim();
-  return secret ? `Bearer ${secret}` : undefined;
+  if (secret) headers.Authorization = `Bearer ${secret}`;
+  return headers;
 }
 
-function startNetlifyBackgroundBuild(origin: string, jobId: string, body: BuildShortRequestBody): void {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  const auth = internalBuildAuthHeader();
-  if (auth) headers.Authorization = auth;
+type InvokeResult = "background" | "fallback";
 
-  void fetch(`${origin}/.netlify/functions/build-short-background`, {
-    method: "POST",
-    headers,
-    redirect: "manual",
-    body: JSON.stringify({ jobId, body }),
-  })
-    .then(async (res) => {
-      if (res.status >= 300 && res.status < 400) {
-        const location = res.headers.get("location") ?? "";
-        await failVideoBuildJob(
-          jobId,
-          `Background build invoke was redirected (${res.status}) to ${location || "login"}`,
-        );
-        return;
-      }
-      if (!res.ok && res.status !== 202) {
-        const text = await res.text().catch(() => "");
-        await failVideoBuildJob(jobId, text || `Background build invoke failed (${res.status})`);
-      }
-    })
-    .catch(async (err) => {
-      const message = err instanceof Error ? err.message : "Background build invoke failed";
-      await failVideoBuildJob(jobId, message);
+async function invokeBackgroundBuild(
+  origin: string,
+  jobId: string,
+  body: BuildShortRequestBody,
+): Promise<InvokeResult> {
+  const url = `${origin}/.netlify/functions/build-short-background`;
+  console.info("[build-short] invoking background function", { jobId, origin, url });
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: internalBuildAuthHeader(),
+      redirect: "manual",
+      body: JSON.stringify({ jobId, body }),
     });
+
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location") ?? "";
+      await failVideoBuildJob(
+        jobId,
+        `Background build invoke was redirected (${res.status}) to ${location || "login"}`,
+      );
+      return "background";
+    }
+
+    if (res.status === 404 || res.status === 502 || res.status === 503) {
+      console.warn("[build-short] background function unavailable — using inline fallback", {
+        jobId,
+        status: res.status,
+      });
+      return "fallback";
+    }
+
+    if (!res.ok && res.status !== 202) {
+      const text = await res.text().catch(() => "");
+      await failVideoBuildJob(jobId, text || `Background build invoke failed (${res.status})`);
+      return "background";
+    }
+
+    console.info("[build-short] background invoke accepted", { jobId, status: res.status });
+    return "background";
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Background build invoke failed";
+    console.warn("[build-short] background invoke network error — using inline fallback", { jobId, message });
+    return "fallback";
+  }
 }
 
 export async function GET(req: Request) {
@@ -69,7 +100,22 @@ export async function POST(req: Request) {
     if (isNetlifyHostedLambdaRuntime()) {
       const jobId = `vb-${body.contentId}-${Date.now()}`;
       await createVideoBuildJob(jobId, body.contentId);
-      startNetlifyBackgroundBuild(siteOriginFromRequest(req), jobId, body);
+      const origin = siteOrigin(req);
+
+      after(async () => {
+        try {
+          const mode = await invokeBackgroundBuild(origin, jobId, body);
+          if (mode === "fallback") {
+            console.info("[build-short] running inline fallback encode", { jobId });
+            await runVideoBuildJob(jobId, body);
+          }
+        } catch (e) {
+          const message = e instanceof Error ? e.message : "Video build invoke failed";
+          console.error("[build-short] after() handler failed", { jobId, message });
+          await failVideoBuildJob(jobId, message);
+        }
+      });
+
       return NextResponse.json(
         {
           async: true,

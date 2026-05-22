@@ -35,8 +35,15 @@ export type VideoBuildJobRecord = {
 /** If a running job has not heartbeated recently, the worker likely died on the host. */
 export const STALE_RUNNING_JOB_MS = 120_000;
 
+/** Pending jobs that never reach running — invoke failed or worker never started. */
+export const STALE_PENDING_JOB_MS = 90_000;
+
 export function isStaleRunningJob(job: VideoBuildJobRecord): boolean {
   return job.status === "running" && Date.now() - job.updatedAt > STALE_RUNNING_JOB_MS;
+}
+
+export function isStalePendingJob(job: VideoBuildJobRecord): boolean {
+  return job.status === "pending" && Date.now() - job.createdAt > STALE_PENDING_JOB_MS;
 }
 
 export async function touchVideoBuildJobProgress(jobId: string, phase: string): Promise<void> {
@@ -52,12 +59,22 @@ export async function touchVideoBuildJobProgress(jobId: string, phase: string): 
 
 export async function resolveStaleVideoBuildJob(jobId: string): Promise<VideoBuildJobRecord | null> {
   const job = await getVideoBuildJob(jobId);
-  if (!job || !isStaleRunningJob(job)) return job;
-  await failVideoBuildJob(
-    jobId,
-    "Video build stopped unexpectedly — the host likely timed out. Try again after the latest deploy finishes.",
-  );
-  return getVideoBuildJob(jobId);
+  if (!job) return null;
+  if (isStalePendingJob(job)) {
+    await failVideoBuildJob(
+      jobId,
+      "Background worker never started — check Netlify function logs or redeploy, then try again.",
+    );
+    return getVideoBuildJob(jobId);
+  }
+  if (isStaleRunningJob(job)) {
+    await failVideoBuildJob(
+      jobId,
+      "Video build stopped unexpectedly — the host likely timed out. Try again after the latest deploy finishes.",
+    );
+    return getVideoBuildJob(jobId);
+  }
+  return job;
 }
 
 export async function createVideoBuildJob(jobId: string, contentId: string): Promise<void> {

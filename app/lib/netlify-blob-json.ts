@@ -19,5 +19,15 @@ export async function readJsonBlob<T>(storeName: string, key: string): Promise<T
 }
 
 export async function writeJsonBlob<T>(storeName: string, key: string, data: T): Promise<void> {
-  await getStore(storeName).setJSON(key, data);
+  if (!shouldUseNetlifyBlobStore()) return;
+  try {
+    await getStore(storeName).setJSON(key, data);
+  } catch (error) {
+    console.error("[netlify-blob-json] write failed", {
+      storeName,
+      key,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 }

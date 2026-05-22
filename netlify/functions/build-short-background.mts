@@ -1,4 +1,5 @@
 import type { BuildShortRequestBody } from "../../app/lib/build-short-service";
+import { failVideoBuildJob } from "../../app/lib/video-build-jobs";
 import { runVideoBuildJob } from "../../app/lib/video-build-runner";
 
 type BackgroundBody = {
@@ -34,6 +35,27 @@ export default async (req: Request) => {
     return new Response(JSON.stringify({ error: "jobId and build body required" }), { status: 400 });
   }
 
-  await runVideoBuildJob(jobId, body);
-  return new Response(JSON.stringify({ ok: true, jobId }), { status: 200 });
+  console.info("[build-short-background] starting", {
+    jobId,
+    contentId: body.contentId,
+    sceneCount: body.scenes.length,
+  });
+
+  try {
+    await runVideoBuildJob(jobId, body);
+    console.info("[build-short-background] completed", { jobId });
+    return new Response(JSON.stringify({ ok: true, jobId }), { status: 200 });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Unknown error";
+    console.error("[build-short-background] failed", { jobId, message });
+    try {
+      await failVideoBuildJob(jobId, message);
+    } catch (failErr) {
+      console.error("[build-short-background] could not record job failure", {
+        jobId,
+        message: failErr instanceof Error ? failErr.message : String(failErr),
+      });
+    }
+    return new Response(JSON.stringify({ error: message, jobId }), { status: 500 });
+  }
 };

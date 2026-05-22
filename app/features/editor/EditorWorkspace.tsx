@@ -2362,6 +2362,7 @@ export function EditorWorkspace({
       // #region agent log
       fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'live-ffmpeg-initial',hypothesisId:'H1,H2,H3,H4',location:'app/features/editor/EditorWorkspace.tsx:after-build-short',message:'client received build-short response',data:{status:res.status,ok:res.ok,error:data.error,voiceProvider:data.voiceProvider,voiceFallbackReason:data.voiceFallbackReason,debug:data.debug},timestamp:Date.now()})}).catch(()=>{});
       // #endregion
+      if (data.error) throw new Error(data.error);
       if (!res.ok) throw new Error(data.error || "Video build failed");
       setVideoRel(toOutputRel(data.videoPath as string));
       if (data.voiceProvider === "openai" && data.voiceFallbackReason) {

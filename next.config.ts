@@ -15,7 +15,6 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   outputFileTracingIncludes: {
     "/api/**/*": ["./node_modules/ffmpeg-static/ffmpeg"],
-    "/api/video-build-worker": ["./node_modules/ffmpeg-static/ffmpeg"],
   },
   // Keep native/heavy deps and Supabase out of webpack vendor chunks — avoids missing
   // `./vendor-chunks/@supabase.js` when the dev bundle graph is interrupted or mismatched.

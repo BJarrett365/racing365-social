@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { withAppPathPrefix } from "@/app/lib/app-base-path";
 import { buildShortPayload, type BuildShortRequestBody } from "@/app/lib/build-short-service";
 import { ffmpegResolutionDebug } from "@/app/features/video/ffmpeg-utils";
 import { isNetlifyHostedLambdaRuntime } from "@/app/lib/netlify-hosted-runtime";
@@ -20,12 +19,12 @@ function internalBuildAuthHeader(): string | undefined {
   return secret ? `Bearer ${secret}` : undefined;
 }
 
-function startVideoBuildWorker(origin: string, jobId: string, body: BuildShortRequestBody): void {
+function startNetlifyBackgroundBuild(origin: string, jobId: string, body: BuildShortRequestBody): void {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const auth = internalBuildAuthHeader();
   if (auth) headers.Authorization = auth;
 
-  void fetch(`${origin}${withAppPathPrefix("/api/video-build-worker")}`, {
+  void fetch(`${origin}/.netlify/functions/build-short-background`, {
     method: "POST",
     headers,
     redirect: "manual",
@@ -36,17 +35,17 @@ function startVideoBuildWorker(origin: string, jobId: string, body: BuildShortRe
         const location = res.headers.get("location") ?? "";
         await failVideoBuildJob(
           jobId,
-          `Video build worker invoke was redirected (${res.status}) to ${location || "login"}`,
+          `Background build invoke was redirected (${res.status}) to ${location || "login"}`,
         );
         return;
       }
       if (!res.ok && res.status !== 202) {
         const text = await res.text().catch(() => "");
-        await failVideoBuildJob(jobId, text || `Video build worker invoke failed (${res.status})`);
+        await failVideoBuildJob(jobId, text || `Background build invoke failed (${res.status})`);
       }
     })
     .catch(async (err) => {
-      const message = err instanceof Error ? err.message : "Video build worker invoke failed";
+      const message = err instanceof Error ? err.message : "Background build invoke failed";
       await failVideoBuildJob(jobId, message);
     });
 }
@@ -70,7 +69,7 @@ export async function POST(req: Request) {
     if (isNetlifyHostedLambdaRuntime()) {
       const jobId = `vb-${body.contentId}-${Date.now()}`;
       await createVideoBuildJob(jobId, body.contentId);
-      startVideoBuildWorker(siteOriginFromRequest(req), jobId, body);
+      startNetlifyBackgroundBuild(siteOriginFromRequest(req), jobId, body);
       return NextResponse.json(
         {
           async: true,

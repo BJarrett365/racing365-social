@@ -7,15 +7,19 @@
 [build.environment]
   NODE_VERSION = "20"
   NEXT_TELEMETRY_DISABLED = "1"
-  # Puppeteer normally downloads Chrome on install (~hundreds of MB). Runtime on
-  # Netlify uses @sparticuz/chromium; skipping keeps install smaller and avoids failures.
   PUPPETEER_SKIP_DOWNLOAD = "true"
   NODE_OPTIONS = "--max-old-space-size=8192"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Note: Do not set `[functions] timeout` here — some Netlify + Next.js config parsers reject it at the
-# "Reading and parsing configuration files" stage. Raise the synchronous function limit in the UI instead:
-# Site configuration → Build & deploy → Functions → Function timeout (e.g. 26s on supported plans).
-# Long video builds use pages/api/video-build-worker.ts (15 minute experimental-background limit).
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  external_node_modules = ["ffmpeg-static"]
+
+[functions."build-short-background"]
+  included_files = ["node_modules/ffmpeg-static/ffmpeg"]
+
+# Long video builds use netlify/functions/build-short-background.mts (15 minute background limit).
+# Do not use pages/api experimental-background routes — @netlify/plugin-nextjs v5 rejects them.

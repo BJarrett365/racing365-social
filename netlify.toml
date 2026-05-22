@@ -22,5 +22,8 @@
   included_files = ["node_modules/ffmpeg-static/ffmpeg"]
   timeout = 900
 
+[functions."language-rewrite-background"]
+  timeout = 900
+
 # Long video builds use netlify/functions/build-short-background.mts (15 minute background limit).
 # Do not use pages/api experimental-background routes — @netlify/plugin-nextjs v5 rejects them.

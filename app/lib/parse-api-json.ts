@@ -78,3 +78,33 @@ export async function pollVideoBuildJob(
 
   throw new Error("Video build timed out waiting for background completion.");
 }
+
+export type LanguageRewriteJobPollResult = {
+  status?: "pending" | "running" | "completed" | "failed";
+  phase?: string;
+  error?: string;
+  rewrites?: unknown[];
+  totalArticles?: number;
+  completedArticles?: number;
+};
+
+export async function pollLanguageRewriteJob(
+  jobUrl: string,
+  options?: { timeoutMs?: number; intervalMs?: number; onProgress?: (job: LanguageRewriteJobPollResult) => void },
+): Promise<LanguageRewriteJobPollResult> {
+  const timeoutMs = options?.timeoutMs ?? 15 * 60 * 1000;
+  const intervalMs = options?.intervalMs ?? 2000;
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const res = await fetch(jobUrl, { cache: "no-store" });
+    const job = await parseApiJson<LanguageRewriteJobPollResult>(res);
+    options?.onProgress?.(job);
+    if (job.status === "completed" || job.status === "failed") {
+      return job;
+    }
+    await sleep(intervalMs);
+  }
+
+  throw new Error("Rewrite timed out waiting for background completion.");
+}

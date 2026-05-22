@@ -48,6 +48,8 @@ type TranslateInput = {
   promptRules?: LanguagePromptRule[];
   complianceNotes?: LanguageComplianceNote[];
   market?: string;
+  /** When false, skip platform socialPosts in the main OpenAI call (filled in via deferred job). */
+  includeSocialPosts?: boolean;
 };
 
 type TranslationFields = Pick<LanguageTranslation, "title" | "standfirst" | "body" | "seoTitle" | "metaDescription" | "tags" | "slug" | "socialEmbeds" | "socialPosts" | "warnings" | "confidenceScore" | "guardrailFlags">;
@@ -344,6 +346,7 @@ function mergeSocialEmbeds(source: LanguageSocialEmbed[] = [], translated: Langu
 
 function promptFor(input: TranslateInput, mode: TranslationMode): string {
   const { article, targetLanguage, glossary = [], rules = [], guardrails = [], protectedTerms = [], marketRules = [], sportRules = [], promptRules = [], complianceNotes = [], knowledgeFiles = [] } = input;
+  const includeSocialPosts = input.includeSocialPosts !== false;
   const target = LANGUAGE_LABELS[targetLanguage];
   const modeInstruction = mode === "rewrite-only"
     ? "Rewrite the source article in the same language as an original editorial version for Google and readers. Create a genuinely fresh structure, headline, intro, transitions and SEO framing while preserving every fact, name, number, date, result, chronology and attribution. Do not add new reporting. Do not rewrite quoted speech; quotes may only be retained exactly or lightly formatted for grammar outside the quote boundary. Keep the article useful, natural and publication-ready, not spun with synonyms."
@@ -436,9 +439,17 @@ function promptFor(input: TranslateInput, mode: TranslationMode): string {
     "Knowledge file lessons:",
     JSON.stringify(knowledgeFiles.filter((row) => !row.language || row.language === targetLanguage).slice(0, 20).map((row) => ({ title: row.title, kind: row.kind, content: row.content }))),
     "",
-    "Social output requirements:",
-    "Create platform-ready socialPosts for appAlerts, facebook, x, instagram, youtube, tiktok, whatsapp and telegram. Keep claims factual and based only on the article. Use native platform tone, avoid clickbait, and keep names/numbers/dates accurate.",
-    "",
+    ...(includeSocialPosts
+      ? [
+          "Social output requirements:",
+          "Create platform-ready socialPosts for appAlerts, facebook, x, instagram, youtube, tiktok, whatsapp and telegram. Keep claims factual and based only on the article. Use native platform tone, avoid clickbait, and keep names/numbers/dates accurate.",
+          "",
+        ]
+      : [
+          "Social output requirements:",
+          "Return socialPosts as an empty array []. Platform social copy will be generated in a separate pass after this rewrite.",
+          "",
+        ]),
     "Compliance notes:",
     JSON.stringify(complianceNotes.map((row) => ({ market: row.market, riskType: row.riskType, rule: row.rule, action: row.action, escalationRequired: row.escalationRequired }))),
     "",

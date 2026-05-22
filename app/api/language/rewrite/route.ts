@@ -1,20 +1,23 @@
-import { NextResponse } from "next/server";
-import { stripArticleMetadataLines, stripGeneratedArticleMetadataLines } from "@/app/lib/language-studio/article-pages";
-import { scheduleDeferredSocialPostsForTranslation } from "@/app/lib/language-studio/deferred-social-posts";
-import { contentStyleFromArticle, sportContextFromArticle } from "@/app/lib/language-studio/article-context";
-import { translateContent } from "@/app/lib/language-studio/language-engine";
+import { after, NextResponse } from "next/server";
+import { isNetlifyHostedLambdaRuntime } from "@/app/lib/netlify-hosted-runtime";
 import {
-  newLanguageId,
-  readLanguageStudioData,
-  writeLanguageStudioData,
-} from "@/app/lib/language-studio/store";
+  createLanguageRewriteJob,
+  failLanguageRewriteJob,
+  resolveStaleLanguageRewriteJob,
+} from "@/app/lib/language-rewrite-jobs";
+import {
+  runLanguageRewriteJob,
+  type LanguageRewriteRequestBody,
+} from "@/app/lib/language-rewrite-runner";
+import { readLanguageStudioData } from "@/app/lib/language-studio/store";
 import type {
   LanguageContentStyle,
-  LanguageJournalistProfile,
   LanguageProviderMode,
   LanguageSportContext,
-  LanguageTranslation,
 } from "@/app/lib/language-studio/types";
+
+/** Inline fallback on Netlify when the background function is unreachable. */
+export const maxDuration = 900;
 
 type Body = {
   articleId?: string;
@@ -29,19 +32,105 @@ type Body = {
   sportContext?: LanguageSportContext;
 };
 
-function profileForArticle(profiles: LanguageJournalistProfile[], article: { author?: string; sourceBrand: string }, selectedId?: string): LanguageJournalistProfile | undefined {
-  if (selectedId) return profiles.find((profile) => profile.id === selectedId && profile.active);
-  const author = article.author?.trim().toLowerCase();
-  if (!author) return undefined;
-  return profiles.find((profile) => profile.active && profile.brand === article.sourceBrand && profile.name.trim().toLowerCase() === author);
+function siteOrigin(req: Request): string {
+  const fromEnv = process.env.DEPLOY_PRIME_URL?.trim() || process.env.URL?.trim();
+  if (fromEnv) {
+    try {
+      return new URL(fromEnv).origin;
+    } catch {
+      /* fall through */
+    }
+  }
+  return new URL(req.url).origin;
 }
 
-function hasCompleteSocialPosts(row: Pick<LanguageTranslation, "socialPosts">): boolean {
-  const required = new Set(["appAlerts", "facebook", "x", "instagram", "youtube", "tiktok", "whatsapp", "telegram"]);
-  for (const post of row.socialPosts ?? []) {
-    if (post.text.trim()) required.delete(post.platform);
+function internalAuthHeader(): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const secret = process.env.CRON_SECRET?.trim();
+  if (secret) headers.Authorization = `Bearer ${secret}`;
+  return headers;
+}
+
+function normaliseBody(body: Body): LanguageRewriteRequestBody | null {
+  const articleIds = Array.isArray(body.articleIds) && body.articleIds.length > 0
+    ? body.articleIds
+    : body.articleId
+      ? [body.articleId]
+      : [];
+  if (articleIds.length === 0) return null;
+  return {
+    articleIds,
+    clientIds: body.clientIds,
+    providerMode: body.providerMode,
+    journalistProfileId: body.journalistProfileId,
+    rewriteStyle: body.rewriteStyle,
+    journalistStyle: body.journalistStyle,
+    editorialGuidelines: body.editorialGuidelines,
+    contentStyle: body.contentStyle,
+    sportContext: body.sportContext,
+  };
+}
+
+type InvokeResult = "background" | "fallback";
+
+async function invokeBackgroundRewrite(
+  origin: string,
+  jobId: string,
+  body: LanguageRewriteRequestBody,
+): Promise<InvokeResult> {
+  const url = `${origin}/.netlify/functions/language-rewrite-background`;
+  console.info("[language-rewrite] invoking background function", { jobId, origin, url });
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: internalAuthHeader(),
+      redirect: "manual",
+      body: JSON.stringify({ jobId, body }),
+    });
+
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location") ?? "";
+      await failLanguageRewriteJob(
+        jobId,
+        `Background rewrite invoke was redirected (${res.status}) to ${location || "login"}`,
+      );
+      return "background";
+    }
+
+    if (res.status === 404 || res.status === 502 || res.status === 503) {
+      console.warn("[language-rewrite] background function unavailable — using inline fallback", {
+        jobId,
+        status: res.status,
+      });
+      return "fallback";
+    }
+
+    if (!res.ok && res.status !== 202) {
+      const text = await res.text().catch(() => "");
+      await failLanguageRewriteJob(jobId, text || `Background rewrite invoke failed (${res.status})`);
+      return "background";
+    }
+
+    console.info("[language-rewrite] background invoke accepted", { jobId, status: res.status });
+    return "background";
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Background rewrite invoke failed";
+    console.warn("[language-rewrite] background invoke network error — using inline fallback", { jobId, message });
+    return "fallback";
   }
-  return required.size === 0;
+}
+
+export async function GET(req: Request) {
+  const jobId = new URL(req.url).searchParams.get("jobId")?.trim();
+  if (!jobId) {
+    return NextResponse.json({ error: "jobId required" }, { status: 400 });
+  }
+  const job = await resolveStaleLanguageRewriteJob(jobId);
+  if (!job) {
+    return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  }
+  return NextResponse.json(job);
 }
 
 export async function POST(req: Request) {
@@ -52,92 +141,58 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
+  const requestBody = normaliseBody(body);
+  if (!requestBody) {
+    return NextResponse.json({ error: "Select at least one article." }, { status: 400 });
+  }
+
   try {
     const data = await readLanguageStudioData();
-    const articleIds = Array.isArray(body.articleIds) && body.articleIds.length > 0
-      ? body.articleIds
-      : body.articleId
-        ? [body.articleId]
-        : [];
-    const articles = articleIds.map((id) => data.articles[id]).filter((article): article is NonNullable<typeof article> => Boolean(article));
-    if (articles.length === 0) return NextResponse.json({ error: "Article not found." }, { status: 404 });
-    const clientIds = Array.isArray(body.clientIds)
-      ? [...new Set(body.clientIds.map((id) => String(id).trim()).filter((id) => Boolean(data.clients[id]?.active)))]
-      : [];
-
-    const now = new Date().toISOString();
-    const rewrites: LanguageTranslation[] = [];
-
-    for (const sourceArticle of articles) {
-      const article = {
-        ...sourceArticle,
-        body: stripArticleMetadataLines(sourceArticle.body, sourceArticle),
-      };
-      const glossary = Object.values(data.glossary).filter((entry) => entry.brand === article.sourceBrand || entry.brand === "Global");
-      const rules = Object.values(data.rules).filter((rule) => rule.brand === article.sourceBrand || rule.brand === "Global");
-      const profile = profileForArticle(Object.values(data.journalistProfiles), article, body.journalistProfileId);
-      const journalistStyle = body.journalistStyle || (profile ? `${profile.name} (${profile.brand})\n${profile.styleNotes}` : undefined);
-      const editorialGuidelines = body.editorialGuidelines || profile?.articleGuidelines;
-      const fields = await translateContent({
-        article,
-        targetLanguage: article.sourceLanguage,
-        providerMode: body.providerMode ?? "openai",
-        translationMode: "rewrite-only",
-        rewriteStyle: body.rewriteStyle,
-        journalistStyle,
-        editorialGuidelines,
-        contentStyle: body.contentStyle ?? contentStyleFromArticle(article),
-        sportContext: body.sportContext ?? sportContextFromArticle(article, Object.values(data.sourceBrands)),
-        glossary,
-        rules,
-        guardrails: Object.values(data.guardrails),
-        protectedTerms: Object.values(data.protectedTerms),
-        marketRules: Object.values(data.marketRules),
-        sportRules: Object.values(data.sportRules),
-        promptRules: Object.values(data.promptRules),
-        knowledgeFiles: Object.values(data.knowledgeFiles),
-        complianceNotes: Object.values(data.complianceNotes),
-      });
-      const row: LanguageTranslation = {
-        id: newLanguageId("lrewrite"),
-        articleId: article.id,
-        clientIds,
-        targetLanguage: article.sourceLanguage,
-        providerMode: body.providerMode ?? "openai",
-        translationMode: "rewrite-only",
-        status: "draft",
-        createdAt: now,
-        updatedAt: now,
-        editorNotes: [
-          body.rewriteStyle ? `Style: ${body.rewriteStyle}` : "",
-          journalistStyle ? `Journalist style: ${journalistStyle}` : "",
-          `Content style: ${body.contentStyle ?? contentStyleFromArticle(article)}`,
-          `Sport: ${body.sportContext ?? sportContextFromArticle(article, Object.values(data.sourceBrands))}`,
-          editorialGuidelines ? `Guidelines: ${editorialGuidelines}` : "",
-        ].filter(Boolean).join("\n"),
-        ...fields,
-        body: stripGeneratedArticleMetadataLines(fields.body, article, fields.title),
-      };
-      if (!hasCompleteSocialPosts(row)) {
-        scheduleDeferredSocialPostsForTranslation(row.id);
-      }
-      data.translations[row.id] = row;
-      article.status = "review_needed";
-      article.updatedAt = now;
-      rewrites.push(row);
-      const auditId = newLanguageId("laudit");
-      data.auditLogs[auditId] = {
-        id: auditId,
-        createdAt: now,
-        entityType: "language_translation",
-        entityId: row.id,
-        action: "rewrite",
-        detail: `${article.title} rewritten for ${article.sourceBrand}`,
-      };
+    const articles = requestBody.articleIds
+      .map((id) => data.articles[id])
+      .filter((article): article is NonNullable<typeof article> => Boolean(article));
+    if (articles.length === 0) {
+      return NextResponse.json({ error: "Article not found." }, { status: 404 });
     }
 
-    await writeLanguageStudioData(data);
-    return NextResponse.json({ success: true, rewrites });
+    if (isNetlifyHostedLambdaRuntime()) {
+      const jobId = `lr-${Date.now()}-${requestBody.articleIds[0]}`;
+      await createLanguageRewriteJob(jobId, articles.length);
+      const origin = siteOrigin(req);
+
+      after(async () => {
+        try {
+          const mode = await invokeBackgroundRewrite(origin, jobId, requestBody);
+          if (mode === "fallback") {
+            console.info("[language-rewrite] running inline fallback", { jobId });
+            await runLanguageRewriteJob(jobId, requestBody);
+          }
+        } catch (e) {
+          const message = e instanceof Error ? e.message : "Rewrite invoke failed";
+          console.error("[language-rewrite] after() handler failed", { jobId, message });
+          await failLanguageRewriteJob(jobId, message);
+        }
+      });
+
+      return NextResponse.json(
+        {
+          async: true,
+          jobId,
+          status: "pending",
+          message: "Rewrite started in the background. Poll until completed.",
+        },
+        { status: 202 },
+      );
+    }
+
+    const jobId = `lr-local-${Date.now()}`;
+    await createLanguageRewriteJob(jobId, articles.length);
+    await runLanguageRewriteJob(jobId, requestBody);
+    const job = await resolveStaleLanguageRewriteJob(jobId);
+    if (!job || job.status === "failed") {
+      return NextResponse.json({ error: job?.error || "Rewrite failed." }, { status: 500 });
+    }
+    return NextResponse.json({ success: true, rewrites: job.rewrites ?? [] });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Rewrite failed.";
     return NextResponse.json({ error: message }, { status: 500 });

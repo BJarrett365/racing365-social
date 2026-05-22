@@ -7,6 +7,7 @@ import { R365Button } from "@/app/components/R365Button";
 import { GovernancePanel } from "@/app/language-studio/GovernancePanels";
 import { QualityGuardrailsPanel } from "@/app/language-studio/QualityGuardrailsPanel";
 import { studioApiPath, withAppPathPrefix } from "@/app/lib/app-base-path";
+import { pollLanguageRewriteJob } from "@/app/lib/parse-api-json";
 import { isSafeContentId, normalizeContentIdForFilename } from "@/app/lib/editor-content-id";
 import { stripArticleMetadataLines } from "@/app/lib/language-studio/article-pages";
 import {
@@ -551,6 +552,11 @@ async function readJsonResponse(res: Response): Promise<Record<string, unknown>>
   try {
     return JSON.parse(trimmed) as Record<string, unknown>;
   } catch {
+    if (res.status === 504 || res.status === 502) {
+      throw new Error(
+        "The server stopped responding in time (gateway timeout). On live, rewrites now run in the background after deploy — refresh Language Studio or try again once the latest deploy is published.",
+      );
+    }
     throw new Error(`Server returned a non-JSON response (${res.status}). Check the Netlify function logs.`);
   }
 }
@@ -1339,8 +1345,25 @@ export function LanguageStudioClient() {
           sportContext,
         }),
       });
-      const data = await readJsonResponse(res);
-      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Rewrite failed");
+      let data = await readJsonResponse(res);
+      if (res.status === 202 && data.async && typeof data.jobId === "string") {
+        data = await pollLanguageRewriteJob(
+          studioApiPath(`/api/language/rewrite?jobId=${encodeURIComponent(data.jobId)}`),
+          {
+            onProgress: (job) => {
+              if (job.phase) {
+                setBusyCaption(`Running rewrites… (${job.phase})`);
+              }
+            },
+          },
+        );
+      }
+      if (data.status === "failed" || (typeof data.error === "string" && data.error)) {
+        throw new Error(String(data.error || "Rewrite failed"));
+      }
+      if (!res.ok && res.status !== 202) {
+        throw new Error(typeof data.error === "string" ? data.error : "Rewrite failed");
+      }
       const createdRewrites = Array.isArray(data.rewrites)
         ? (data.rewrites as Translation[]).map((row) => normaliseTranslation(row, articles.find((article) => article.id === row.articleId)))
         : [];

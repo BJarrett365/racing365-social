@@ -142,6 +142,9 @@ export function CreateTemplateButton({
           format?: string;
           draft?: Omit<NextOffBundle, "id"> | Omit<FastResultBundle, "id">;
         }>(res);
+        // #region agent log
+        fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'fast-results-parse',hypothesisId:'H1,H2,H3,H4',location:'app/components/TemplateActions.tsx:racing-url-fetch',message:'racing url parse response',data:{status:res.status,ok:res.ok,requestedFormat:format,responseFormat:data.format,error:data.error,hasDraft:Boolean(data.draft),urlShape:url.replace(/[?&](?:token|key|api_key|apikey|password)=[^&]+/gi,'')},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         if (!res.ok) throw new Error(data.error || "Fetch failed");
         if (format === "next-off" && data.format === "next-off" && data.draft) {
           setUrlDraft({ format: "next-off", draft: data.draft as Omit<NextOffBundle, "id"> });

@@ -52,7 +52,7 @@ import { pickRacingCommentatorVoiceId } from "@/app/lib/racing-voice-defaults";
 import type { CompositorLayer } from "@/app/lib/compositor-types";
 import { compositorLayersToDataUrl, stripLegacyFastResultsBoardOverlayLayers } from "@/app/lib/compositor-canvas";
 import { sceneDisplayLabel } from "@/app/lib/scene-display-labels";
-import { parseApiJson } from "@/app/lib/parse-api-json";
+import { parseApiJson, pollVideoBuildJob } from "@/app/lib/parse-api-json";
 import { BRAND_SHORT_SINGULAR, BRAND_SHORTS } from "@/app/lib/brand";
 import {
   computeSyncFromScript,
@@ -2384,6 +2384,9 @@ export function EditorWorkspace({
       fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'live-ffmpeg-response-probe',hypothesisId:'H5,H6,H7',location:'app/features/editor/EditorWorkspace.tsx:raw-build-short-response',message:'client raw build-short response before parse',data:{status:res.status,ok:res.ok,contentType:res.headers.get('content-type'),responsePrefix:buildResponsePreview.slice(0,500)},timestamp:Date.now()})}).catch(()=>{});
       // #endregion
       const data = await parseApiJson<{
+        async?: boolean;
+        jobId?: string;
+        status?: string;
         error?: string;
         videoPath?: string;
         voiceProvider?: string;
@@ -2391,13 +2394,23 @@ export function EditorWorkspace({
         debug?: unknown;
       }>(res);
       // #region agent log
-      fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'live-ffmpeg-initial',hypothesisId:'H1,H2,H3,H4',location:'app/features/editor/EditorWorkspace.tsx:after-build-short',message:'client received build-short response',data:{status:res.status,ok:res.ok,error:data.error,voiceProvider:data.voiceProvider,voiceFallbackReason:data.voiceFallbackReason,debug:data.debug},timestamp:Date.now()})}).catch(()=>{});
+      fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'live-ffmpeg-initial',hypothesisId:'H1,H2,H3,H4',location:'app/features/editor/EditorWorkspace.tsx:after-build-short',message:'client received build-short response',data:{status:res.status,ok:res.ok,async:Boolean(data.async),jobId:data.jobId,error:data.error,voiceProvider:data.voiceProvider,voiceFallbackReason:data.voiceFallbackReason,debug:data.debug},timestamp:Date.now()})}).catch(()=>{});
       // #endregion
-      if (data.error) throw new Error(data.error);
-      if (!res.ok) throw new Error(data.error || "Video build failed");
-      if (!data.videoPath) throw new Error("Video build finished without returning a video path.");
-      setVideoRel(toOutputRel(data.videoPath));
-      if (data.voiceProvider === "openai" && data.voiceFallbackReason) {
+      if (data.error && res.status !== 202) throw new Error(data.error);
+      if (!res.ok && res.status !== 202) throw new Error(data.error || "Video build failed");
+
+      let buildResult = data;
+      if (res.status === 202 && data.async && data.jobId) {
+        buildResult = await pollVideoBuildJob(studioApiPath(`/api/build-short?jobId=${encodeURIComponent(data.jobId)}`));
+        // #region agent log
+        fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'post-fix',hypothesisId:'H5',location:'app/features/editor/EditorWorkspace.tsx:after-poll',message:'background video build poll finished',data:{status:buildResult.status,hasVideoPath:Boolean(buildResult.videoPath),error:buildResult.error},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+      }
+
+      if (buildResult.error) throw new Error(buildResult.error);
+      if (!buildResult.videoPath) throw new Error("Video build finished without returning a video path.");
+      setVideoRel(toOutputRel(buildResult.videoPath));
+      if (buildResult.voiceProvider === "openai" && buildResult.voiceFallbackReason) {
         setVoiceSettingsMsg("Video built with OpenAI TTS after ElevenLabs fallback.");
         setTimeout(() => setVoiceSettingsMsg(null), 3500);
       }

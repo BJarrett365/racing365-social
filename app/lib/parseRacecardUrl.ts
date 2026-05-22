@@ -138,6 +138,7 @@ type FlatMeetingRace = {
   dayDate: string;
   courseName: string;
   raceTime: string;
+  raceUtcTime: string;
   preRaceId: number;
   postRaceId: number | null;
 };
@@ -172,6 +173,7 @@ export function flattenPlanetSportMeetingsForDate(raw: unknown, dayDate: string)
             dayDate,
             courseName,
             raceTime,
+            raceUtcTime: str((r as { RaceUTCTime?: unknown }).RaceUTCTime),
             preRaceId: pre,
             postRaceId: post,
           });
@@ -195,6 +197,18 @@ function londonMeetingsDateWindowTriple(): string[] {
   return [ymd(now), ymd(now + dayMs), ymd(now - dayMs)];
 }
 
+function londonTimeFromUtc(utcIso: string): string | null {
+  if (!utcIso) return null;
+  const date = new Date(utcIso);
+  if (!Number.isFinite(date.getTime())) return null;
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+}
+
 async function fetchPlanetSportMeetingsForDate(dateIso: string): Promise<unknown> {
   const url = `${PLANETSPORT_BASE}/GetMeetings?date=${encodeURIComponent(dateIso)}`;
   const res = await fetch(url, {
@@ -216,6 +230,7 @@ async function resolveRacing365CourseTimeToFetchId(
   raceTimeHhMm: string,
 ): Promise<number> {
   const dates = londonMeetingsDateWindowTriple();
+  const matches: FlatMeetingRace[] = [];
   for (const d of dates) {
     let raw: unknown;
     try {
@@ -224,15 +239,18 @@ async function resolveRacing365CourseTimeToFetchId(
       if (e instanceof RacecardUrlImportError) throw e;
       continue;
     }
-    const rows = flattenPlanetSportMeetingsForDate(raw, d).filter(
-      (row) => slugifyRacing365CourseSegment(row.courseName) === meetingSlug && row.raceTime === raceTimeHhMm,
-    );
-    if (rows.length === 0) continue;
-    const pick = rows[0]!;
+    const rows = flattenPlanetSportMeetingsForDate(raw, d).filter((row) => {
+      if (slugifyRacing365CourseSegment(row.courseName) !== meetingSlug) return false;
+      return row.raceTime === raceTimeHhMm || londonTimeFromUtc(row.raceUtcTime) === raceTimeHhMm;
+    });
+    matches.push(...rows);
+  }
+  if (matches.length > 0) {
     if (kind === "results") {
-      return pick.postRaceId ?? pick.preRaceId;
+      const officialResult = matches.find((row) => row.postRaceId);
+      return officialResult?.postRaceId ?? matches[0]!.preRaceId;
     }
-    return pick.preRaceId;
+    return matches[0]!.preRaceId;
   }
   throw new RacecardUrlImportError(
     "We could not match this Racing365 course and time in recent meeting data. Try again after the card is published, or use a URL that includes a race id.",

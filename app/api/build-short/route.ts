@@ -1,111 +1,69 @@
 import { NextResponse } from "next/server";
-import { buildShortVideo } from "@/app/features/video/video-builder";
+import { buildShortPayload, type BuildShortRequestBody } from "@/app/lib/build-short-service";
 import { ffmpegResolutionDebug } from "@/app/features/video/ffmpeg-utils";
-import { normalizeVoiceProviderPreference, resolveVoiceTrackWithFallback } from "@/app/features/audio";
-import { buildVideoSlug } from "@/app/lib/seo-slug";
-import type { ContentFormat, VoiceGender } from "@/types";
+import { isNetlifyHostedLambdaRuntime } from "@/app/lib/netlify-hosted-runtime";
+import {
+  createVideoBuildJob,
+  getVideoBuildJob,
+} from "@/app/lib/video-build-jobs";
 
 export const maxDuration = 300;
 
-type Body = {
-  contentId: string;
-  format: ContentFormat;
-  script: string;
-  /** Editable headline — drives SEO title and download slug */
-  headline?: string;
-  scenes: { imagePath: string; durationSec: number; caption: string }[];
-  burnSubtitles?: boolean;
-  /** Motion background (must match transparent renders from editor upload) */
-  backgroundVideoRel?: string | null;
-  voiceGender?: VoiceGender;
-  /** 0.5–2, default 1 */
-  voiceSpeed?: number;
-  elevenlabsVoiceId?: string;
-  voiceProviderPreference?: string;
-  outputWidth?: number;
-  outputHeight?: number;
-  buildMode?: "shorts" | "portrait" | "landscape";
-};
+function siteOriginFromRequest(req: Request): string {
+  return new URL(req.url).origin;
+}
 
-async function buildShortPayload(body: Body) {
-  if (!body?.contentId || !body?.scenes?.length || !body?.script) {
-    return { error: "contentId, script, and scenes required" };
+async function invokeBackgroundBuild(origin: string, jobId: string, body: BuildShortRequestBody): Promise<void> {
+  const res = await fetch(`${origin}/.netlify/functions/build-short-background`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jobId, body }),
+  });
+  if (!res.ok && res.status !== 202) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Background build invoke failed (${res.status})`);
   }
+}
 
-  const seoTitle = (body.headline?.trim() || body.contentId).slice(0, 300);
-  const seoSlug = buildVideoSlug(seoTitle, body.contentId);
-
-  const gender: VoiceGender = body.voiceGender === "male" ? "male" : "female";
-  const speedRaw = Number(body.voiceSpeed);
-  const speed = Number.isFinite(speedRaw)
-    ? Math.min(2, Math.max(0.5, speedRaw))
-    : 1;
-
-  const audio = await resolveVoiceTrackWithFallback(body.script, body.contentId, {
-    gender,
-    speed,
-    voiceId: body.elevenlabsVoiceId?.trim() || undefined,
-    providerPreference: normalizeVoiceProviderPreference(body.voiceProviderPreference),
-  });
-  const audioPath = audio.audioPath;
-  const result = await buildShortVideo({
-    contentId: body.contentId,
-    format: body.format,
-    scenes: body.scenes,
-    audioPath,
-    burnSubtitles: body.burnSubtitles,
-    seoTitle,
-    seoSlug,
-    backgroundVideoRel: body.backgroundVideoRel?.trim() || undefined,
-    outputWidth: body.outputWidth,
-    outputHeight: body.outputHeight,
-    buildMode: body.buildMode,
-  });
-
-  return {
-    videoPath: result.videoPath,
-    srtPath: result.srtPath,
-    concatPath: result.concatPath,
-    audioPath,
-    voiceProvider: audio.provider,
-    voiceFallbackReason: audio.fallbackReason,
-    seoTitle,
-    seoSlug,
-  };
+export async function GET(req: Request) {
+  const jobId = new URL(req.url).searchParams.get("jobId")?.trim();
+  if (!jobId) {
+    return NextResponse.json({ error: "jobId required" }, { status: 400 });
+  }
+  const job = await getVideoBuildJob(jobId);
+  if (!job) {
+    return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  }
+  return NextResponse.json(job);
 }
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as Body;
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        const heartbeat = setInterval(() => {
-          controller.enqueue(encoder.encode("\n"));
-        }, 10_000);
-        controller.enqueue(encoder.encode("\n"));
-        try {
-          const payload = await buildShortPayload(body);
-          controller.enqueue(encoder.encode(JSON.stringify(payload)));
-        } catch (e) {
-          const message = e instanceof Error ? e.message : "Unknown error";
-          const ffmpegDebug = message.toLowerCase().includes("ffmpeg") ? ffmpegResolutionDebug() : undefined;
-          // #region agent log
-          fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'post-timeout-fix',hypothesisId:'H5,H1,H2,H3',location:'app/api/build-short/route.ts:stream-catch',message:'build-short streamed error',data:{hasFfmpegDebug:Boolean(ffmpegDebug),error:message,ffmpegDebug},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
-          controller.enqueue(encoder.encode(JSON.stringify({ error: message, debug: ffmpegDebug ? { ffmpeg: ffmpegDebug } : undefined })));
-        } finally {
-          clearInterval(heartbeat);
-          controller.close();
-        }
-      },
-    });
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-      },
-    });
+    const body = (await req.json()) as BuildShortRequestBody;
+
+    if (isNetlifyHostedLambdaRuntime()) {
+      const jobId = `vb-${body.contentId}-${Date.now()}`;
+      await createVideoBuildJob(jobId, body.contentId);
+      await invokeBackgroundBuild(siteOriginFromRequest(req), jobId, body);
+      return NextResponse.json(
+        {
+          async: true,
+          jobId,
+          status: "pending",
+          message: "Video build started in the background. Poll until completed.",
+        },
+        { status: 202 },
+      );
+    }
+
+    const payload = await buildShortPayload(body);
+    if (payload.error) {
+      return NextResponse.json(payload, { status: 400 });
+    }
+    if (!payload.videoPath) {
+      return NextResponse.json({ error: "Video build finished without returning a video path." }, { status: 500 });
+    }
+    return NextResponse.json(payload);
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
     const ffmpegDebug = message.toLowerCase().includes("ffmpeg") ? ffmpegResolutionDebug() : undefined;

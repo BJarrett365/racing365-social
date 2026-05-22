@@ -1,7 +1,7 @@
 [build]
   # Use `next build` here — not `npm run build` — because package.json pins
   # NEXT_DIST_DIR=.next-prod locally; Netlify must emit `.next` for the adapter.
-  command = "next build"
+  command = "npm run install-ffmpeg-static && next build"
   publish = ".next"
 
 [build.environment]
@@ -15,10 +15,7 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-[functions]
-  directory = "netlify/functions"
-
 # Note: Do not set `[functions] timeout` here — some Netlify + Next.js config parsers reject it at the
 # "Reading and parsing configuration files" stage. Raise the synchronous function limit in the UI instead:
 # Site configuration → Build & deploy → Functions → Function timeout (e.g. 26s on supported plans).
-# Long video builds use netlify/functions/build-short-background.mts (15 minute background limit).
+# Long video builds use pages/api/video-build-worker.ts (15 minute experimental-background limit).

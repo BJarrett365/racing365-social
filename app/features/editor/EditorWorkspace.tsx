@@ -123,29 +123,6 @@ function fileUrl(rel: string, cacheBust?: number) {
   return withAppPathPrefix(path);
 }
 
-function agentDebugLog(hypothesisId: string, message: string, data: Record<string, unknown>) {
-  if (typeof window === "undefined") return;
-  // #region agent log
-  fetch("http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6387c1" },
-    body: JSON.stringify({
-      sessionId: "6387c1",
-      runId: "landscape-render-initial",
-      hypothesisId,
-      location: "app/features/editor/EditorWorkspace.tsx",
-      message,
-      data,
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-}
-
-function relTail(value?: string | null) {
-  return value?.split("/").slice(-4).join("/") || null;
-}
-
 function toOutputRel(absPath?: string) {
   if (!absPath) return "";
   const marker = "/output/";
@@ -1851,38 +1828,10 @@ export function EditorWorkspace({
           payload.editorCompositorBySceneId = sceneCompositorBySceneId;
         }
         const payloadJson = JSON.stringify(payload);
-        agentDebugLog("H1,H3,H4", "Landscape render request payload summary", {
-          format,
-          contentId,
-          sceneCount: 1,
-          sceneId: scene.id,
-          width: payload.width,
-          height: payload.height,
-          payloadBytes: payloadJson.length,
-          backgroundImageRel: relTail(backgroundImageRel),
-          backgroundImageBySceneCount: Object.keys(sceneBackgroundImageRelBySceneId).length,
-          backgroundImageBySceneSample: Object.entries(sceneBackgroundImageRelBySceneId).map(([sceneId, rel]) => ({
-            sceneId,
-            rel: relTail(rel),
-          })),
-          backgroundVideoRel: relTail(backgroundVideoRel),
-          backgroundVideoFrameRel: relTail(backgroundVideoFrameRel),
-          compositorSceneCount: Object.keys(sceneCompositorBySceneId).length,
-          compositorBytes: Object.values(sceneCompositorBySceneId).reduce((sum, value) => sum + value.length, 0),
-          templateIds: [scene.templateId],
-        });
         const res = await fetch(studioApiPath("/api/render-scenes"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: payloadJson,
-        });
-        const responsePreview = await res.clone().text().catch(() => "");
-        agentDebugLog("H2", "Landscape render response summary", {
-          ok: res.ok,
-          status: res.status,
-          sceneId: scene.id,
-          contentType: res.headers.get("content-type"),
-          responsePrefix: responsePreview.slice(0, 220),
         });
         const data = await parseApiJson<{
           error?: string;
@@ -1909,13 +1858,6 @@ export function EditorWorkspace({
       setPngsStale(false);
       setPreviewNonce((n) => n + 1);
     } catch (e) {
-      agentDebugLog("H2,H3,H4", "Landscape render client caught error", {
-        message: e instanceof Error ? e.message : String(e),
-        format,
-        contentId,
-        backgroundImageRel: relTail(backgroundImageRel),
-        backgroundVideoRel: relTail(backgroundVideoRel),
-      });
       setError(e instanceof Error ? e.message : "Error");
     } finally {
       setBusy(null);
@@ -2359,9 +2301,6 @@ export function EditorWorkspace({
       if (scenes.some((s) => !s.imagePath)) {
         throw new Error("Missing image for a scene — re-render.");
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'live-ffmpeg-initial',hypothesisId:'H4',location:'app/features/editor/EditorWorkspace.tsx:before-build-short',message:'client starting build-short',data:{contentId,format,buildMode:effectiveVideoBuildMode,sceneCount:scenes.length,hasBackgroundVideo:Boolean(backgroundVideoRel),voiceProviderPreference,voiceSpeed:content.voiceSpeed ?? 1,firstSceneImagePathShape:scenes[0]?.imagePath ? {startsWithSlash:scenes[0].imagePath.startsWith('/'),includesOutput:scenes[0].imagePath.includes('/output/'),length:scenes[0].imagePath.length} : null},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       const res = await fetch(studioApiPath("/api/build-short"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2382,10 +2321,6 @@ export function EditorWorkspace({
           ...(backgroundVideoRel ? { backgroundVideoRel } : {}),
         }),
       });
-      const buildResponsePreview = await res.clone().text().catch((err) => `[[read-failed:${err instanceof Error ? err.message : String(err)}]]`);
-      // #region agent log
-      fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'live-ffmpeg-response-probe',hypothesisId:'H5,H6,H7',location:'app/features/editor/EditorWorkspace.tsx:raw-build-short-response',message:'client raw build-short response before parse',data:{status:res.status,ok:res.ok,contentType:res.headers.get('content-type'),responsePrefix:buildResponsePreview.slice(0,500)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       const data = await parseApiJson<{
         async?: boolean;
         jobId?: string;
@@ -2396,9 +2331,6 @@ export function EditorWorkspace({
         voiceFallbackReason?: string;
         debug?: unknown;
       }>(res);
-      // #region agent log
-      fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'live-ffmpeg-initial',hypothesisId:'H1,H2,H3,H4',location:'app/features/editor/EditorWorkspace.tsx:after-build-short',message:'client received build-short response',data:{status:res.status,ok:res.ok,async:Boolean(data.async),jobId:data.jobId,error:data.error,voiceProvider:data.voiceProvider,voiceFallbackReason:data.voiceFallbackReason,debug:data.debug},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       if (data.error && res.status !== 202) throw new Error(data.error);
       if (!res.ok && res.status !== 202) throw new Error(data.error || "Video build failed");
 
@@ -2416,9 +2348,6 @@ export function EditorWorkspace({
             },
           },
         );
-        // #region agent log
-        fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'post-fix',hypothesisId:'H5',location:'app/features/editor/EditorWorkspace.tsx:after-poll',message:'background video build poll finished',data:{status:buildResult.status,hasVideoPath:Boolean(buildResult.videoPath),error:buildResult.error},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
       }
 
       if (buildResult.error) throw new Error(sanitizeVideoBuildError(buildResult.error));
@@ -2432,9 +2361,6 @@ export function EditorWorkspace({
       setTrimStartInput("0");
       setTrimEndInput("0");
     } catch (e) {
-      // #region agent log
-      fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'live-ffmpeg-initial',hypothesisId:'H1,H2,H3,H4',location:'app/features/editor/EditorWorkspace.tsx:buildVideo-catch',message:'client buildVideo catch',data:{error:e instanceof Error ? e.message : String(e)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       setError(e instanceof Error ? e.message : "Error");
     } finally {
       setBusy(null);

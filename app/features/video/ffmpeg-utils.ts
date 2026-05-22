@@ -1,12 +1,14 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { spawn, spawnSync } from "child_process";
 import ffmpegStatic from "ffmpeg-static";
+import { isNetlifyHostedLambdaRuntime, usesEphemeralOutputRootRuntime } from "@/app/lib/netlify-hosted-runtime";
 import { getServerSecret } from "@/app/lib/server-secrets";
 
 /**
- * Resolution order: FFMPEG_PATH → `command -v` (augmented PATH) → common install paths
- * → bundled `ffmpeg-static` (npm) → bare "ffmpeg".
+ * Resolution order: FFMPEG_BIN → FFMPEG_PATH → `command -v` (augmented PATH) → common install paths
+ * → bundled `ffmpeg-static` (npm) → bare "ffmpeg" (local dev only).
  * GUI-launched Node often lacks Homebrew on PATH; the bundled binary avoids ENOENT.
  */
 const FALLBACK_PATHS = [
@@ -15,6 +17,9 @@ const FALLBACK_PATHS = [
   "/opt/local/bin/ffmpeg", // MacPorts
   "/usr/bin/ffmpeg", // Linux / some macOS
 ];
+
+const HOSTING_FFMPEG_MISSING =
+  "FFmpeg binary not found in hosting environment. Ensure ffmpeg-static is installed at build time (npm run install-ffmpeg-static).";
 
 let cachedBin: string | null = null;
 
@@ -26,6 +31,11 @@ export type FfmpegResolutionDebug = {
     present: boolean;
     value: string;
     isAbsolute: boolean;
+    exists: boolean;
+  };
+  envBin: {
+    present: boolean;
+    value: string;
     exists: boolean;
   };
   commandV: string | null;
@@ -43,6 +53,39 @@ function augmentedPathEnv(): string {
   return [...extra, process.env.PATH ?? ""].filter(Boolean).join(path.delimiter);
 }
 
+function isHostedRuntime(): boolean {
+  return isNetlifyHostedLambdaRuntime() || usesEphemeralOutputRootRuntime();
+}
+
+function ensureExecutableBin(binPath: string): string {
+  if (!path.isAbsolute(binPath) || !fs.existsSync(binPath)) return binPath;
+  try {
+    fs.accessSync(binPath, fs.constants.X_OK);
+    return binPath;
+  } catch {
+    if (!isHostedRuntime()) return binPath;
+    const tmpBin = path.join(os.tmpdir(), "plexa-ffmpeg");
+    try {
+      if (!fs.existsSync(tmpBin)) {
+        fs.copyFileSync(binPath, tmpBin);
+        fs.chmodSync(tmpBin, 0o755);
+      }
+      return tmpBin;
+    } catch {
+      return binPath;
+    }
+  }
+}
+
+function resolveCandidateBin(candidate: string): string | null {
+  if (!candidate) return null;
+  if (path.isAbsolute(candidate)) {
+    return fs.existsSync(candidate) ? ensureExecutableBin(candidate) : null;
+  }
+  if (candidate !== "ffmpeg") return candidate;
+  return null;
+}
+
 /** Find ffmpeg the same way a login shell would, after prepending standard install dirs */
 function resolveViaCommandV(): string | null {
   if (process.platform === "win32") {
@@ -52,7 +95,7 @@ function resolveViaCommandV(): string | null {
       windowsHide: true,
     });
     const line = r.stdout?.split(/\r?\n/).find((l) => l.trim());
-    if (line && fs.existsSync(line.trim())) return line.trim();
+    if (line && fs.existsSync(line.trim())) return ensureExecutableBin(line.trim());
     return null;
   }
 
@@ -63,49 +106,60 @@ function resolveViaCommandV(): string | null {
   if (r.error || r.status !== 0) return null;
   const found = r.stdout?.trim();
   if (!found) return null;
-  return fs.existsSync(found) ? found : null;
+  return fs.existsSync(found) ? ensureExecutableBin(found) : null;
+}
+
+function resolveFfmpegBinaryUncached(): string {
+  const fromBinEnv = process.env.FFMPEG_BIN?.trim();
+  const binFromEnv = fromBinEnv ? resolveCandidateBin(fromBinEnv) : null;
+  if (binFromEnv) return binFromEnv;
+
+  const fromEnv = getServerSecret("FFMPEG_PATH")?.trim();
+  if (fromEnv) {
+    const resolved = resolveCandidateBin(fromEnv);
+    if (resolved) return resolved;
+  }
+
+  const viaShell = resolveViaCommandV();
+  if (viaShell) return viaShell;
+
+  for (const p of FALLBACK_PATHS) {
+    if (fs.existsSync(p)) return ensureExecutableBin(p);
+  }
+
+  if (ffmpegStatic && fs.existsSync(ffmpegStatic)) {
+    return ensureExecutableBin(ffmpegStatic);
+  }
+
+  if (isHostedRuntime()) {
+    throw new Error(HOSTING_FFMPEG_MISSING);
+  }
+
+  return "ffmpeg";
 }
 
 export function ffmpegBinary(): string {
   if (cachedBin) return cachedBin;
-
-  const fromEnv = getServerSecret("FFMPEG_PATH")?.trim();
-  if (fromEnv) {
-    if (path.isAbsolute(fromEnv) && fs.existsSync(fromEnv)) {
-      cachedBin = fromEnv;
-      return cachedBin;
-    }
-    if (!path.isAbsolute(fromEnv) && fromEnv !== "ffmpeg") {
-      cachedBin = fromEnv;
-      return cachedBin;
-    }
-  }
-
-  const viaShell = resolveViaCommandV();
-  if (viaShell) {
-    cachedBin = viaShell;
-    return cachedBin;
-  }
-
-  for (const p of FALLBACK_PATHS) {
-    if (fs.existsSync(p)) {
-      cachedBin = p;
-      return cachedBin;
-    }
-  }
-
-  if (ffmpegStatic && fs.existsSync(ffmpegStatic)) {
-    cachedBin = ffmpegStatic;
-    return cachedBin;
-  }
-
-  cachedBin = "ffmpeg";
+  cachedBin = resolveFfmpegBinaryUncached();
   return cachedBin;
+}
+
+export function assertFfmpegAvailable(): void {
+  resetFfmpegBinaryCache();
+  ffmpegBinary();
 }
 
 export function ffmpegResolutionDebug(): FfmpegResolutionDebug {
   const fromEnv = getServerSecret("FFMPEG_PATH")?.trim() || "";
-  const selected = ffmpegBinary();
+  const fromBinEnv = process.env.FFMPEG_BIN?.trim() || "";
+  let selected = cachedBin ?? "ffmpeg";
+  let selectedExists = path.isAbsolute(selected) ? fs.existsSync(selected) : false;
+  try {
+    selected = ffmpegBinary();
+    selectedExists = path.isAbsolute(selected) ? fs.existsSync(selected) : false;
+  } catch {
+    selectedExists = false;
+  }
   return {
     platform: process.platform,
     cwd: process.cwd(),
@@ -116,6 +170,11 @@ export function ffmpegResolutionDebug(): FfmpegResolutionDebug {
       isAbsolute: Boolean(fromEnv && path.isAbsolute(fromEnv)),
       exists: Boolean(fromEnv && path.isAbsolute(fromEnv) && fs.existsSync(fromEnv)),
     },
+    envBin: {
+      present: Boolean(fromBinEnv),
+      value: fromBinEnv,
+      exists: Boolean(fromBinEnv && path.isAbsolute(fromBinEnv) && fs.existsSync(fromBinEnv)),
+    },
     commandV: resolveViaCommandV(),
     fallbackPaths: FALLBACK_PATHS.map((p) => ({ path: p, exists: fs.existsSync(p) })),
     ffmpegStatic: {
@@ -123,7 +182,7 @@ export function ffmpegResolutionDebug(): FfmpegResolutionDebug {
       exists: Boolean(ffmpegStatic && fs.existsSync(ffmpegStatic)),
     },
     selected,
-    selectedExists: path.isAbsolute(selected) ? fs.existsSync(selected) : false,
+    selectedExists,
   };
 }
 

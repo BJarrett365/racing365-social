@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withAppPathPrefix } from "@/app/lib/app-base-path";
 import { buildShortPayload, type BuildShortRequestBody } from "@/app/lib/build-short-service";
 import { ffmpegResolutionDebug } from "@/app/features/video/ffmpeg-utils";
 import { isNetlifyHostedLambdaRuntime } from "@/app/lib/netlify-hosted-runtime";
@@ -19,48 +20,33 @@ function internalBuildAuthHeader(): string | undefined {
   return secret ? `Bearer ${secret}` : undefined;
 }
 
-function startNetlifyBackgroundBuild(origin: string, jobId: string, body: BuildShortRequestBody): void {
+function startVideoBuildWorker(origin: string, jobId: string, body: BuildShortRequestBody): void {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const auth = internalBuildAuthHeader();
   if (auth) headers.Authorization = auth;
 
-  void fetch(`${origin}/.netlify/functions/build-short-background`, {
+  void fetch(`${origin}${withAppPathPrefix("/api/video-build-worker")}`, {
     method: "POST",
     headers,
     redirect: "manual",
     body: JSON.stringify({ jobId, body }),
   })
     .then(async (res) => {
-      // #region agent log
-      fetch("http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6387c1" },
-        body: JSON.stringify({
-          sessionId: "6387c1",
-          runId: "post-fix-v5",
-          hypothesisId: "H13,H17",
-          location: "app/api/build-short/route.ts:startNetlifyBackgroundBuild",
-          message: "background function invoke response",
-          data: { status: res.status, ok: res.ok, hasAuth: Boolean(auth) },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       if (res.status >= 300 && res.status < 400) {
         const location = res.headers.get("location") ?? "";
         await failVideoBuildJob(
           jobId,
-          `Background build invoke was redirected (${res.status}) to ${location || "login"}`,
+          `Video build worker invoke was redirected (${res.status}) to ${location || "login"}`,
         );
         return;
       }
       if (!res.ok && res.status !== 202) {
         const text = await res.text().catch(() => "");
-        await failVideoBuildJob(jobId, text || `Background build invoke failed (${res.status})`);
+        await failVideoBuildJob(jobId, text || `Video build worker invoke failed (${res.status})`);
       }
     })
     .catch(async (err) => {
-      const message = err instanceof Error ? err.message : "Background build invoke failed";
+      const message = err instanceof Error ? err.message : "Video build worker invoke failed";
       await failVideoBuildJob(jobId, message);
     });
 }
@@ -84,7 +70,7 @@ export async function POST(req: Request) {
     if (isNetlifyHostedLambdaRuntime()) {
       const jobId = `vb-${body.contentId}-${Date.now()}`;
       await createVideoBuildJob(jobId, body.contentId);
-      startNetlifyBackgroundBuild(siteOriginFromRequest(req), jobId, body);
+      startVideoBuildWorker(siteOriginFromRequest(req), jobId, body);
       return NextResponse.json(
         {
           async: true,
@@ -107,21 +93,6 @@ export async function POST(req: Request) {
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
     const ffmpegDebug = message.toLowerCase().includes("ffmpeg") ? ffmpegResolutionDebug() : undefined;
-    // #region agent log
-    fetch("http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6387c1" },
-      body: JSON.stringify({
-        sessionId: "6387c1",
-        runId: "live-ffmpeg-initial",
-        hypothesisId: "H1,H2,H3,H4",
-        location: "app/api/build-short/route.ts:catch",
-        message: "build-short server error",
-        data: { hasFfmpegDebug: Boolean(ffmpegDebug), error: message, ffmpegDebug },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     return NextResponse.json({ error: message, debug: ffmpegDebug ? { ffmpeg: ffmpegDebug } : undefined }, { status: 500 });
   }
 }

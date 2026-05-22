@@ -19,6 +19,7 @@ const PUBLIC_PATHS = [
   /** RSS Import Builder export URLs; auth is `?token=` matching export_token (no session). */
   "/api/rss-builder/public",
   "/api/cron",
+  "/api/video-build-worker",
   "/api/health",
   "/api/webhooks",
   "/api/integrations/mux/webhook",

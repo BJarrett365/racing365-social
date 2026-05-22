@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { withAppPathPrefix } from "@/app/lib/app-base-path";
 import { buildShortPayload, type BuildShortRequestBody } from "@/app/lib/build-short-service";
 import { ffmpegResolutionDebug } from "@/app/features/video/ffmpeg-utils";
 import { isNetlifyHostedLambdaRuntime } from "@/app/lib/netlify-hosted-runtime";
 import {
   createVideoBuildJob,
+  failVideoBuildJob,
   getVideoBuildJob,
 } from "@/app/lib/video-build-jobs";
 
@@ -18,28 +20,30 @@ function internalBuildAuthHeader(): string | undefined {
   return secret ? `Bearer ${secret}` : undefined;
 }
 
-async function invokeBackgroundBuild(origin: string, jobId: string, body: BuildShortRequestBody): Promise<void> {
+function startBackgroundBuild(origin: string, jobId: string, body: BuildShortRequestBody): void {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const auth = internalBuildAuthHeader();
   if (auth) headers.Authorization = auth;
 
-  const res = await fetch(`${origin}/.netlify/functions/build-short-background`, {
+  const runUrl = `${origin}${withAppPathPrefix("/api/build-short/run")}`;
+  void fetch(runUrl, {
     method: "POST",
     headers,
-    redirect: "manual",
     body: JSON.stringify({ jobId, body }),
-  });
-  if (res.status >= 300 && res.status < 400) {
-    const location = res.headers.get("location") ?? "";
-    throw new Error(`Background build invoke was redirected (${res.status}) to ${location || "login"}`);
-  }
-  if (!res.ok && res.status !== 202) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `Background build invoke failed (${res.status})`);
-  }
-  // #region agent log
-  fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'post-fix',hypothesisId:'H8',location:'app/api/build-short/route.ts:invokeBackgroundBuild',message:'background invoke accepted',data:{status:res.status,hasAuth:Boolean(auth)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+  })
+    .then(async (res) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7396/ingest/d610fd6f-4aa5-41d5-b5c5-5d5c126a1ba1',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6387c1'},body:JSON.stringify({sessionId:'6387c1',runId:'post-fix-v2',hypothesisId:'H9',location:'app/api/build-short/route.ts:startBackgroundBuild',message:'internal run worker invoke response',data:{status:res.status,ok:res.ok,runUrl,hasAuth:Boolean(auth)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        await failVideoBuildJob(jobId, text || `Background run failed (${res.status})`);
+      }
+    })
+    .catch(async (err) => {
+      const message = err instanceof Error ? err.message : "Background run invoke failed";
+      await failVideoBuildJob(jobId, message);
+    });
 }
 
 export async function GET(req: Request) {
@@ -59,9 +63,15 @@ export async function POST(req: Request) {
     const body = (await req.json()) as BuildShortRequestBody;
 
     if (isNetlifyHostedLambdaRuntime()) {
+      if (!process.env.CRON_SECRET?.trim()) {
+        return NextResponse.json(
+          { error: "CRON_SECRET must be set on Netlify for background video builds." },
+          { status: 503 },
+        );
+      }
       const jobId = `vb-${body.contentId}-${Date.now()}`;
       await createVideoBuildJob(jobId, body.contentId);
-      await invokeBackgroundBuild(siteOriginFromRequest(req), jobId, body);
+      startBackgroundBuild(siteOriginFromRequest(req), jobId, body);
       return NextResponse.json(
         {
           async: true,

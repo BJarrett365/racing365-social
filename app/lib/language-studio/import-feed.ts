@@ -10,6 +10,14 @@ import {
 import { parseLanguageXmlFeed } from "@/app/lib/language-studio/xml";
 import { decodeHtmlEntities } from "@/app/lib/html-entities";
 import { sanitizeImportedContent } from "@/app/lib/language-studio/sanitize";
+import {
+  journalistIdentityKey,
+  normalizeAuthorIdentity,
+  type NormalizedAuthorIdentity,
+} from "@/app/lib/language-studio/author-identity";
+import { fetchAndParseAuthorPage } from "@/app/lib/language-studio/parse-author-page";
+import { recomputeJournalistStats } from "@/app/lib/language-studio/journalist-stats";
+import { syncJournalistKnowledgeFile } from "@/app/lib/language-studio/journalist-knowledge-sync";
 import type { LanguageArticle, LanguageCode, LanguageImport, LanguageJournalistProfile, LanguageSourceParserType, LanguageSportContext } from "@/app/lib/language-studio/types";
 
 export const DEFAULT_LANGUAGE_FEED_URL = "https://www.planetf1.com/partner-media-content-feed";
@@ -76,10 +84,6 @@ function articlePrimaryKey(article: Pick<LanguageArticle, "sourceBrand" | "sourc
   return articleKeys(article)[0] ?? `${article.sourceBrand.trim().toLowerCase()}::unknown::${article.title.trim().toLowerCase()}`;
 }
 
-function journalistKey(brand: string, name: string): string {
-  return `${brand.trim().toLowerCase()}::${name.trim().toLowerCase()}`;
-}
-
 function inferSports(brand: string, articles: LanguageArticle[]): string[] {
   const sports = new Set<string>();
   if (/f1|formula/i.test(brand)) sports.add("Formula 1");
@@ -123,6 +127,48 @@ function buildJournalistStyleNotes(name: string, brand: string, samples: Languag
     titleSignals.length ? `Headline habits: ${titleSignals.join("; ")}.` : "Headline habits: clear subject-led headlines with the main news angle upfront.",
     titles.slice(0, 5).length ? `Example headline patterns: ${titles.slice(0, 5).join(" | ")}` : "",
   ].filter(Boolean).join("\n");
+}
+
+function uniqueAliases(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+async function maybeEnrichProfileFromAuthorPage(
+  profile: LanguageJournalistProfile,
+  identity: NormalizedAuthorIdentity,
+): Promise<LanguageJournalistProfile> {
+  if (profile.bio?.trim()) return profile;
+  const pageUrl = profile.authorPageUrl ?? identity.authorPageUrl;
+  if (!pageUrl) return profile;
+  try {
+    const parsed = await fetchAndParseAuthorPage(pageUrl, profile.brand);
+    return {
+      ...profile,
+      name: parsed.displayName || profile.name,
+      authorSlug: parsed.authorSlug || profile.authorSlug,
+      authorPageUrl: parsed.authorPageUrl || profile.authorPageUrl,
+      bio: parsed.bio || profile.bio,
+      avatarUrl: parsed.avatarUrl || profile.avatarUrl,
+      socialLinks: parsed.socialLinks.length ? parsed.socialLinks : profile.socialLinks,
+      aliases: uniqueAliases([...(profile.aliases ?? []), ...(identity.aliases ?? []), parsed.displayName]),
+      exampleTitles: uniqueAliases([...(profile.exampleTitles ?? []), ...parsed.articleTitles]).slice(0, 12),
+      updatedAt: new Date().toISOString(),
+    };
+  } catch {
+    return profile;
+  }
+}
+
+function ensureProfileStats(profile: LanguageJournalistProfile): LanguageJournalistProfile {
+  return {
+    ...profile,
+    stats: {
+      importedArticleCount: profile.stats?.importedArticleCount ?? 0,
+      exportedArticleCount: profile.stats?.exportedArticleCount ?? 0,
+      socialPostCount: profile.stats?.socialPostCount ?? 0,
+      ...profile.stats,
+    },
+  };
 }
 
 function buildJournalistGuidelines(name: string): string {
@@ -337,7 +383,9 @@ export async function importLanguageFeed(input: ImportLanguageFeedInput): Promis
   }
   const existingJournalists = new Map<string, string>();
   for (const profile of Object.values(existing.journalistProfiles)) {
-    existingJournalists.set(journalistKey(profile.brand, profile.name), profile.id);
+    const identity = normalizeAuthorIdentity(profile.name, profile.brand);
+    if (!identity) continue;
+    existingJournalists.set(journalistIdentityKey(profile.brand, identity), profile.id);
   }
 
   let createdCount = 0;
@@ -388,49 +436,68 @@ export async function importLanguageFeed(input: ImportLanguageFeedInput): Promis
   for (const article of articles) existing.articles[article.id] = article;
   const updatedJournalistProfiles = new Map<string, LanguageJournalistProfile>();
   for (const article of articles) {
-    const author = article.author?.trim();
-    if (!author) continue;
-    const key = journalistKey(article.sourceBrand, author);
+    const identity = normalizeAuthorIdentity(article.author ?? "", article.sourceBrand);
+    if (!identity) continue;
+    article.author = identity.displayName;
+    const key = journalistIdentityKey(article.sourceBrand, identity);
     const samples = [...Object.values(existing.articles), ...articles]
-      .filter((row) => row.author?.trim().toLowerCase() === author.toLowerCase() && row.sourceBrand === article.sourceBrand)
+      .filter((row) => {
+        const ia = normalizeAuthorIdentity(row.author ?? "", row.sourceBrand);
+        return ia !== null && journalistIdentityKey(row.sourceBrand, ia) === key && row.sourceBrand === article.sourceBrand;
+      })
       .filter((row, index, rows) => rows.findIndex((candidate) => candidate.id === row.id) === index)
       .slice(0, 20);
     const existingId = existingJournalists.get(key);
     if (existingId) {
-      const profile = existing.journalistProfiles[existingId];
-      if (profile && !profile.sampleArticleIds.includes(article.id)) {
+      let profile = ensureProfileStats(existing.journalistProfiles[existingId]!);
+      article.journalistProfileId = profile.id;
+      if (!profile.sampleArticleIds.includes(article.id)) {
         profile.sampleArticleIds = [article.id, ...profile.sampleArticleIds].slice(0, 12);
         profile.exampleTitles = [article.title, ...profile.exampleTitles.filter((title) => title !== article.title)].slice(0, 8);
       }
-      if (profile) {
-        profile.sports = inferSports(article.sourceBrand, samples);
-        if (profile.source === "imported" || profile.styleNotes.startsWith("Imported author profile.")) {
-          profile.styleNotes = buildJournalistStyleNotes(author, article.sourceBrand, samples);
-          profile.articleGuidelines = buildJournalistGuidelines(author);
-        }
-        profile.updatedAt = now;
-        updatedJournalistProfiles.set(profile.id, profile);
+      profile.sports = inferSports(article.sourceBrand, samples);
+      profile.authorSlug = profile.authorSlug ?? identity.canonicalSlug;
+      profile.authorPageUrl = profile.authorPageUrl ?? identity.authorPageUrl;
+      profile.aliases = uniqueAliases([...(profile.aliases ?? []), ...identity.aliases]);
+      if (profile.source === "imported" || profile.styleNotes.startsWith("Imported author profile.")) {
+        profile.styleNotes = buildJournalistStyleNotes(identity.displayName, article.sourceBrand, samples);
+        profile.articleGuidelines = buildJournalistGuidelines(identity.displayName);
       }
+      profile.updatedAt = now;
+      profile = await maybeEnrichProfileFromAuthorPage(profile, identity);
+      existing.journalistProfiles[profile.id] = profile;
+      updatedJournalistProfiles.set(profile.id, profile);
       continue;
     }
     const profileId = newLanguageId("ljournalist");
     existingJournalists.set(key, profileId);
-    const profile: LanguageJournalistProfile = {
+    let profile: LanguageJournalistProfile = ensureProfileStats({
       id: profileId,
-      name: author,
+      name: identity.displayName,
       brand: article.sourceBrand,
       sports: inferSports(article.sourceBrand, samples),
-      styleNotes: buildJournalistStyleNotes(author, article.sourceBrand, samples),
-      articleGuidelines: buildJournalistGuidelines(author),
+      styleNotes: buildJournalistStyleNotes(identity.displayName, article.sourceBrand, samples),
+      articleGuidelines: buildJournalistGuidelines(identity.displayName),
       exampleTitles: article.title ? [article.title] : [],
       sampleArticleIds: [article.id],
+      authorSlug: identity.canonicalSlug,
+      authorPageUrl: identity.authorPageUrl,
+      aliases: identity.aliases,
+      stats: { importedArticleCount: 0, exportedArticleCount: 0, socialPostCount: 0 },
       source: "imported",
       active: true,
       createdAt: now,
       updatedAt: now,
-    };
+    });
+    article.journalistProfileId = profileId;
+    profile = await maybeEnrichProfileFromAuthorPage(profile, identity);
     existing.journalistProfiles[profileId] = profile;
     updatedJournalistProfiles.set(profile.id, profile);
+  }
+  for (const profileId of updatedJournalistProfiles.keys()) {
+    recomputeJournalistStats(existing, profileId);
+    const profile = existing.journalistProfiles[profileId];
+    if (profile) syncJournalistKnowledgeFile(existing, profile);
   }
   const auditId = newLanguageId("laudit");
   existing.auditLogs[auditId] = {

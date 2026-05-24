@@ -11,6 +11,7 @@ export type BrandRuleId =
   | "cricket365"
   | "golf365"
   | "planet_football"
+  | "grassroot_goals"
   | "sport365"
   | "racing365"
   /** Umbrella / legacy label still used on some projects */

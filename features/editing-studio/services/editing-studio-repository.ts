@@ -186,6 +186,8 @@ export class EditingStudioRepository {
       publishedAt: undefined,
       archivedAt: undefined,
       integrationMeta: parsed.integrationMeta,
+      calendarEventId: parsed.calendarEventId,
+      calendarPhase: parsed.calendarPhase,
       createdAt: ts,
       updatedAt: ts,
     };

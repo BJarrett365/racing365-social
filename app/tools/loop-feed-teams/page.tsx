@@ -1,5 +1,6 @@
-import { LoopFeedTeamsClient } from "@/app/tools/loop-feed-teams/LoopFeedTeamsClient";
+import { redirect } from "next/navigation";
+import { LOOP_FEED_TEAMS_PATH } from "@/app/lib/configure/paths";
 
-export default function LoopFeedTeamsPage() {
-  return <LoopFeedTeamsClient />;
+export default function LoopFeedTeamsRedirectPage() {
+  redirect(LOOP_FEED_TEAMS_PATH);
 }

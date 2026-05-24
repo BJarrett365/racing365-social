@@ -3,6 +3,15 @@ import path from "path";
 import { assertAllowedLoopFeedUrl, toLoopTopicContentUrl } from "@/app/lib/data-studio/loop-feed";
 import { localJsonStorePath } from "@/app/lib/local-json-store-dir";
 import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
+import {
+  DEFAULT_LOOP_FEED_TEAM_FEED_TYPE,
+  LOOP_FEED_TEAM_FEED_TYPE_IDS,
+  normalizeLoopFeedTeamFeedType,
+  type LoopFeedTeamFeedType,
+} from "@/app/lib/tools/loop-feed-team-feed-types";
+import loopFeedTeamsCatalog from "@/data/loop-feed-teams.catalog.json";
+
+export type { LoopFeedTeamFeedType } from "@/app/lib/tools/loop-feed-team-feed-types";
 
 /** Matches Language Studio pattern — durable JSON on Netlify without writable `/var/task` or fragmented `/tmp`. */
 const BLOB_STORE_NAME = "plexa-loop-feed-teams";
@@ -15,6 +24,8 @@ function storeFile(): string {
 export type LoopFeedTeamRow = {
   id: string;
   name: string;
+  /** Feed variant — commentaries, match highlights, match videos, or news. */
+  feedType: LoopFeedTeamFeedType;
   /** Full topic content URL (https://q.loop-feed.com/v1/topic/…/content) */
   topicUrl: string;
   active: boolean;
@@ -25,22 +36,39 @@ export type LoopFeedTeamsFile = {
   teams: LoopFeedTeamRow[];
 };
 
-const DEFAULT_TEAMS: LoopFeedTeamRow[] = [
-  {
-    id: "lteam-seed-man-utd",
-    name: "Manchester United",
-    topicUrl: "https://q.loop-feed.com/v1/topic/cmi5nwbot1j4uhxylcf482btc/content",
-    active: true,
-    updatedAt: "2026-05-17T00:00:00.000Z",
-  },
-  {
-    id: "lteam-seed-nffc",
-    name: "Nottingham Forest",
-    topicUrl: "https://q.loop-feed.com/v1/topic/cmi5nwbro1j5fhxylg69i3tpi/content",
-    active: true,
-    updatedAt: "2026-05-17T00:00:00.000Z",
-  },
-];
+export type LoopFeedTeamGroup = {
+  name: string;
+  feeds: Record<LoopFeedTeamFeedType, LoopFeedTeamRow | undefined>;
+};
+
+function slugifyClubName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function stableTemplateId(clubName: string, feedType: LoopFeedTeamFeedType): string {
+  return `lteam-${slugifyClubName(clubName)}-${feedType.replace(/_/g, "-")}`;
+}
+
+function normalizeTeamRow(row: LoopFeedTeamRow): LoopFeedTeamRow {
+  return {
+    ...row,
+    name: row.name.trim() || "Unnamed team",
+    feedType: normalizeLoopFeedTeamFeedType(row.feedType),
+    topicUrl: typeof row.topicUrl === "string" ? row.topicUrl.trim() : "",
+    active: row.active !== false && Boolean(row.topicUrl?.trim()),
+  };
+}
+
+function catalogTeams(): LoopFeedTeamRow[] {
+  return normalizeTeams(loopFeedTeamsCatalog as LoopFeedTeamsFile);
+}
 
 function newTeamId(): string {
   return `lteam-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -48,7 +76,61 @@ function newTeamId(): string {
 
 function normalizeTeams(parsed: LoopFeedTeamsFile | null): LoopFeedTeamRow[] {
   const rows = Array.isArray(parsed?.teams) ? parsed!.teams : [];
-  return rows.filter((r) => r && typeof r.id === "string" && typeof r.topicUrl === "string");
+  return rows
+    .filter((r) => r && typeof r.id === "string")
+    .map((row) =>
+      normalizeTeamRow({
+        ...row,
+        feedType: normalizeLoopFeedTeamFeedType(row.feedType),
+        topicUrl: typeof row.topicUrl === "string" ? row.topicUrl : "",
+      }),
+    );
+}
+
+export function filterLoopFeedTeamsByFeedType(
+  teams: LoopFeedTeamRow[],
+  feedType: LoopFeedTeamFeedType,
+): LoopFeedTeamRow[] {
+  const type = normalizeLoopFeedTeamFeedType(feedType);
+  return teams.filter(
+    (row) => row.active && row.topicUrl.trim() && normalizeLoopFeedTeamFeedType(row.feedType) === type,
+  );
+}
+
+export function matchLoopFeedTeamByName(
+  teams: LoopFeedTeamRow[],
+  clubName: string,
+  feedType?: LoopFeedTeamFeedType,
+): LoopFeedTeamRow | undefined {
+  const needle = clubName.trim().toLowerCase();
+  if (!needle) return undefined;
+  const pool = feedType ? filterLoopFeedTeamsByFeedType(teams, feedType) : teams.filter((row) => row.active && row.topicUrl.trim());
+  return pool.find((row) => row.name.trim().toLowerCase() === needle);
+}
+
+export function groupLoopFeedTeams(teams: LoopFeedTeamRow[]): LoopFeedTeamGroup[] {
+  const byName = new Map<string, { displayName: string; rows: LoopFeedTeamRow[] }>();
+  for (const row of teams) {
+    const key = row.name.trim().toLowerCase();
+    if (!key) continue;
+    const bucket = byName.get(key) ?? { displayName: row.name.trim(), rows: [] };
+    bucket.rows.push(row);
+    if (!bucket.displayName) bucket.displayName = row.name.trim();
+    byName.set(key, bucket);
+  }
+
+  return [...byName.values()]
+    .map(({ displayName, rows }) => {
+      const feeds = Object.fromEntries(LOOP_FEED_TEAM_FEED_TYPE_IDS.map((id) => [id, undefined])) as Record<
+        LoopFeedTeamFeedType,
+        LoopFeedTeamRow | undefined
+      >;
+      for (const row of rows) {
+        feeds[normalizeLoopFeedTeamFeedType(row.feedType)] = row;
+      }
+      return { name: displayName, feeds };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function persistTeams(teams: LoopFeedTeamRow[]): Promise<void> {
@@ -69,8 +151,8 @@ export async function readLoopFeedTeams(): Promise<LoopFeedTeamRow[]> {
     if (rows.length > 0 || (data && Array.isArray(data.teams))) {
       return rows;
     }
-    await persistTeams(DEFAULT_TEAMS);
-    return [...DEFAULT_TEAMS];
+    await persistTeams(catalogTeams());
+    return catalogTeams();
   }
 
   const file = storeFile();
@@ -80,8 +162,8 @@ export async function readLoopFeedTeams(): Promise<LoopFeedTeamRow[]> {
     return normalizeTeams(parsed);
   } catch {
     await fs.mkdir(path.dirname(file), { recursive: true });
-    await persistTeams(DEFAULT_TEAMS);
-    return [...DEFAULT_TEAMS];
+    await persistTeams(catalogTeams());
+    return catalogTeams();
   }
 }
 
@@ -94,15 +176,18 @@ export async function upsertLoopFeedTeam(
 ): Promise<LoopFeedTeamRow> {
   const teams = await readLoopFeedTeams();
   const now = new Date().toISOString();
-  const topicUrl = toLoopTopicContentUrl(row.topicUrl.trim());
-  assertAllowedLoopFeedUrl(topicUrl);
+  const rawUrl = row.topicUrl.trim();
+  const topicUrl = rawUrl ? toLoopTopicContentUrl(rawUrl) : "";
+  if (topicUrl) assertAllowedLoopFeedUrl(topicUrl);
 
   const id = row.id?.trim() || newTeamId();
+  const active = row.active !== false && Boolean(topicUrl);
   const next: LoopFeedTeamRow = {
     id,
     name: row.name.trim() || "Unnamed team",
+    feedType: normalizeLoopFeedTeamFeedType(row.feedType),
     topicUrl,
-    active: row.active !== false,
+    active,
     updatedAt: now,
   };
 
@@ -112,6 +197,47 @@ export async function upsertLoopFeedTeam(
 
   await writeLoopFeedTeams(teams);
   return next;
+}
+
+/** Ensure four feed slots exist per club (highlights, videos, commentaries, news). */
+export async function ensureLoopFeedClubTemplate(input: {
+  name: string;
+  commentariesUrl?: string;
+  matchHighlightsUrl?: string;
+  matchVideosUrl?: string;
+  newsUrl?: string;
+}): Promise<LoopFeedTeamRow[]> {
+  const clubName = input.name.trim();
+  if (!clubName) throw new Error("Club name is required.");
+
+  const teams = await readLoopFeedTeams();
+  const key = clubName.toLowerCase();
+  const existing = teams.filter((row) => row.name.trim().toLowerCase() === key);
+  const byType = new Map(existing.map((row) => [normalizeLoopFeedTeamFeedType(row.feedType), row]));
+
+  const urlForType = (feedType: LoopFeedTeamFeedType): string => {
+    if (feedType === "commentaries" && input.commentariesUrl?.trim()) return input.commentariesUrl.trim();
+    if (feedType === "match_highlights" && input.matchHighlightsUrl?.trim()) return input.matchHighlightsUrl.trim();
+    if (feedType === "match_videos" && input.matchVideosUrl?.trim()) return input.matchVideosUrl.trim();
+    if (feedType === "news" && input.newsUrl?.trim()) return input.newsUrl.trim();
+    return byType.get(feedType)?.topicUrl.trim() ?? "";
+  };
+
+  const saved: LoopFeedTeamRow[] = [];
+  for (const feedType of LOOP_FEED_TEAM_FEED_TYPE_IDS) {
+    const prior = byType.get(feedType);
+    const topicUrl = urlForType(feedType);
+    saved.push(
+      await upsertLoopFeedTeam({
+        id: prior?.id ?? stableTemplateId(clubName, feedType),
+        name: clubName,
+        feedType,
+        topicUrl,
+        active: Boolean(topicUrl),
+      }),
+    );
+  }
+  return saved;
 }
 
 export async function deleteLoopFeedTeam(id: string): Promise<boolean> {

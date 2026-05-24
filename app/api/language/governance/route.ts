@@ -140,6 +140,8 @@ export async function POST(req: Request) {
   }
 
   if (body.collection === "journalistProfiles") {
+    const teamSupportMode = item.teamSupportMode === "club" ? "club" : "neutral";
+    const supportedClub = teamSupportMode === "club" ? String(item.supportedClub || "").trim() : undefined;
     const row: LanguageJournalistProfile = {
       id: String(item.id || newLanguageId("ljournalist")),
       name: String(item.name || "").trim(),
@@ -147,6 +149,30 @@ export async function POST(req: Request) {
       sports: Array.isArray(item.sports) ? item.sports.map(String).filter(Boolean) : [],
       styleNotes: String(item.styleNotes || "").trim(),
       articleGuidelines: String(item.articleGuidelines || "").trim(),
+      teamSupportMode,
+      supportedClub,
+      authorSlug: String(item.authorSlug || "").trim() || undefined,
+      authorPageUrl: String(item.authorPageUrl || "").trim() || undefined,
+      bio: String(item.bio || "").trim() || undefined,
+      avatarUrl: String(item.avatarUrl || "").trim() || undefined,
+      socialLinks: Array.isArray(item.socialLinks)
+        ? (item.socialLinks as Array<{ platform?: string; url?: string }>)
+            .map((link) => ({ platform: String(link.platform || ""), url: String(link.url || "") }))
+            .filter((link) => link.platform && link.url)
+        : undefined,
+      aliases: Array.isArray(item.aliases) ? item.aliases.map(String).filter(Boolean) : undefined,
+      stats:
+        item.stats && typeof item.stats === "object"
+          ? {
+              importedArticleCount: Number((item.stats as { importedArticleCount?: number }).importedArticleCount ?? 0),
+              exportedArticleCount: Number((item.stats as { exportedArticleCount?: number }).exportedArticleCount ?? 0),
+              socialPostCount: Number((item.stats as { socialPostCount?: number }).socialPostCount ?? 0),
+              performanceScore: (item.stats as { performanceScore?: number }).performanceScore,
+              totalPageViews: (item.stats as { totalPageViews?: number }).totalPageViews,
+              totalEngagedMinutes: (item.stats as { totalEngagedMinutes?: number }).totalEngagedMinutes,
+              lastPerformanceImportAt: (item.stats as { lastPerformanceImportAt?: string }).lastPerformanceImportAt,
+            }
+          : undefined,
       exampleTitles: Array.isArray(item.exampleTitles) ? item.exampleTitles.map(String).filter(Boolean) : [],
       sampleArticleIds: Array.isArray(item.sampleArticleIds) ? item.sampleArticleIds.map(String).filter(Boolean) : [],
       source: item.source === "manual" ? "manual" : "imported",
@@ -155,6 +181,9 @@ export async function POST(req: Request) {
       updatedAt: now,
     };
     if (!row.name || !row.styleNotes) return NextResponse.json({ error: "name and styleNotes are required." }, { status: 400 });
+    if (teamSupportMode === "club" && !supportedClub) {
+      return NextResponse.json({ error: "supportedClub is required when team support is set to club." }, { status: 400 });
+    }
     await upsertJournalistProfile(row);
     return NextResponse.json({ success: true, item: row });
   }

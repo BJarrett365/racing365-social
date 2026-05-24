@@ -20,6 +20,10 @@ export function editingStudioProjectHistoryPath(projectId: string): string {
   return `${EDITING_STUDIO_BASE_PATH}/${encodeURIComponent(projectId)}/history`;
 }
 
+export function editingStudioCalendarPath(): string {
+  return `${EDITING_STUDIO_BASE_PATH}/calendar`;
+}
+
 /** Live Control — prefill new session from this project (`intent`: create | send_live). */
 export function liveControlNewFromEditingProjectPath(
   projectId: string,

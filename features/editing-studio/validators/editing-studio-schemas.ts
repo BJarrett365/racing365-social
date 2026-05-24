@@ -160,6 +160,8 @@ export const copyVariantSchema = z.object({
   updatedAt: z.string().min(1),
 });
 
+export const editingCalendarPhaseSchema = z.enum(["pre_match", "live", "report_post"]);
+
 export const editingProjectSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
@@ -184,6 +186,8 @@ export const editingProjectSchema = z.object({
   editorialSettings: editorialProjectSettingsSchema.optional(),
   integrationMeta: recordUnknownSchema.optional(),
   workflowComments: z.array(workflowCommentEntrySchema).optional(),
+  calendarEventId: z.string().optional(),
+  calendarPhase: editingCalendarPhaseSchema.optional(),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),
 });
@@ -228,6 +232,8 @@ export const editingProjectCreateSchema = z.object({
   exportVariantPick: z.record(z.string(), z.string()).optional(),
   editorialSettings: editorialProjectSettingsSchema.optional(),
   integrationMeta: recordUnknownSchema.optional(),
+  calendarEventId: z.string().optional(),
+  calendarPhase: editingCalendarPhaseSchema.optional(),
 });
 
 /** Patch update — any project field optional; nested editorial settings merge on the server. Workflow comments are server-only. */
@@ -291,6 +297,8 @@ export const manualProjectCreateSchema = z
     bodyNotes: z.string().min(1, "Body / notes are required").max(500_000),
     sourceUrl: z.string().max(2000).optional(),
     platforms: z.array(platformTypeSchema).min(1, "Select at least one platform"),
+    calendarEventId: z.string().optional(),
+    calendarPhase: editingCalendarPhaseSchema.optional(),
   })
   .superRefine((data, ctx) => {
     const raw = data.sourceUrl?.trim();

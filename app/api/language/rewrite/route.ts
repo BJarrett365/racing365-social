@@ -1,8 +1,10 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { isNetlifyHostedLambdaRuntime } from "@/app/lib/netlify-hosted-runtime";
 import {
   createLanguageRewriteJob,
   failLanguageRewriteJob,
+  getLanguageRewriteJob,
+  markLanguageRewriteJobRunning,
   resolveStaleLanguageRewriteJob,
 } from "@/app/lib/language-rewrite-jobs";
 import {
@@ -81,11 +83,15 @@ async function invokeBackgroundRewrite(
   const url = `${origin}/.netlify/functions/language-rewrite-background`;
   console.info("[language-rewrite] invoking background function", { jobId, origin, url });
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: internalAuthHeader(),
       redirect: "manual",
+      signal: controller.signal,
       body: JSON.stringify({ jobId, body }),
     });
 
@@ -112,12 +118,15 @@ async function invokeBackgroundRewrite(
       return "background";
     }
 
+    await markLanguageRewriteJobRunning(jobId, "background accepted");
     console.info("[language-rewrite] background invoke accepted", { jobId, status: res.status });
     return "background";
   } catch (err) {
     const message = err instanceof Error ? err.message : "Background rewrite invoke failed";
     console.warn("[language-rewrite] background invoke network error — using inline fallback", { jobId, message });
     return "fallback";
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -160,25 +169,23 @@ export async function POST(req: Request) {
       await createLanguageRewriteJob(jobId, articles.length);
       const origin = siteOrigin(req);
 
-      after(async () => {
-        try {
-          const mode = await invokeBackgroundRewrite(origin, jobId, requestBody);
-          if (mode === "fallback") {
-            console.info("[language-rewrite] running inline fallback", { jobId });
-            await runLanguageRewriteJob(jobId, requestBody);
-          }
-        } catch (e) {
-          const message = e instanceof Error ? e.message : "Rewrite invoke failed";
-          console.error("[language-rewrite] after() handler failed", { jobId, message });
-          await failLanguageRewriteJob(jobId, message);
+      const mode = await invokeBackgroundRewrite(origin, jobId, requestBody);
+      if (mode === "fallback") {
+        console.info("[language-rewrite] running inline fallback", { jobId });
+        await runLanguageRewriteJob(jobId, requestBody);
+        const job = await resolveStaleLanguageRewriteJob(jobId);
+        if (!job || job.status === "failed") {
+          return NextResponse.json({ error: job?.error || "Rewrite failed." }, { status: 500 });
         }
-      });
+        return NextResponse.json({ success: true, rewrites: job.rewrites ?? [] });
+      }
 
+      const job = await getLanguageRewriteJob(jobId);
       return NextResponse.json(
         {
           async: true,
           jobId,
-          status: "pending",
+          status: job?.status ?? "running",
           message: "Rewrite started in the background. Poll until completed.",
         },
         { status: 202 },

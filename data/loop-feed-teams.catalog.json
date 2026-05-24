@@ -1,0 +1,708 @@
+{
+  "teams": [
+    {
+      "id": "lteam-arsenal-match-highlights",
+      "name": "Arsenal",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwaom1iyvhxyl0zqc79p0/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-arsenal-match-videos",
+      "name": "Arsenal",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjyh5cs000001mgtbndb2cb/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-arsenal-commentaries",
+      "name": "Arsenal",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxznx1sfghxyls9nvb8le/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-arsenal-news",
+      "name": "Arsenal",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwb0y1j16hxylof5qjya2/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-aston-villa-match-highlights",
+      "name": "Aston Villa",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwatw1izvhxylfvnhwdnv/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-aston-villa-match-videos",
+      "name": "Aston Villa",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjytmxe000801mgu58pszsw/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-aston-villa-commentaries",
+      "name": "Aston Villa",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxsyu1rlihxyl9d99xyot/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-aston-villa-news",
+      "name": "Aston Villa",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwb2f1j1fhxylb8ybt10b/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-bournemouth-match-highlights",
+      "name": "Bournemouth",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwaro1izfhxyl4cspj5rd/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-bournemouth-match-videos",
+      "name": "Bournemouth",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjyug73000b01mgwcp94tv4/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-bournemouth-commentaries",
+      "name": "Bournemouth",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxt381rmfhxyl6kkslz0p/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-bournemouth-news",
+      "name": "Bournemouth",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwb441j1shxyll5aei5yx/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-brentford-match-highlights",
+      "name": "Brentford",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwawq1j0fhxylpre9phji/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-brentford-match-videos",
+      "name": "Brentford",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjyuxub000e01mgtg2n3rqr/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-brentford-commentaries",
+      "name": "Brentford",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxt6q1rmwhxyl0oj4xnmw/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-brentford-news",
+      "name": "Brentford",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwb751j24hxylzks49ak1/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-brighton-hove-albion-match-highlights",
+      "name": "Brighton & Hove Albion",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwaqf1iz7hxylw85rr2ng/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-brighton-hove-albion-match-videos",
+      "name": "Brighton & Hove Albion",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjyvx6l000h01mg90o35nmw/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-brighton-hove-albion-commentaries",
+      "name": "Brighton & Hove Albion",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxt9n1rnchxylpurumej5/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-brighton-hove-albion-news",
+      "name": "Brighton & Hove Albion",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwb8v1j2ehxylmk3rv0st/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-burnley-match-highlights",
+      "name": "Burnley",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwb0d1j12hxyl0ab3b1xr/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-burnley-match-videos",
+      "name": "Burnley",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjywo8e000k01mgb65v1d8o/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-burnley-commentaries",
+      "name": "Burnley",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxtdc1rnshxylvfpo8brg/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-burnley-news",
+      "name": "Burnley",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbav1j2ohxylrfdek01p/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-chelsea-match-highlights",
+      "name": "Chelsea",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwapt1iz3hxylggwnrek9/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-chelsea-match-videos",
+      "name": "Chelsea",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjyxsw1000n01mgovk47bfs/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-chelsea-commentaries",
+      "name": "Chelsea",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxtle1rophxylxivy0o60/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-chelsea-news",
+      "name": "Chelsea",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbci1j2zhxylua1hh6ws/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-coventry-match-highlights",
+      "name": "Coventry",
+      "feedType": "match_highlights",
+      "topicUrl": "",
+      "active": false,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-coventry-match-videos",
+      "name": "Coventry",
+      "feedType": "match_videos",
+      "topicUrl": "",
+      "active": false,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-coventry-commentaries",
+      "name": "Coventry",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxu451rr0hxylvtgjtlog/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-coventry-news",
+      "name": "Coventry",
+      "feedType": "news",
+      "topicUrl": "",
+      "active": false,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-crystal-palace-match-highlights",
+      "name": "Crystal Palace",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwast1iznhxyl0adgqwcd/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-crystal-palace-match-videos",
+      "name": "Crystal Palace",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjyypdq000q01mgo7nzpoci/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-crystal-palace-commentaries",
+      "name": "Crystal Palace",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxu6x1rrhhxyl9y19ry53/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-crystal-palace-news",
+      "name": "Crystal Palace",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbev1j36hxyl5c50ufvf/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-everton-match-highlights",
+      "name": "Everton",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwayf1j0rhxylnwzbmr2o/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-everton-match-videos",
+      "name": "Everton",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjyzk3q000t01mgqoj979rf/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-everton-commentaries",
+      "name": "Everton",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxudp1rsnhxyl7jtfbbc9/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-everton-news",
+      "name": "Everton",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbgf1j3fhxylagy5fq69/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-fulham-match-highlights",
+      "name": "Fulham",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwar41izbhxyl85p1skel/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-fulham-match-videos",
+      "name": "Fulham",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjz07ck000w01mgjpl32z3c/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-fulham-commentaries",
+      "name": "Fulham",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxupc1rushxyl2uz2iwys/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-fulham-news",
+      "name": "Fulham",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbi41j3phxyl746c0svj/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-hull-city-match-highlights",
+      "name": "Hull City",
+      "feedType": "match_highlights",
+      "topicUrl": "",
+      "active": false,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-hull-city-match-videos",
+      "name": "Hull City",
+      "feedType": "match_videos",
+      "topicUrl": "",
+      "active": false,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-hull-city-commentaries",
+      "name": "Hull City",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5ny04g1shzhxylichgbhdq/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-hull-city-news",
+      "name": "Hull City",
+      "feedType": "news",
+      "topicUrl": "",
+      "active": false,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-leeds-united-match-highlights",
+      "name": "Leeds United",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwaz11j0vhxyl05ibran7/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-leeds-united-match-videos",
+      "name": "Leeds United",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjz0xwc000z01mgwfl0scxx/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-leeds-united-commentaries",
+      "name": "Leeds United",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxzqr1sfwhxyleo1te7oe/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-leeds-united-news",
+      "name": "Leeds United",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbjk1j3yhxyli8j990z1/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-liverpool-match-highlights",
+      "name": "Liverpool",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwatd1izrhxyl7pec7wx7/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-liverpool-match-videos",
+      "name": "Liverpool",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjz1k11001201mgwrv5wzwo/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-liverpool-commentaries",
+      "name": "Liverpool",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxv211rwuhxyleg0cfp3p/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-liverpool-news",
+      "name": "Liverpool",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbl11j46hxyl2pfmawmi/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-manchester-city-match-highlights",
+      "name": "Manchester City",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwap71iyzhxylaek5dtda/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-manchester-city-match-videos",
+      "name": "Manchester City",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjz2o27001501mgty6wy5qr/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-manchester-city-commentaries",
+      "name": "Manchester City",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxvlo1rzrhxyl8s8u7k6n/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-manchester-city-news",
+      "name": "Manchester City",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbmx1j4ihxyl7jepxsfn/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-manchester-united-match-highlights",
+      "name": "Manchester United",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwav11j03hxyl6aprcyhs/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-manchester-united-match-videos",
+      "name": "Manchester United",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjz3s8r001801mgwvyy8kti/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-manchester-united-commentaries",
+      "name": "Manchester United",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxw1s1s0nhxylcsh7jd3m/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-manchester-united-news",
+      "name": "Manchester United",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbot1j4uhxylcf482btc/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-newcastle-united-match-highlights",
+      "name": "Newcastle United",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwaw61j0bhxyle0yswzsd/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-newcastle-united-match-videos",
+      "name": "Newcastle United",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjz4llq001b01mgwa8i0834/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-newcastle-united-commentaries",
+      "name": "Newcastle United",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxwie1s1vhxyllmod7g1b/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-newcastle-united-news",
+      "name": "Newcastle United",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbq51j53hxyl31dehzlu/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-nottingham-forest-match-highlights",
+      "name": "Nottingham Forest",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwaxa1j0jhxyls6w5o3qq/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-nottingham-forest-match-videos",
+      "name": "Nottingham Forest",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjz6he0001e01mg4rfwv28e/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-nottingham-forest-commentaries",
+      "name": "Nottingham Forest",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxwz71s2uhxyl1nbjngjh/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-nottingham-forest-news",
+      "name": "Nottingham Forest",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbro1j5fhxylg69i3tpi/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-sunderland-match-highlights",
+      "name": "Sunderland",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwazk1j0yhxyldkkrhpi7/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-sunderland-match-videos",
+      "name": "Sunderland",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjz74qm001h01mgmwnoujok/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-sunderland-commentaries",
+      "name": "Sunderland",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxy0q1s7chxylidqke795/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-sunderland-news",
+      "name": "Sunderland",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbst1j5nhxylya7qfnnh/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-tottenham-hotspur-match-highlights",
+      "name": "Tottenham Hotspur",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwaxv1j0nhxylsdafqbpb/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-tottenham-hotspur-match-videos",
+      "name": "Tottenham Hotspur",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjz7r49001k01mgv8qzr6kt/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-tottenham-hotspur-commentaries",
+      "name": "Tottenham Hotspur",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxyax1s8rhxyla7e2h4t8/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-tottenham-hotspur-news",
+      "name": "Tottenham Hotspur",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbw21j5zhxylx3g3gao2/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-west-ham-united-match-highlights",
+      "name": "West Ham United",
+      "feedType": "match_highlights",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwavk1j07hxyl1r4el7ke/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-west-ham-united-match-videos",
+      "name": "West Ham United",
+      "feedType": "match_videos",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmpjz8cex001n01mgbflepu8y/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-west-ham-united-commentaries",
+      "name": "West Ham United",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxyz81sbthxylr3ca4bfl/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-west-ham-united-news",
+      "name": "West Ham United",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbx31j65hxylgyvs1k1q/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    },
+    {
+      "id": "lteam-wolverhampton-wanderers-match-highlights",
+      "name": "Wolverhampton Wanderers",
+      "feedType": "match_highlights",
+      "topicUrl": "",
+      "active": false,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-wolverhampton-wanderers-match-videos",
+      "name": "Wolverhampton Wanderers",
+      "feedType": "match_videos",
+      "topicUrl": "",
+      "active": false,
+      "updatedAt": "2026-05-24T16:23:09.649Z"
+    },
+    {
+      "id": "lteam-wolverhampton-wanderers-commentaries",
+      "name": "Wolverhampton Wanderers",
+      "feedType": "commentaries",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nxzl11seyhxylrxruigu1/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:30:00.000Z"
+    },
+    {
+      "id": "lteam-wolverhampton-wanderers-news",
+      "name": "Wolverhampton Wanderers",
+      "feedType": "news",
+      "topicUrl": "https://q.loop-feed.com/v1/topic/cmi5nwbyg1j6fhxylkv8v9t52/content",
+      "active": true,
+      "updatedAt": "2026-05-24T16:20:26.917Z"
+    }
+  ]
+}

@@ -121,7 +121,7 @@ export function loopFeedEditorDigest(ctx: LoopFeedContext): string {
       );
     }
   }
-  return chunks.length ? header + chunks.join("\n\n") : `_No posts matched contextDate ${ctx.contextDate} for any side._`;
+  return chunks.length ? header + chunks.join("\n\n") : `_No posts matched the Loop Feed date filter for contextDate ${ctx.contextDate}._`;
 }
 
 const SIGNAL_PATTERNS: Array<{ re: RegExp; tag: string }> = [
@@ -256,20 +256,68 @@ export function toLoopTopicContentUrl(input: string): string {
   return u.toString();
 }
 
+function yyyyMmDdToUtcMs(date: string): number {
+  return Date.parse(`${date}T12:00:00.000Z`);
+}
+
+export function isLoopFeedDayInWindow(
+  day: string,
+  anchorDate: string,
+  lookbackDays: number,
+  lookforwardDays: number,
+): boolean {
+  const dayMs = yyyyMmDdToUtcMs(day);
+  const anchorMs = yyyyMmDdToUtcMs(anchorDate);
+  if (!Number.isFinite(dayMs) || !Number.isFinite(anchorMs)) return false;
+  const start = anchorMs - lookbackDays * 86_400_000;
+  const end = anchorMs + lookforwardDays * 86_400_000;
+  return dayMs >= start && dayMs <= end;
+}
+
+export type LoopFeedDateFilter = {
+  /** Days before anchor date to include (0 = exact day only when lookforwardDays is also 0). */
+  lookbackDays?: number;
+  /** Days after anchor date to include. */
+  lookforwardDays?: number;
+};
+
+/** Human-readable window label for UI, e.g. "2026-05-14 → 2026-05-24". */
+export function loopFeedDateWindowLabel(anchorDate: string, filter: LoopFeedDateFilter): string {
+  const lookback = filter.lookbackDays ?? 0;
+  const forward = filter.lookforwardDays ?? 0;
+  if (lookback === 0 && forward === 0) return anchorDate;
+  const start = new Date(yyyyMmDdToUtcMs(anchorDate) - lookback * 86_400_000).toISOString().slice(0, 10);
+  const end = new Date(yyyyMmDdToUtcMs(anchorDate) + forward * 86_400_000).toISOString().slice(0, 10);
+  return `${start} → ${end}`;
+}
+
+export const MATCH_REPORT_LOOP_FEED_DATE_FILTER: LoopFeedDateFilter = {
+  lookbackDays: 3,
+  lookforwardDays: 7,
+};
+
 export function normalizeLoopFeedItems(
   json: unknown,
   contextDate: string,
   maxPerSide: number,
   timeZone = process.env.LOOP_FEED_DAY_TZ?.trim() || "Europe/London",
+  dateFilter: LoopFeedDateFilter = {},
 ): LoopFeedPostBrief[] {
   if (!Array.isArray(json)) return [];
+  const lookback = dateFilter.lookbackDays ?? 0;
+  const lookforward = dateFilter.lookforwardDays ?? 0;
   const rows: LoopFeedPostBrief[] = [];
   for (const item of json) {
     if (!item || typeof item !== "object") continue;
     const row = item as Record<string, unknown>;
     const dateRaw = typeof row.date === "string" ? row.date : typeof row.created === "string" ? row.created : "";
     const day = calendarDateInTimeZone(dateRaw, timeZone);
-    if (!day || day !== contextDate) continue;
+    if (!day) continue;
+    const inRange =
+      lookback === 0 && lookforward === 0
+        ? day === contextDate
+        : isLoopFeedDayInWindow(day, contextDate, lookback, lookforward);
+    if (!inRange) continue;
 
     const postUrl = typeof row.url === "string" ? row.url : "";
     if (!postUrl) continue;

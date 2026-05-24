@@ -1,6 +1,8 @@
 import { readFileSync } from "fs";
 import fs from "fs/promises";
 import path from "path";
+import { brandStyleAppendixForSlug } from "@/app/lib/brand-style-guides/ai-appendix";
+import { getBrandStyleGuideByGuidelineSlug } from "@/app/lib/brand-style-guides/catalog";
 import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
 import type { RunwayBgBrand } from "@/app/lib/runway-background-prompt-types";
 
@@ -38,11 +40,7 @@ Replace with excerpts from your Racing365 brand guidelines.`,
   },
   teamtalk: {
     label: "TEAMtalk",
-    defaultBody: `[TEAMtalk — placeholder]
-
-Football media voice, transfer/news framing, and CTA style.
-
-Replace with excerpts from your TEAMtalk brand guidelines.`,
+    defaultBody: buildCatalogDefaultBody("teamtalk"),
   },
   planetf1: {
     label: "PlanetF1",
@@ -54,11 +52,28 @@ Replace with excerpts from your PlanetF1 brand guidelines.`,
   },
   f365: {
     label: "F365 (Football365)",
-    defaultBody: `[F365 — placeholder]
-
-Bundled file data/f365-brand-guidelines-full.txt was missing — add the Football365 brand guidelines here.`,
+    defaultBody: buildCatalogDefaultBody("f365"),
   },
 };
+
+function buildCatalogDefaultBody(slug: "teamtalk" | "f365"): string {
+  const entry = getBrandStyleGuideByGuidelineSlug(slug);
+  if (!entry) return `[${slug} — placeholder]\n\nAdd brand guidelines on the Brand Guidelines page.`;
+  return [
+    entry.summary,
+    "",
+    "=== AI EDITORIAL ===",
+    entry.editorialInstruction,
+    "",
+    "=== AI VIDEO ===",
+    entry.videoInstruction,
+    "",
+    "=== AI SOCIAL ===",
+    entry.socialInstruction,
+    "",
+    `Official brand manual (PDF): ${entry.pdfUrl}`,
+  ].join("\n");
+}
 
 const SLUGS = Object.keys(META) as BrandGuidelineSlug[];
 
@@ -90,6 +105,14 @@ function loadF365GuidelinesText(): string {
 
 function shouldMigrateF365Placeholder(body: string): boolean {
   return body.trimStart().startsWith("[F365 — placeholder]");
+}
+
+function shouldMigrateTeamtalkPlaceholder(body: string): boolean {
+  return body.trimStart().startsWith("[TEAMtalk — placeholder]");
+}
+
+function shouldMigrateCatalogBrandBody(body: string): boolean {
+  return !body.includes("=== AI VIDEO ===");
 }
 
 function defaultFile(): BrandGuidelinesFile {
@@ -155,6 +178,24 @@ async function migrateBrandGuidelinesIfNeeded(base: BrandGuidelinesFile): Promis
     base.brands.plexa = {
       ...base.brands.plexa,
       body: loadPlexaGuidelinesText(),
+      updatedAt: new Date().toISOString(),
+    };
+    changed = true;
+  }
+  if (shouldMigrateTeamtalkPlaceholder(base.brands.teamtalk.body) || shouldMigrateCatalogBrandBody(base.brands.teamtalk.body)) {
+    base.brands.teamtalk = {
+      ...base.brands.teamtalk,
+      body: buildCatalogDefaultBody("teamtalk"),
+      updatedAt: new Date().toISOString(),
+    };
+    changed = true;
+  }
+  if (shouldMigrateCatalogBrandBody(base.brands.f365.body) && !shouldMigrateF365Placeholder(base.brands.f365.body)) {
+    const f365Full = loadF365GuidelinesText();
+    const catalog = buildCatalogDefaultBody("f365");
+    base.brands.f365 = {
+      ...base.brands.f365,
+      body: [f365Full.trim(), "", "--- AI instructions (video / social) ---", catalog].filter(Boolean).join("\n"),
       updatedAt: new Date().toISOString(),
     };
     changed = true;
@@ -245,11 +286,15 @@ export function runwayBrandToSlug(brand: RunwayBgBrand): BrandGuidelineSlug {
 export async function getBrandGuidelinesAppendixForFormat(format: string): Promise<string> {
   const slug = contentFormatToBrandSlug(format);
   const data = await readBrandGuidelinesFile();
-  return (data.brands[slug]?.body ?? "").trim();
+  const base = (data.brands[slug]?.body ?? "").trim();
+  const videoExtra = brandStyleAppendixForSlug(slug, ["video"]);
+  return [base, videoExtra].filter(Boolean).join("\n\n");
 }
 
 export async function getBrandGuidelinesAppendixForRunwayBrand(brand: RunwayBgBrand): Promise<string> {
   const slug = runwayBrandToSlug(brand);
   const data = await readBrandGuidelinesFile();
-  return (data.brands[slug]?.body ?? "").trim();
+  const base = (data.brands[slug]?.body ?? "").trim();
+  const videoExtra = brandStyleAppendixForSlug(slug, ["video"]);
+  return [base, videoExtra].filter(Boolean).join("\n\n");
 }

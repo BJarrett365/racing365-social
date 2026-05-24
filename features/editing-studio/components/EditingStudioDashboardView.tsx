@@ -2,8 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Panel } from "@/app/components/Panel";
 import { parseApiJson } from "@/app/lib/parse-api-json";
+import { EditingStudioBetwaySchedulePanel } from "@/features/editing-studio/components/EditingStudioBetwaySchedulePanel";
+import { EditingStudioNavTabs } from "@/features/editing-studio/components/EditingStudioNavTabs";
+import { scheduleBrandSelectOptions } from "@/app/lib/match-report/schedule-editorial-brands";
+import { EPL_BETWAY_UPCOMINGS_URL, EPL_COMPETITION } from "@/app/lib/match-report/premier-league-schedule";
+import { BETWAY_WC2026_UPCOMINGS_URL } from "@/app/lib/match-report/betway-wc2026-constants";
+import { WC2026_COMPETITION } from "@/app/lib/match-report/wc2026-schedule";
 import { EditingStudioDashboardSkeleton } from "@/features/editing-studio/components/EditingStudioDashboardSkeleton";
 import { EditingStudioErrorDisplay } from "@/features/editing-studio/components/EditingStudioErrorDisplay";
 import { EditingStudioPageFrame } from "@/features/editing-studio/components/EditingStudioPageFrame";
@@ -89,6 +96,10 @@ function ProjectCompactCard({ project }: { project: EditingProject }) {
 }
 
 export function EditingStudioDashboardView() {
+  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const tab = searchParams.get("tab") === "fixtures" ? "fixtures" : "projects";
+  const tabSearch = searchParams.toString();
+
   const [allProjects, setAllProjects] = useState<EditingProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -128,7 +139,11 @@ export function EditingStudioDashboardView() {
     [allProjects, filters, showArchived],
   );
 
-  const brandOptions = useMemo(() => uniqueBrands(allProjects), [allProjects]);
+  const brandOptions = useMemo(() => {
+    const fromProjects = uniqueBrands(allProjects);
+    const catalog = scheduleBrandSelectOptions().map((o) => o.value);
+    return [...new Set([...catalog, ...fromProjects])].sort((a, b) => a.localeCompare(b, "en"));
+  }, [allProjects]);
 
   const draftCount = useMemo(() => filtered.filter(isDraftBucket).length, [filtered]);
   const scheduledCount = useMemo(() => filtered.filter(isScheduledBucket).length, [filtered]);
@@ -154,13 +169,35 @@ export function EditingStudioDashboardView() {
     filters.platform !== "all" ||
     showArchived;
 
+  const fixturePanels = (
+    <>
+      <EditingStudioBetwaySchedulePanel
+        title="Premier League — upcoming fixtures"
+        description={`Upcoming Premier League fixtures from Betway Scores. Create social posts per brand for ${EPL_COMPETITION} matches.`}
+        apiPath="/api/match-report/epl-schedule"
+        betwaySourceUrl={EPL_BETWAY_UPCOMINGS_URL}
+        competitionLabel={EPL_COMPETITION}
+        showGroupFilter={false}
+      />
+      <EditingStudioBetwaySchedulePanel
+        title="World Cup 2026 — fixture schedule"
+        description="All fixtures from Betway Scores. Create social posts per brand or open the match report workflow."
+        apiPath="/api/match-report/wc2026-schedule"
+        betwaySourceUrl={BETWAY_WC2026_UPCOMINGS_URL}
+        competitionLabel={WC2026_COMPETITION}
+        matchReportSchedulePath="/match-report-builder/schedule"
+      />
+    </>
+  );
+
   if (loading && allProjects.length === 0) {
     return (
       <EditingStudioPageFrame
         title="Dashboard"
-        description="Editorial workflow for social and promo posts."
+        description="World Cup 2026 and Premier League fixture calendars plus editorial workflow for social and promo posts."
       >
-        <EditingStudioDashboardSkeleton />
+        <EditingStudioNavTabs search={tabSearch ? `?${tabSearch}` : ""} />
+        {tab === "fixtures" ? fixturePanels : <EditingStudioDashboardSkeleton />}
       </EditingStudioPageFrame>
     );
   }
@@ -168,8 +205,14 @@ export function EditingStudioDashboardView() {
   return (
     <EditingStudioPageFrame
       title="Dashboard"
-      description="Review drafts, scheduled posts, and published work. Filters apply to the list and summary counts below."
+      description="World Cup 2026 and Premier League fixture calendars plus editorial workflow for social and promo posts."
     >
+      <EditingStudioNavTabs search={tabSearch ? `?${tabSearch}` : ""} />
+
+      {tab === "fixtures" ? (
+        fixturePanels
+      ) : (
+        <>
       {error ? (
         <div className="mb-6">
           <EditingStudioErrorDisplay message={error} onRetry={() => void load()} />
@@ -482,6 +525,8 @@ export function EditingStudioDashboardView() {
           )}
         </Panel>
       </div>
+        </>
+      )}
     </EditingStudioPageFrame>
   );
 }

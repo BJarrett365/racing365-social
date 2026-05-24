@@ -1,9 +1,30 @@
 import fs from "fs/promises";
 import path from "path";
-import type { SportVerticalId } from "@/app/lib/data-studio/types";
 import { assertAllowedLoopFeedUrl, toLoopTopicContentUrl } from "@/app/lib/data-studio/loop-feed";
 import { localJsonStorePath } from "@/app/lib/local-json-store-dir";
 import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
+import {
+  compareReporterEditorialRank,
+  formatReporterAffiliationBadge,
+  inferReporterAffiliationFromLegacyNote,
+  normalizeReporterAffiliationScope,
+  normalizeReporterHandle,
+  normalizeReporterHandleList,
+  normalizeReporterOutlet,
+  normalizeReporterPriority,
+  normalizeReporterRoleCategory,
+  normalizeReporterTeamName,
+  normalizeReporterWeight,
+  reporterRoleLabel,
+  type LoopFeedPriorityReporterRow,
+  type LoopFeedPriorityReportersFile,
+} from "@/app/lib/tools/loop-feed-priority-reporters-shared";
+
+export type { LoopFeedPriorityReporterRow } from "@/app/lib/tools/loop-feed-priority-reporters-shared";
+export {
+  LOOP_FEED_REPORTER_ROLE_CATEGORIES,
+  normalizeReporterHandle,
+} from "@/app/lib/tools/loop-feed-priority-reporters-shared";
 
 const BLOB_STORE_NAME = "plexa-loop-feed-reporters";
 const BLOB_KEY = "reporters.json";
@@ -12,44 +33,39 @@ function storeFile(): string {
   return localJsonStorePath("loop-feed-priority-reporters.json");
 }
 
-export type LoopFeedPriorityReporterRow = {
-  id: string;
-  sportKey: SportVerticalId;
-  name: string;
-  /** X/Twitter handle without leading @ */
-  xHandle?: string;
-  /** Optional Loop topic content URL (same host/shape as Loop Feed teams). */
-  loopTopicUrl?: string;
-  /** e.g. transfers, club beat, broadcaster — guides the model + editors */
-  editorialNote?: string;
-  active: boolean;
-  updatedAt: string;
-};
-
-export type LoopFeedPriorityReportersFile = {
-  reporters: LoopFeedPriorityReporterRow[];
-};
-
 function newReporterId(): string {
   return `lrep-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function normalizeReporterHandle(raw: string | undefined): string | undefined {
-  const t = raw?.trim();
-  if (!t) return undefined;
-  return t.replace(/^@+/, "").replace(/\s+/g, "") || undefined;
-}
-
 function normalizeReporters(parsed: LoopFeedPriorityReportersFile | null): LoopFeedPriorityReporterRow[] {
   const rows = Array.isArray(parsed?.reporters) ? parsed!.reporters : [];
-  return rows.filter(
-    (r) =>
-      r &&
-      typeof r.id === "string" &&
-      typeof r.name === "string" &&
-      typeof r.sportKey === "string" &&
-      typeof r.updatedAt === "string",
-  );
+  return rows
+    .filter(
+      (r) =>
+        r &&
+        typeof r.id === "string" &&
+        typeof r.name === "string" &&
+        typeof r.sportKey === "string" &&
+        typeof r.updatedAt === "string",
+    )
+    .map((r) => {
+      const affiliationScope = normalizeReporterAffiliationScope(r.affiliationScope);
+      const legacy =
+        r.affiliationScope === undefined && !r.teamName && !r.outlet
+          ? inferReporterAffiliationFromLegacyNote(r.editorialNote)
+          : null;
+      const scope = legacy?.affiliationScope ?? affiliationScope;
+      return {
+        ...r,
+        ...normalizeReporterHandleList(r.xHandle, r.xHandleAliases),
+        affiliationScope: scope,
+        teamName: normalizeReporterTeamName(r.teamName ?? legacy?.teamName, scope),
+        outlet: normalizeReporterOutlet(r.outlet ?? legacy?.outlet),
+        roleCategory: normalizeReporterRoleCategory(r.roleCategory),
+        priority: normalizeReporterPriority(r.priority),
+        weight: normalizeReporterWeight(r.weight),
+      };
+    });
 }
 
 async function persistReporters(reporters: LoopFeedPriorityReporterRow[]): Promise<void> {
@@ -86,7 +102,7 @@ export async function readLoopFeedPriorityReporters(): Promise<LoopFeedPriorityR
 }
 
 export async function readLoopFeedPriorityReportersBySport(
-  sportKey: SportVerticalId,
+  sportKey: LoopFeedPriorityReporterRow["sportKey"],
 ): Promise<LoopFeedPriorityReporterRow[]> {
   if (sportKey === "multi") return [];
   const all = await readLoopFeedPriorityReporters();
@@ -113,15 +129,26 @@ export async function upsertLoopFeedPriorityReporter(
   const reporters = await readLoopFeedPriorityReporters();
   const now = new Date().toISOString();
   const id = row.id?.trim() || newReporterId();
-  const handle = normalizeReporterHandle(row.xHandle);
+  const { xHandle, xHandleAliases } = normalizeReporterHandleList(row.xHandle, row.xHandleAliases);
+
+  const affiliationScope = normalizeReporterAffiliationScope(row.affiliationScope);
+  const teamName = normalizeReporterTeamName(row.teamName, affiliationScope);
+  const outlet = normalizeReporterOutlet(row.outlet);
 
   const next: LoopFeedPriorityReporterRow = {
     id,
     sportKey: row.sportKey,
     name: row.name.trim() || "Unnamed",
-    xHandle: handle,
+    xHandle,
+    xHandleAliases,
     loopTopicUrl,
     editorialNote: row.editorialNote?.trim() || undefined,
+    affiliationScope,
+    teamName,
+    outlet,
+    roleCategory: normalizeReporterRoleCategory(row.roleCategory),
+    priority: normalizeReporterPriority(row.priority),
+    weight: normalizeReporterWeight(row.weight),
     active: row.active !== false,
     updatedAt: now,
   };
@@ -149,11 +176,19 @@ export function formatPriorityReportersForPrompt(
   rows: LoopFeedPriorityReporterRow[],
   sportLabel: string,
 ): string {
-  const usable = rows.filter((r) => r.active && r.sportKey !== "multi");
+  const usable = rows
+    .filter((r) => r.active && r.sportKey !== "multi")
+    .sort(compareReporterEditorialRank);
   if (!usable.length) return "";
 
   const lines = usable.map((r) => {
-    const bits: string[] = [r.name.trim()];
+    const bits: string[] = [
+      r.name.trim(),
+      reporterRoleLabel(r.roleCategory),
+      formatReporterAffiliationBadge(r) ?? "Generic",
+      `priority ${r.priority}`,
+      `weight ${r.weight}`,
+    ];
     const h = normalizeReporterHandle(r.xHandle);
     if (h) bits.push(`X handle @${h}`);
     if (r.loopTopicUrl?.trim()) bits.push(`Loop topic ${r.loopTopicUrl.trim()}`);
@@ -165,7 +200,7 @@ export function formatPriorityReportersForPrompt(
     `**Sport:** ${sportLabel}`,
     "**Priority reporters / outlets** (configured in Tools — weight these when their posts appear in LOOP_FEED or when their angles match fixture context):",
     ...lines,
-    "- Prefer their lines for **standfirst hooks**, **transfer rumours confirmed as reporting** (attribute; no fabrication), and **match narrative colour** — always attribute (**name / @handle**).",
+    "- Prefer higher **priority** and **weight** voices for **standfirst hooks**, **transfer rumours confirmed as reporting** (attribute; no fabrication), and **match narrative colour** — always attribute (**name / @handle**).",
     "- They **do not** override **FIXTURE_JSON** facts (scores, official teams, times).",
   ].join("\n");
 }

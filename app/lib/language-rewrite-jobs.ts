@@ -15,7 +15,7 @@ export type LanguageRewriteJobRecord = {
 };
 
 export const STALE_RUNNING_REWRITE_JOB_MS = 180_000;
-export const STALE_PENDING_REWRITE_JOB_MS = 90_000;
+export const STALE_PENDING_REWRITE_JOB_MS = 120_000;
 
 export function isStaleRunningRewriteJob(job: LanguageRewriteJobRecord): boolean {
   return job.status === "running" && Date.now() - job.updatedAt > STALE_RUNNING_REWRITE_JOB_MS;

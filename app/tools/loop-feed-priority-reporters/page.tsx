@@ -1,5 +1,6 @@
-import { PriorityReportersClient } from "@/app/tools/loop-feed-priority-reporters/PriorityReportersClient";
+import { redirect } from "next/navigation";
+import { LOOP_FEED_PRIORITY_REPORTERS_PATH } from "@/app/lib/configure/paths";
 
-export default function LoopFeedPriorityReportersPage() {
-  return <PriorityReportersClient />;
+export default function LoopFeedPriorityReportersRedirectPage() {
+  redirect(LOOP_FEED_PRIORITY_REPORTERS_PATH);
 }

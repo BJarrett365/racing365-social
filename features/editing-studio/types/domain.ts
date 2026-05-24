@@ -32,6 +32,9 @@ export type ContentType =
   | "article_promo"
   | "shorts_promo";
 
+/** Editorial calendar phase when created from Schedule Studio calendar. */
+export type EditingCalendarPhase = "pre_match" | "live" | "report_post";
+
 /** How outbound links should treat UTM query parameters. */
 export type UtmPolicy = "preserve" | "strip_all" | "append_brand_utms";
 
@@ -196,6 +199,10 @@ export type EditingProject = {
   integrationMeta?: Record<string, unknown>;
   /** Append-only workflow / reviewer notes (mutated via workflow API only). */
   workflowComments?: WorkflowCommentEntry[];
+  /** Parent editorial calendar event when created from Schedule Studio calendar. */
+  calendarEventId?: string;
+  /** Phase tab (Pre-match / Live / Report·Post) when linked to a fixture event. */
+  calendarPhase?: EditingCalendarPhase;
   createdAt: string;
   updatedAt: string;
 };

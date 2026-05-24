@@ -18,6 +18,8 @@ const nav = [
   { href: "/#studios", label: "Studios", scroll: true },
   { href: "/configure", label: "Configure" },
   { href: "/library", label: "Library" },
+  { href: "/editing-studio", label: "Schedule" },
+  { href: "/tools", label: "Tools" },
   { href: "/admin", label: "Admin" },
 ];
 
@@ -93,6 +95,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Library
               </AppNavLink>
               <AppNavLink
+                href="/editing-studio"
+                className="app-nav-link rounded-full px-3 py-2 transition"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Schedule
+              </AppNavLink>
+              <AppNavLink
+                href="/tools"
+                className="app-nav-link rounded-full px-3 py-2 transition"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Tools
+              </AppNavLink>
+              <AppNavLink
                 href="/admin"
                 className="app-nav-link rounded-full px-3 py-2 transition"
                 style={{ color: "var(--text-secondary)" }}
@@ -115,7 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <nav className="mobile-tab-bar fixed inset-x-0 bottom-0 z-50 border-t px-2 py-2 backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-5 gap-1">
+        <div className="mx-auto grid max-w-lg grid-cols-7 gap-1">
           {nav.map((n) =>
             "scroll" in n && n.scroll ? (
               <Link

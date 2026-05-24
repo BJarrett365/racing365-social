@@ -162,6 +162,16 @@ export type LanguageImport = {
   createdAt: string;
 };
 
+export type LanguageJournalistStats = {
+  importedArticleCount: number;
+  exportedArticleCount: number;
+  socialPostCount: number;
+  performanceScore?: number;
+  totalPageViews?: number;
+  totalEngagedMinutes?: number;
+  lastPerformanceImportAt?: string;
+};
+
 export type LanguageArticle = {
   id: string;
   importId: string;
@@ -172,6 +182,8 @@ export type LanguageArticle = {
   canonicalUrl?: string;
   sourceArticleId?: string;
   author?: string;
+  /** Explicit link to Content Creator profile when assigned on import. */
+  journalistProfileId?: string;
   publishDate?: string;
   modifiedDate?: string;
   category?: string;
@@ -387,12 +399,51 @@ export type LanguageJournalistProfile = {
   sports: string[];
   styleNotes: string;
   articleGuidelines?: string;
+  /** Match reports: neutral voice vs club supporter. Defaults to neutral when omitted. */
+  teamSupportMode?: "neutral" | "club";
+  /** When teamSupportMode is club — e.g. "Leeds United". */
+  supportedClub?: string;
+  authorSlug?: string;
+  authorPageUrl?: string;
+  bio?: string;
+  avatarUrl?: string;
+  socialLinks?: { platform: string; url: string }[];
+  aliases?: string[];
+  stats?: LanguageJournalistStats;
   exampleTitles: string[];
   sampleArticleIds: string[];
   source: "imported" | "manual";
   active: boolean;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ChartbeatImport = {
+  id: string;
+  brand: string;
+  label: string;
+  rowCount: number;
+  matchedArticleCount: number;
+  unmatchedRowCount: number;
+  profileUpdateCount: number;
+  createdAt: string;
+};
+
+export type ChartbeatPageStat = {
+  id: string;
+  importId: string;
+  brand: string;
+  title: string;
+  path: string;
+  host: string;
+  author: string;
+  pageViews: number;
+  totalEngagedMin: number;
+  qualityPageViews: number;
+  performanceWeight: number;
+  articleId?: string;
+  journalistProfileId?: string;
+  createdAt: string;
 };
 
 export type LanguageExport = {
@@ -567,6 +618,8 @@ export type LanguageStudioData = {
   cronJobs: Record<string, LanguageCronJob>;
   cronRuns: Record<string, LanguageCronRun>;
   articleAutomations: Record<string, LanguageArticleAutomation>;
+  chartbeatImports: Record<string, ChartbeatImport>;
+  chartbeatPageStats: Record<string, ChartbeatPageStat>;
   /**
    * Issue types the team chose to ignore globally (from Quality & Guardrails).
    * Those checks are not raised on any translation until removed here.

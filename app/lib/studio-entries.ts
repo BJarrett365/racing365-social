@@ -67,11 +67,31 @@ export const PRIMARY_STUDIO_CARDS: StudioDashboardCard[] = [
     navGroup: "editorial",
   },
   {
+    title: "Match Report Builder",
+    href: "/match-report-builder",
+    heading: "Editorial-first football match reports",
+    description:
+      "Define brand voice and creator guidelines, import SixLogics core data, and build governed event intelligence before AI generation.",
+    cta: "Open Match Report Builder",
+    accent: "green",
+    navGroup: "editorial",
+  },
+  {
     title: "Language Studio",
     href: "/language-studio",
     heading: "Translation, localisation and export",
     description: "Run source imports, rewrites, translations, governance checks and XML/JSON exports.",
     cta: "Open Language Studio",
+    accent: "green",
+    navGroup: "editorial",
+  },
+  {
+    title: "News Shorts (Planet Sport)",
+    href: "/news-shorts",
+    heading: "Video and social images from article content",
+    description:
+      "Create Planet Sport news-led short videos, quote cards, thumbnails and social images from article scripts and editorial assets.",
+    cta: "Open News Shorts",
     accent: "green",
     navGroup: "editorial",
   },
@@ -162,25 +182,6 @@ export const PRIMARY_STUDIO_CARDS: StudioDashboardCard[] = [
   },
 ];
 
-export type NewsShortsCard = {
-  title: string;
-  href: string;
-  heading: string;
-  description: string;
-  cta: string;
-};
-
-export const NEWS_SHORTS_CARDS: NewsShortsCard[] = [
-  {
-    title: "News Shorts (Planet Sport)",
-    href: "/news-shorts",
-    heading: "Video and social images from article content",
-    description:
-      "Create Planet Sport news-led short videos, quote cards, thumbnails and social images from article scripts and editorial assets.",
-    cta: "Open News Shorts",
-  },
-];
-
 export type SupportCard = {
   title: string;
   href: string;
@@ -194,6 +195,11 @@ export const SUPPORT_CARDS: SupportCard[] = [
   { title: "Configure", href: "/configure", description: "Knowledge Base, tools, integrations and deploy." },
   { title: "Guard Rails", href: "/guard-rails", description: "Editorial and safety boundaries." },
   {
+    title: "Brand Style Guides",
+    href: "/configure/brand-style-guides",
+    description: "Official PDF brand manuals and AI instructions for video and social.",
+  },
+  {
     title: "Brand Guidelines",
     href: "/brand-guidelines",
     description: "Planet Sport Studio visual and tone guidance.",
@@ -202,10 +208,8 @@ export const SUPPORT_CARDS: SupportCard[] = [
   { title: "Admin", href: "/admin", description: "Settings, integrations and keys." },
 ];
 
-/** Extra link folded into the Video & social column (not duplicated as a full dashboard card). */
-export const STUDIOS_MENU_VIDEO_EXTRAS: { title: string; href: string }[] = [
-  { title: "News Shorts", href: "/news-shorts" },
-];
+/** Extra links folded into a nav column (not duplicated as full dashboard cards). */
+export const STUDIOS_MENU_VIDEO_EXTRAS: { title: string; href: string }[] = [];
 
 export function studiosGroupedForNavMenu(): { group: StudioNavGroup; label: string; items: StudioDashboardCard[] }[] {
   const byGroup = new Map<StudioNavGroup, StudioDashboardCard[]>();

@@ -3,8 +3,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
+import { LoopFeedHighlightsPreview } from "@/app/configure/loop-feed-teams/LoopFeedHighlightsPreview";
 import { studioApiPath, withAppPathPrefix } from "@/app/lib/app-base-path";
 import { LANGUAGE_CONTENT_STYLES, LANGUAGE_SPORT_CONTEXTS, type LanguageContentStyle, type LanguageJournalistProfile, type LanguageSportContext } from "@/app/lib/language-studio/types";
 import type {
@@ -13,6 +15,8 @@ import type {
   YouTubeGeneratedOutput,
   YouTubeVideoMeta,
 } from "@/app/lib/youtube-script/types";
+import type { LoopFeedTeamRow } from "@/app/lib/tools/loop-feed-teams-store";
+import { youtubeEmbedUrl } from "@/app/lib/youtube-script/embed";
 
 const outputOptions: Array<{ type: ScriptOutputType; label: string; description: string }> = [
   { type: "clean_transcript", label: "Clean transcript", description: "Readable transcript with filler and formatting cleaned up." },
@@ -49,9 +53,6 @@ function formatTranscriptTime(seconds?: number): string {
     : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function youtubeEmbedUrl(videoId: string): string {
-  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}`;
-}
 
 function makeManualTranscript(text: string): TranscriptResult {
   const fullText = text.trim();
@@ -131,7 +132,9 @@ function formatTranscriptAttemptDetails(details?: Record<string, unknown>): stri
 }
 
 export default function YouTubeScriptImporterPage() {
-  const [url, setUrl] = useState("");
+  const searchParams = useSearchParams();
+  const prefilledUrl = searchParams.get("url")?.trim() ?? "";
+  const [url, setUrl] = useState(prefilledUrl);
   const [meta, setMeta] = useState<YouTubeVideoMeta | null>(null);
   const [manualTranscript, setManualTranscript] = useState("");
   const [transcript, setTranscript] = useState<TranscriptResult | null>(null);
@@ -150,6 +153,7 @@ export default function YouTubeScriptImporterPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loopFeedTeamNames, setLoopFeedTeamNames] = useState<string[]>([]);
 
   const selectedGeneratedOutput = useMemo(
     () => outputs.find((output) => output.id === selectedOutputId) ?? outputs[0],
@@ -168,6 +172,10 @@ export default function YouTubeScriptImporterPage() {
   const canGenerate = Boolean(meta && transcriptText.trim());
 
   useEffect(() => {
+    if (prefilledUrl) setUrl(prefilledUrl);
+  }, [prefilledUrl]);
+
+  useEffect(() => {
     let cancelled = false;
     void fetch(studioApiPath("/api/language/governance"))
       .then((res) => res.ok ? res.json() : null)
@@ -176,6 +184,25 @@ export default function YouTubeScriptImporterPage() {
       })
       .catch(() => {
         if (!cancelled) setJournalistProfiles([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(studioApiPath("/api/tools/loop-feed-teams"))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { teams?: LoopFeedTeamRow[] } | null) => {
+        if (cancelled || !Array.isArray(data?.teams)) return;
+        const names = [...new Set(data.teams.map((row) => row.name.trim()).filter(Boolean))].sort((a, b) =>
+          a.localeCompare(b),
+        );
+        setLoopFeedTeamNames(names);
+      })
+      .catch(() => {
+        if (!cancelled) setLoopFeedTeamNames([]);
       });
     return () => {
       cancelled = true;
@@ -244,9 +271,11 @@ export default function YouTubeScriptImporterPage() {
     }
   };
 
-  const loadVideo = () =>
+  const loadVideo = (videoUrl?: string) =>
     run(async () => {
-      const validation = await postJson<{ videoId: string; url: string }>("/api/youtube/validate", { url });
+      const nextUrl = (videoUrl ?? url).trim();
+      if (!nextUrl) throw new Error("Paste a YouTube URL first.");
+      const validation = await postJson<{ videoId: string; url: string }>("/api/youtube/validate", { url: nextUrl });
       const data = await postJson<{ meta: YouTubeVideoMeta }>("/api/youtube/metadata", validation);
       setMeta(data.meta);
       setUrl(data.meta.url);
@@ -417,6 +446,19 @@ export default function YouTubeScriptImporterPage() {
       {message ? <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">{message}</p> : null}
       {transcriptNotice ? <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">{transcriptNotice}</p> : null}
       {error ? <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</p> : null}
+
+      <Panel title="Import from Loop Feed">
+        <p className="mb-4 text-sm text-[color:var(--text-secondary)]">
+          Browse match highlights from Loop Feed, then import a video straight into the transcript workflow below.
+        </p>
+        <LoopFeedHighlightsPreview
+          teamNames={loopFeedTeamNames}
+          defaultFeedType="match_highlights"
+          defaultPlatform="youtube"
+          onSelectVideo={(videoUrl) => void loadVideo(videoUrl)}
+          selectActionLabel="Import this video →"
+        />
+      </Panel>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_380px]">
         <div className="space-y-5">

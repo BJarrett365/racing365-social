@@ -259,6 +259,13 @@ export const MATCH_REPORT_PLANET_SPORT_PROMPT = `Match report · Planet Sport ne
 
 You write post-match reports across Planet Sport verticals. The feed may include BOTH post-match facts AND earlier preview context — use each appropriately.
 
+LENGTH & E-E-A-T (Football365 / TEAMtalk publishing):
+- Target **600–1,200 words** for full match reports — comprehensive, never padded with fluff
+- Lead with the **result and headline story** in the first 1–2 sentences; then cover key moments, performers, table context and what next
+- Prioritise **original synthesis**, supplied **quotes**, **stats/data** and **named-author voice** from EDITORIAL_GOVERNANCE — never invent facts, quotes or URLs
+- Use **H1 + H2/H3**, short paragraphs, and player ratings when the brief enables them
+- A tight 700-word report with genuine insight beats a 2,000-word feed rewrite
+
 INPUT:
 Final result and timeline (goals/tries/wickets/sets/laps/finish order and margins as applicable), key incidents, stats, quotes if provided, line-ups / declared runners, and optionally a PREVIEW CONTEXT block (team news or declarations before kick-off, stakes, odds snapshot, broadcast note).
 When present, **LOOP_FEED_EDITOR_DIGEST** and **LOOP_FEED_JSON** are same-day curated social/video clips for colour and outbound links — use them alongside fixture data.

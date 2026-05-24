@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getEditingRevisionActorFromRequest } from "@/features/editing-studio/lib/editing-revision-actor";
 import { getEditingStudioRepository } from "@/features/editing-studio/services/editing-studio-repository";
 import { manualProjectCreateSchema } from "@/features/editing-studio/validators/editing-studio-schemas";
+import { linkContentToCalendarPhase } from "@/app/lib/editorial-calendar/store";
 
 const repo = getEditingStudioRepository();
 
@@ -34,6 +35,8 @@ export async function POST(req: Request) {
         platforms: [...d.platforms],
         assets: [],
         copyVariants: [],
+        calendarEventId: d.calendarEventId,
+        calendarPhase: d.calendarPhase,
         integrationMeta: {
           manual: {
             createdAt: new Date().toISOString(),
@@ -42,6 +45,14 @@ export async function POST(req: Request) {
       },
       { actor },
     );
+
+    if (d.calendarEventId && d.calendarPhase) {
+      await linkContentToCalendarPhase({
+        eventId: d.calendarEventId,
+        phase: d.calendarPhase,
+        editingProjectId: project.id,
+      }).catch(() => undefined);
+    }
 
     return NextResponse.json({ project });
   } catch (e) {

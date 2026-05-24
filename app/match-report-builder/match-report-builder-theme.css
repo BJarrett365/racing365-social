@@ -1,0 +1,136 @@
+/*
+ * Match Report Builder — scoped dark-mode readability polish.
+ * Uses design tokens from globals.css; light mode unchanged.
+ */
+
+.match-report-builder input::placeholder,
+.match-report-builder textarea::placeholder {
+  color: color-mix(in srgb, var(--text-muted) 72%, var(--text-secondary));
+  opacity: 1;
+}
+
+html.dark .match-report-builder input::placeholder,
+html.dark .match-report-builder textarea::placeholder {
+  color: color-mix(in srgb, var(--text-muted) 55%, var(--text-secondary));
+}
+
+.match-report-builder .mrb-field-label {
+  color: var(--text-secondary);
+  letter-spacing: 0.12em;
+}
+
+html.dark .match-report-builder .mrb-field-label {
+  color: color-mix(in srgb, var(--text-secondary) 88%, var(--text-primary));
+}
+
+.match-report-builder .mrb-layer-tab--idle {
+  border-color: var(--border-strong);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+}
+
+.match-report-builder .mrb-layer-tab--idle .mrb-layer-tab-badge {
+  background: color-mix(in srgb, var(--border-strong) 55%, var(--surface-muted));
+  color: var(--text-secondary);
+}
+
+.match-report-builder .mrb-layer-tab--current {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong));
+  background: var(--accent-soft);
+  color: var(--primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.match-report-builder .mrb-layer-tab--current .mrb-layer-tab-badge {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.match-report-builder .mrb-layer-tab--done {
+  border-color: color-mix(in srgb, var(--success) 40%, var(--border-strong));
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.match-report-builder .mrb-layer-tab--done .mrb-layer-tab-badge {
+  background: var(--success);
+  color: #fff;
+}
+
+.match-report-builder .mrb-skip-penalty {
+  border-color: var(--border-strong);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+}
+
+.match-report-builder .mrb-skip-penalty strong {
+  color: var(--warning);
+  font-weight: 800;
+}
+
+.match-report-builder .mrb-confidence-meta {
+  color: var(--text-secondary);
+}
+
+.match-report-builder .mrb-editorial-chip {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding: 0.125rem 0.5rem;
+  font-weight: 600;
+}
+
+.match-report-builder .mrb-action-bar {
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
+}
+
+.match-report-builder .mrb-import-field {
+  border-color: var(--border-strong);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
+
+.match-report-builder .mrb-import-field:focus-visible {
+  border-color: var(--focus);
+  box-shadow: var(--ring);
+}
+
+.match-report-builder .mrb-step-header {
+  border-color: var(--border-strong);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary-soft) 65%, var(--surface-muted)) 0%,
+    var(--surface-elevated) 100%
+  );
+}
+
+.match-report-builder .mrb-step-eyebrow {
+  color: var(--primary);
+}
+
+.match-report-builder .mrb-layer-progress {
+  border-color: var(--border-strong);
+  background: color-mix(in srgb, var(--surface-muted) 80%, var(--surface-elevated));
+}
+
+.match-report-builder .mrb-confidence-strip {
+  border-color: var(--border-strong);
+  background: linear-gradient(
+    180deg,
+    var(--surface-muted) 0%,
+    color-mix(in srgb, var(--surface-muted) 70%, var(--surface)) 100%
+  );
+}
+
+.match-report-builder .mrb-hero {
+  border-color: var(--border-strong);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary-soft) 40%, var(--surface-elevated)) 0%,
+    var(--surface) 52%,
+    var(--background) 100%
+  );
+  box-shadow: var(--shadow-lg);
+}

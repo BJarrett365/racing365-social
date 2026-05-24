@@ -7,7 +7,16 @@ import { R365Button } from "@/app/components/R365Button";
 import { loadFixturePresets, saveFixturePresets, type FixturePreset } from "@/app/lib/data-studio/fixture-presets";
 import type { LoopFeedContext } from "@/app/lib/data-studio/loop-feed";
 import type { SportVerticalId, MatchCopyMode } from "@/app/lib/data-studio/types";
+import { LOOP_FEED_TEAMS_PATH } from "@/app/lib/configure/paths";
 import type { LoopFeedTeamRow } from "@/app/lib/tools/loop-feed-teams-store";
+import { filterLoopFeedTeamsByFeedType } from "@/app/lib/tools/loop-feed-teams-store";
+import {
+  DEFAULT_LOOP_FEED_TEAM_FEED_TYPE,
+  LOOP_FEED_TEAM_FEED_TYPES,
+  loopFeedTeamDisplayName,
+  loopFeedTeamFeedTypeDescription,
+  type LoopFeedTeamFeedType,
+} from "@/app/lib/tools/loop-feed-team-feed-types";
 import { splitArticleForLanguageStudio } from "@/app/lib/data-studio/markdown-to-article";
 import {
   buildF365MatchReportOpenAiPrompt,
@@ -132,8 +141,14 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
   const [loopFetchError, setLoopFetchError] = useState<string | null>(null);
   const [loopFeedSnapshot, setLoopFeedSnapshot] = useState<LoopFeedContext | null>(null);
   const [loopTeams, setLoopTeams] = useState<LoopFeedTeamRow[]>([]);
+  const [loopFeedType, setLoopFeedType] = useState<LoopFeedTeamFeedType>(DEFAULT_LOOP_FEED_TEAM_FEED_TYPE);
   const [loopHomePick, setLoopHomePick] = useState("");
   const [loopAwayPick, setLoopAwayPick] = useState("");
+
+  const loopTeamsForFeedType = useMemo(
+    () => filterLoopFeedTeamsByFeedType(loopTeams, loopFeedType),
+    [loopTeams, loopFeedType],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -193,18 +208,23 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
   }, [dataStudioVertical, sourceBrands]);
 
   useEffect(() => {
+    setLoopHomePick("");
+    setLoopAwayPick("");
+  }, [loopFeedType]);
+
+  useEffect(() => {
     if (loopHomePick === "") {
       setLoopHomeUrl("");
       setLoopHomeLabel("Home");
       return;
     }
     if (loopHomePick === LOOP_TEAM_CUSTOM) return;
-    const t = loopTeams.find((x) => x.id === loopHomePick);
+    const t = loopTeamsForFeedType.find((x) => x.id === loopHomePick);
     if (t) {
       setLoopHomeUrl(t.topicUrl);
       setLoopHomeLabel(t.name);
     }
-  }, [loopHomePick, loopTeams]);
+  }, [loopHomePick, loopTeamsForFeedType]);
 
   useEffect(() => {
     if (loopAwayPick === "") {
@@ -213,12 +233,12 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
       return;
     }
     if (loopAwayPick === LOOP_TEAM_CUSTOM) return;
-    const t = loopTeams.find((x) => x.id === loopAwayPick);
+    const t = loopTeamsForFeedType.find((x) => x.id === loopAwayPick);
     if (t) {
       setLoopAwayUrl(t.topicUrl);
       setLoopAwayLabel(t.name);
     }
-  }, [loopAwayPick, loopTeams]);
+  }, [loopAwayPick, loopTeamsForFeedType]);
 
   const prettyJson = useMemo(() => {
     if (payload === null) return "";
@@ -751,13 +771,28 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
         <p className="text-sm font-bold text-[color:var(--text-primary)]">Loop Feed — team social (match day)</p>
         <p className="mt-1 text-sm leading-6 text-[color:var(--text-secondary)]">
           Pick two clubs from your saved catalog (or use custom URLs). Manage topic URLs in{" "}
-          <Link href="/tools/loop-feed-teams" className="font-semibold text-[#22c55e] hover:underline">
-            Tools → Loop Feed teams
+          <Link href={LOOP_FEED_TEAMS_PATH} className="font-semibold text-[#22c55e] hover:underline">
+            Configure → Loop Feed teams
           </Link>
           . Fetched server-side; set <code className="text-[color:var(--text-muted)]">LOOP_FEED_AUTHORIZATION</code> in{" "}
           <code className="text-[color:var(--text-muted)]">.env.local</code> if required. Posts match the calendar date below in{" "}
           <code className="text-[color:var(--text-muted)]">LOOP_FEED_DAY_TZ</code> (default Europe/London).
         </p>
+        <label className="mt-3 flex max-w-md flex-col gap-1 text-xs font-semibold text-[color:var(--text-muted)]">
+          Feed type
+          <select
+            value={loopFeedType}
+            onChange={(e) => setLoopFeedType(e.target.value as LoopFeedTeamFeedType)}
+            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm text-[color:var(--text-primary)]"
+          >
+            {LOOP_FEED_TEAM_FEED_TYPES.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="mt-1 text-xs text-[color:var(--text-muted)]">{loopFeedTeamFeedTypeDescription(loopFeedType)}</p>
         <div className="mt-3 grid gap-4 md:grid-cols-2">
           <div className="space-y-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
             <label className="flex flex-col gap-1 text-xs font-semibold text-[color:var(--text-muted)]">
@@ -769,9 +804,9 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
               >
                 <option value="">— None —</option>
                 <option value={LOOP_TEAM_CUSTOM}>Custom URL…</option>
-                {loopTeams.map((t) => (
+                {loopTeamsForFeedType.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.name}
+                    {loopFeedTeamDisplayName(t.name, t.feedType)}
                   </option>
                 ))}
               </select>
@@ -810,9 +845,9 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
               >
                 <option value="">— None —</option>
                 <option value={LOOP_TEAM_CUSTOM}>Custom URL…</option>
-                {loopTeams.map((t) => (
+                {loopTeamsForFeedType.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.name}
+                    {loopFeedTeamDisplayName(t.name, t.feedType)}
                   </option>
                 ))}
               </select>
@@ -1039,7 +1074,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
 
           <div className="grid gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 md:grid-cols-3">
             <label className="flex flex-col gap-1 text-xs font-semibold text-[color:var(--text-muted)]">
-              Journalist style (optional)
+              Content creator style (optional)
               <select
                 value={journalistProfileId}
                 onChange={(e) => setJournalistProfileId(e.target.value)}

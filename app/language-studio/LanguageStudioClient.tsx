@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
 import { GovernancePanel } from "@/app/language-studio/GovernancePanels";
+import { PerformancePanel } from "@/app/language-studio/PerformancePanel";
 import { QualityGuardrailsPanel } from "@/app/language-studio/QualityGuardrailsPanel";
 import { studioApiPath, withAppPathPrefix } from "@/app/lib/app-base-path";
 import { pollLanguageRewriteJob } from "@/app/lib/parse-api-json";
@@ -25,6 +26,7 @@ import { RUNWAY_T2I_PROMPT_MAX, RUNWAY_T2I_RATIOS_NEWS_SHORTS, formatRunwayT2iRa
 import { mergeUniqueTagsFromCommaSeparated, uniqueTags } from "@/app/lib/language-studio/tags";
 import { contentStyleFromArticle, sportContextFromArticle } from "@/app/lib/language-studio/article-context";
 import { defaultRewriteStyleForContentStyle } from "@/app/lib/language-studio/content-style-prompts";
+import { creatorTeamSupportLabel } from "@/app/lib/language-studio/creator-team-support";
 import {
   LANGUAGE_CONTENT_STYLES,
   LANGUAGE_LABELS,
@@ -194,6 +196,8 @@ type JournalistProfileRow = {
   sports: string[];
   styleNotes: string;
   articleGuidelines?: string;
+  teamSupportMode?: "neutral" | "club";
+  supportedClub?: string;
   exampleTitles: string[];
   sampleArticleIds: string[];
   source: "imported" | "manual";
@@ -219,7 +223,7 @@ const HTML_ENTITIES: Record<string, string> = {
 };
 
 const primaryTabs = ["Dashboard", "Imports", "Rewrite", "Translations", "Review Queue", "Published", "Automated"] as const;
-const secondaryTabs = ["Source Brands", "Journalists", "Guardrails", "Knowledge Files", "Glossary", "Protected Terms", "Market Rules", "Prompt Rules", "Compliance Notes", "Quality Checks", "Export Feeds", "Client Access", "Settings"] as const;
+const secondaryTabs = ["Source Brands", "Journalists", "Performance", "Guardrails", "Knowledge Files", "Glossary", "Protected Terms", "Market Rules", "Prompt Rules", "Compliance Notes", "Quality Checks", "Export Feeds", "Client Access", "Settings"] as const;
 type LanguageStudioTab = (typeof primaryTabs)[number] | (typeof secondaryTabs)[number];
 const allLanguageStudioTabs = [...primaryTabs, ...secondaryTabs] as readonly string[];
 function tabLabel(tab: LanguageStudioTab): string {
@@ -938,7 +942,8 @@ export function LanguageStudioClient() {
     const profile = activeJournalistProfiles.find((row) => row.id === profileId);
     setSelectedJournalistProfileId(profileId);
     if (!profile) return;
-    setJournalistStyle(`${profile.name} (${profile.brand}${profile.sports.length ? ` · ${profile.sports.join(", ")}` : ""})\n${profile.styleNotes}`);
+    const support = ` · ${creatorTeamSupportLabel(profile)}`;
+    setJournalistStyle(`${profile.name} (${profile.brand}${profile.sports.length ? ` · ${profile.sports.join(", ")}` : ""}${support})\n${profile.styleNotes}`);
     if (profile.articleGuidelines) setEditorialGuidelines(profile.articleGuidelines);
   };
 
@@ -1286,7 +1291,7 @@ export function LanguageStudioClient() {
         });
       }
       setMessage(
-        `${importedArticles.length} article(s) imported (${data.createdCount ?? 0} new, ${data.updatedCount ?? 0} updated). ${savedImages} image(s) saved to Library.`,
+        `Import complete — ${importedArticles.length} article${importedArticles.length === 1 ? "" : "s"} imported (${data.createdCount ?? 0} new, ${data.updatedCount ?? 0} updated). ${savedImages} image${savedImages === 1 ? "" : "s"} saved to Library.`,
       );
       setTab("Translations");
     }, { reload: false, processingOverlay: true, busyCaption: "Importing latest articles from the feed…" });
@@ -2057,7 +2062,11 @@ export function LanguageStudioClient() {
         })}
       </div>
 
-      {message ? <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">{message}</p> : null}
+      {message ? (
+        <p className="rounded-lg border border-emerald-600 bg-[#22c55e] px-4 py-3 text-sm font-semibold text-black shadow-sm">
+          {message}
+        </p>
+      ) : null}
       {error ? <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</p> : null}
 
       {tab === "Dashboard" ? (
@@ -2293,7 +2302,7 @@ export function LanguageStudioClient() {
                 to send a stored article back here.
               </p>
             ) : null}
-            <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-stretch">
             <ArticleList
               articles={articlesForActivePipeline}
               selectedId={selectedArticle?.id ?? ""}
@@ -2346,7 +2355,7 @@ export function LanguageStudioClient() {
                   <option value="">Manual creator style</option>
                   {activeJournalistProfiles.map((profile) => (
                     <option key={profile.id} value={profile.id}>
-                      {profile.name} · {profile.brand}{profile.sports.length ? ` · ${profile.sports.join(", ")}` : ""}
+                      {profile.name} · {profile.brand}{profile.sports.length ? ` · ${profile.sports.join(", ")}` : ""} · {creatorTeamSupportLabel(profile)}
                     </option>
                   ))}
                 </select>
@@ -2456,7 +2465,7 @@ export function LanguageStudioClient() {
                 to send a stored article back here.
               </p>
             ) : null}
-            <div className="grid gap-4 lg:grid-cols-[1fr_420px]">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
             <ArticleList
               articles={articlesForActivePipeline}
               selectedId={selectedArticle?.id ?? ""}
@@ -2513,7 +2522,7 @@ export function LanguageStudioClient() {
                   <option value="">Manual creator style</option>
                   {activeJournalistProfiles.map((profile) => (
                     <option key={profile.id} value={profile.id}>
-                      {profile.name} · {profile.brand}{profile.sports.length ? ` · ${profile.sports.join(", ")}` : ""}
+                      {profile.name} · {profile.brand}{profile.sports.length ? ` · ${profile.sports.join(", ")}` : ""} · {creatorTeamSupportLabel(profile)}
                     </option>
                   ))}
                 </select>
@@ -3293,6 +3302,7 @@ export function LanguageStudioClient() {
         <SourceBrandsPanel sourceBrands={sourceBrands} onSave={saveSourceBrand} onDelete={deleteSourceBrandById} busy={busy} />
       ) : null}
       {tab === "Journalists" ? <GovernancePanel section="Journalists" /> : null}
+      {tab === "Performance" ? <PerformancePanel /> : null}
       {tab === "Knowledge Files" ? <GovernancePanel section="Knowledge Files" /> : null}
       {tab === "Glossary" ? <GlossaryPanel glossary={glossary} onSave={saveGlossary} busy={busy} /> : null}
       {tab === "Protected Terms" ? <GovernancePanel section="Protected Terms" /> : null}
@@ -3814,7 +3824,7 @@ function ArticleList({
 }) {
   if (articles.length === 0) {
     return (
-      <div className="rounded-lg border border-[#1f2d26] bg-black/20 p-4 text-sm text-slate-400">
+      <div className="flex min-h-[calc(100vh-17rem)] items-start rounded-lg border border-[#1f2d26] bg-black/20 p-4 text-sm text-slate-400">
         No imported articles found yet. Run an import from the Imports tab, then check the success message for the
         parsed article count.
       </div>
@@ -3822,7 +3832,8 @@ function ArticleList({
   }
 
   return (
-    <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
+    <div className="flex min-h-[calc(100vh-17rem)] flex-col overflow-hidden rounded-lg border border-[#1f2d26] bg-black/20">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 pr-2">
       {articles.map((article) => {
           const meta = inferredArticleMeta(article);
           return (
@@ -3871,6 +3882,7 @@ function ArticleList({
             </div>
           );
         })}
+      </div>
     </div>
   );
 }

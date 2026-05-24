@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import type { SportVerticalId } from "@/app/lib/data-studio/types";
 import {
+  normalizeReporterAffiliationScope,
+  normalizeReporterOutlet,
+  normalizeReporterPriority,
+  normalizeReporterRoleCategory,
+  normalizeReporterTeamName,
+  normalizeReporterWeight,
+} from "@/app/lib/tools/loop-feed-priority-reporters-shared";
+import {
   deleteLoopFeedPriorityReporter,
   readLoopFeedPriorityReporters,
   upsertLoopFeedPriorityReporter,
@@ -43,6 +51,12 @@ type PostBody = {
   xHandle?: string;
   loopTopicUrl?: string;
   editorialNote?: string;
+  affiliationScope?: string;
+  teamName?: string;
+  outlet?: string;
+  roleCategory?: string;
+  priority?: number;
+  weight?: number;
   active?: boolean;
 };
 
@@ -69,12 +83,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "name is required." }, { status: 400 });
   }
   try {
+    const affiliationScope = normalizeReporterAffiliationScope(body.affiliationScope);
     const reporter = await upsertLoopFeedPriorityReporter({
       sportKey,
       name,
       xHandle: typeof body.xHandle === "string" ? body.xHandle : undefined,
       loopTopicUrl: typeof body.loopTopicUrl === "string" ? body.loopTopicUrl : undefined,
       editorialNote: typeof body.editorialNote === "string" ? body.editorialNote : undefined,
+      affiliationScope,
+      teamName: normalizeReporterTeamName(body.teamName, affiliationScope),
+      outlet: normalizeReporterOutlet(body.outlet),
+      roleCategory: normalizeReporterRoleCategory(body.roleCategory),
+      priority: normalizeReporterPriority(body.priority),
+      weight: normalizeReporterWeight(body.weight),
       active: body.active !== false,
     });
     return NextResponse.json({ ok: true, reporter });
@@ -115,6 +136,21 @@ export async function PATCH(req: Request) {
   const loopTopicUrl = typeof body.loopTopicUrl === "string" ? body.loopTopicUrl : existing.loopTopicUrl;
   const editorialNote =
     typeof body.editorialNote === "string" ? body.editorialNote : existing.editorialNote;
+  const affiliationScope =
+    body.affiliationScope !== undefined
+      ? normalizeReporterAffiliationScope(body.affiliationScope)
+      : existing.affiliationScope;
+  const teamName =
+    body.teamName !== undefined
+      ? normalizeReporterTeamName(body.teamName, affiliationScope)
+      : normalizeReporterTeamName(existing.teamName, affiliationScope);
+  const outlet = body.outlet !== undefined ? normalizeReporterOutlet(body.outlet) : existing.outlet;
+  const roleCategory =
+    body.roleCategory !== undefined
+      ? normalizeReporterRoleCategory(body.roleCategory)
+      : existing.roleCategory;
+  const priority = body.priority !== undefined ? normalizeReporterPriority(body.priority) : existing.priority;
+  const weight = body.weight !== undefined ? normalizeReporterWeight(body.weight) : existing.weight;
   const active = typeof body.active === "boolean" ? body.active : existing.active;
 
   try {
@@ -125,6 +161,12 @@ export async function PATCH(req: Request) {
       xHandle,
       loopTopicUrl,
       editorialNote,
+      affiliationScope,
+      teamName,
+      outlet,
+      roleCategory,
+      priority,
+      weight,
       active,
     });
     return NextResponse.json({ ok: true, reporter });

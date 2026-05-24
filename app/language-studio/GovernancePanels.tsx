@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
+import { creatorTeamSupportLabel } from "@/app/lib/language-studio/creator-team-support";
 import { LANGUAGE_LABELS, type LanguageCode } from "@/app/lib/language-studio/types";
 import { studioApiPath } from "@/app/lib/app-base-path";
 
@@ -91,6 +92,11 @@ export function GovernancePanel({ section }: { section: Section }) {
               <p className="font-semibold text-white">{String(row.name)} · {String(row.brand)}</p>
               <p className="mt-1 text-xs text-slate-500">
                 Content Creator Style · {Array.isArray(row.sports) && row.sports.length ? row.sports.join(", ") : "No sports tagged yet"}
+                {" · "}
+                {creatorTeamSupportLabel({
+                  teamSupportMode: row.teamSupportMode as "neutral" | "club" | undefined,
+                  supportedClub: typeof row.supportedClub === "string" ? row.supportedClub : undefined,
+                })}
               </p>
               <p className="mt-2 whitespace-pre-line text-xs text-slate-400">{String(row.styleNotes || "No style profile yet.")}</p>
             </div>
@@ -130,12 +136,45 @@ export function GovernancePanel({ section }: { section: Section }) {
       {section === "Journalists" ? <JournalistForm draft={draft} setDraft={setDraft} /> : null}
       <R365Button type="button" onClick={() => void save()}>Save {section === "Journalists" ? "Content Creator" : section}</R365Button>
       <div className="grid gap-2 md:grid-cols-2">
-        {rows.map((row) => (
-          <button key={String(row.id)} type="button" onClick={() => setDraft(row)} className="rounded-lg border border-[#1f2d26] bg-black/20 p-3 text-left text-sm text-slate-300">
-            <p className="font-semibold text-white">{String(row.title || row.term || row.market || row.contentType || row.riskType || row.name || row.id)}</p>
-            <p className="mt-1 line-clamp-3 text-xs text-slate-500">{String(row.rule || row.notes || row.toneRules || row.promptInstruction || row.action || row.styleNotes || "")}</p>
-          </button>
-        ))}
+        {rows.map((row) =>
+          section === "Journalists" ? (
+            <button
+              key={String(row.id)}
+              type="button"
+              onClick={() => setDraft(row)}
+              className="rounded-lg border border-[#1f2d26] bg-black/20 p-3 text-left text-sm text-slate-300"
+            >
+              <p className="font-semibold text-white">
+                {String(row.name)} · {String(row.brand)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {typeof row.stats === "object" && row.stats
+                  ? `${(row.stats as { importedArticleCount?: number }).importedArticleCount ?? 0} imported · ${(row.stats as { exportedArticleCount?: number }).exportedArticleCount ?? 0} exported · ${(row.stats as { socialPostCount?: number }).socialPostCount ?? 0} social · Score ${Math.round((row.stats as { performanceScore?: number }).performanceScore ?? 0) || "—"}`
+                  : "No stats yet"}
+              </p>
+              {typeof row.authorPageUrl === "string" && row.authorPageUrl ? (
+                <a
+                  href={row.authorPageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 block text-xs text-emerald-300 underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Author page
+                </a>
+              ) : null}
+              {Array.isArray(row.aliases) && row.aliases.length ? (
+                <p className="mt-1 text-xs text-slate-500">Aliases: {(row.aliases as string[]).join(", ")}</p>
+              ) : null}
+              <p className="mt-2 line-clamp-3 text-xs text-slate-500">{String(row.styleNotes || "")}</p>
+            </button>
+          ) : (
+            <button key={String(row.id)} type="button" onClick={() => setDraft(row)} className="rounded-lg border border-[#1f2d26] bg-black/20 p-3 text-left text-sm text-slate-300">
+              <p className="font-semibold text-white">{String(row.title || row.term || row.market || row.contentType || row.riskType || row.name || row.id)}</p>
+              <p className="mt-1 line-clamp-3 text-xs text-slate-500">{String(row.rule || row.notes || row.toneRules || row.promptInstruction || row.action || row.styleNotes || "")}</p>
+            </button>
+          ),
+        )}
       </div>
     </Panel>
   );
@@ -162,5 +201,65 @@ function ComplianceForm({ draft, setDraft }: { draft: Record<string, unknown>; s
 }
 
 function JournalistForm({ draft, setDraft }: { draft: Record<string, unknown>; setDraft: (next: Record<string, unknown>) => void }) {
-  return <div className="grid gap-3 md:grid-cols-4"><input className={inputClass} placeholder="Content creator name" value={String(draft.name ?? "")} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /><input className={inputClass} placeholder="Brand" value={String(draft.brand ?? "")} onChange={(e) => setDraft({ ...draft, brand: e.target.value })} /><input className={inputClass} placeholder="Sports, comma-separated" value={Array.isArray(draft.sports) ? draft.sports.join(", ") : ""} onChange={(e) => setDraft({ ...draft, sports: csv(e.target.value) })} /><label className="mt-3 flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={draft.active !== false} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />Active</label><textarea className={`${textareaClass} md:col-span-2`} placeholder="Creator style: tone, rhythm, structure, sentence length, headline habits" value={String(draft.styleNotes ?? "")} onChange={(e) => setDraft({ ...draft, styleNotes: e.target.value })} /><textarea className={`${textareaClass} md:col-span-2`} placeholder="Article / editorial guidelines for this creator style" value={String(draft.articleGuidelines ?? "")} onChange={(e) => setDraft({ ...draft, articleGuidelines: e.target.value })} /><textarea className={`${textareaClass} md:col-span-4`} placeholder="Example titles, one per line" value={Array.isArray(draft.exampleTitles) ? draft.exampleTitles.join("\n") : ""} onChange={(e) => setDraft({ ...draft, exampleTitles: e.target.value.split(/\n+/).map((item) => item.trim()).filter(Boolean) })} /></div>;
+  const teamSupportMode = draft.teamSupportMode === "club" ? "club" : "neutral";
+  return (
+    <div className="grid gap-3 md:grid-cols-4">
+      <input className={inputClass} placeholder="Content creator name" value={String(draft.name ?? "")} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+      <input className={inputClass} placeholder="Brand" value={String(draft.brand ?? "")} onChange={(e) => setDraft({ ...draft, brand: e.target.value })} />
+      <input className={inputClass} placeholder="Sports, comma-separated" value={Array.isArray(draft.sports) ? draft.sports.join(", ") : ""} onChange={(e) => setDraft({ ...draft, sports: csv(e.target.value) })} />
+      <label className="mt-3 flex items-center gap-2 text-sm text-slate-300">
+        <input type="checkbox" checked={draft.active !== false} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />
+        Active
+      </label>
+      <select
+        className={inputClass}
+        value={teamSupportMode}
+        onChange={(e) => {
+          const mode = e.target.value === "club" ? "club" : "neutral";
+          setDraft({
+            ...draft,
+            teamSupportMode: mode,
+            supportedClub: mode === "neutral" ? undefined : draft.supportedClub,
+          });
+        }}
+      >
+        <option value="neutral">Team support: Neutral</option>
+        <option value="club">Team support: Club supporter</option>
+      </select>
+      <input
+        className={inputClass}
+        placeholder="Supported club, e.g. Leeds United"
+        value={String(draft.supportedClub ?? "")}
+        disabled={teamSupportMode !== "club"}
+        onChange={(e) => setDraft({ ...draft, supportedClub: e.target.value })}
+      />
+      <p className="md:col-span-2 mt-1 text-xs text-slate-500">
+        Match reports use this to set editorial voice — neutral (e.g. Editor F365) or club supporter (e.g. James Marshment → Leeds).
+      </p>
+      <textarea className={`${textareaClass} md:col-span-2`} placeholder="Creator style: tone, rhythm, structure, sentence length, headline habits" value={String(draft.styleNotes ?? "")} onChange={(e) => setDraft({ ...draft, styleNotes: e.target.value })} />
+      <textarea className={`${textareaClass} md:col-span-2`} placeholder="Article / editorial guidelines for this creator style" value={String(draft.articleGuidelines ?? "")} onChange={(e) => setDraft({ ...draft, articleGuidelines: e.target.value })} />
+      <input className={inputClass} placeholder="Author page URL" value={String(draft.authorPageUrl ?? "")} onChange={(e) => setDraft({ ...draft, authorPageUrl: e.target.value })} />
+      <input className={inputClass} placeholder="Aliases, comma-separated" value={Array.isArray(draft.aliases) ? draft.aliases.join(", ") : ""} onChange={(e) => setDraft({ ...draft, aliases: csv(e.target.value) })} />
+      <textarea className={`${textareaClass} md:col-span-4`} placeholder="Bio" value={String(draft.bio ?? "")} onChange={(e) => setDraft({ ...draft, bio: e.target.value })} />
+      <textarea className={`${textareaClass} md:col-span-4`} placeholder="Example titles, one per line" value={Array.isArray(draft.exampleTitles) ? draft.exampleTitles.join("\n") : ""} onChange={(e) => setDraft({ ...draft, exampleTitles: e.target.value.split(/\n+/).map((item) => item.trim()).filter(Boolean) })} />
+      {typeof draft.authorPageUrl === "string" && draft.authorPageUrl ? (
+        <div className="md:col-span-4">
+          <R365Button
+            type="button"
+            onClick={async () => {
+              const res = await fetch(studioApiPath("/api/language/journalists/import-author-page"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: draft.authorPageUrl, brand: draft.brand ?? "Football365" }),
+              });
+              const json = await res.json();
+              if (res.ok && json.profile) setDraft(json.profile);
+            }}
+          >
+            Import / refresh bio from author page
+          </R365Button>
+        </div>
+      ) : null}
+    </div>
+  );
 }

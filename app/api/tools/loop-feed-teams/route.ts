@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { deleteLoopFeedTeam, readLoopFeedTeams, upsertLoopFeedTeam } from "@/app/lib/tools/loop-feed-teams-store";
+import { normalizeLoopFeedTeamFeedType } from "@/app/lib/tools/loop-feed-team-feed-types";
+import {
+  deleteLoopFeedTeam,
+  ensureLoopFeedClubTemplate,
+  readLoopFeedTeams,
+  upsertLoopFeedTeam,
+} from "@/app/lib/tools/loop-feed-teams-store";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +18,17 @@ export async function GET() {
 type PostBody = {
   name?: string;
   topicUrl?: string;
+  feedType?: string;
   active?: boolean;
+  /** Create all four feeds (highlights, videos, commentaries, news) for one club. */
+  template?: boolean;
+  commentariesUrl?: string;
+  matchHighlightsUrl?: string;
+  matchVideosUrl?: string;
+  newsUrl?: string;
 };
 
-/** POST — create team */
+/** POST — create team or full club template (4 feeds) */
 export async function POST(req: Request) {
   let body: PostBody;
   try {
@@ -23,15 +36,31 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON." }, { status: 400 });
   }
-  const name = typeof body.name === "string" ? body.name : "";
-  const topicUrl = typeof body.topicUrl === "string" ? body.topicUrl : "";
-  if (!topicUrl.trim()) {
-    return NextResponse.json({ ok: false, error: "topicUrl is required." }, { status: 400 });
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  if (!name) {
+    return NextResponse.json({ ok: false, error: "name is required." }, { status: 400 });
   }
+
   try {
+    if (body.template) {
+      const teams = await ensureLoopFeedClubTemplate({
+        name,
+        commentariesUrl: typeof body.commentariesUrl === "string" ? body.commentariesUrl : body.topicUrl,
+        matchHighlightsUrl: typeof body.matchHighlightsUrl === "string" ? body.matchHighlightsUrl : undefined,
+        matchVideosUrl: typeof body.matchVideosUrl === "string" ? body.matchVideosUrl : undefined,
+        newsUrl: typeof body.newsUrl === "string" ? body.newsUrl : undefined,
+      });
+      return NextResponse.json({ ok: true, teams });
+    }
+
+    const topicUrl = typeof body.topicUrl === "string" ? body.topicUrl : "";
+    if (!topicUrl.trim()) {
+      return NextResponse.json({ ok: false, error: "topicUrl is required." }, { status: 400 });
+    }
     const team = await upsertLoopFeedTeam({
       name,
       topicUrl,
+      feedType: normalizeLoopFeedTeamFeedType(body.feedType),
       active: body.active !== false,
     });
     return NextResponse.json({ ok: true, team });
@@ -59,10 +88,12 @@ export async function PATCH(req: Request) {
 
   const name = typeof body.name === "string" ? body.name : existing.name;
   const topicUrl = typeof body.topicUrl === "string" ? body.topicUrl : existing.topicUrl;
+  const feedType =
+    body.feedType !== undefined ? normalizeLoopFeedTeamFeedType(body.feedType) : existing.feedType;
   const active = typeof body.active === "boolean" ? body.active : existing.active;
 
   try {
-    const team = await upsertLoopFeedTeam({ id, name, topicUrl, active });
+    const team = await upsertLoopFeedTeam({ id, name, topicUrl, feedType, active });
     return NextResponse.json({ ok: true, team });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Save failed.";

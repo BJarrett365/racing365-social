@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
 import { DEFAULT_HIGGSFIELD_IMAGE_EDIT_ENDPOINT } from "@/app/lib/higgsfield/constants";
@@ -130,6 +131,7 @@ function buildPresetArticleSource(args: {
 }
 
 export function AiImageEditorClient() {
+  const searchParams = useSearchParams();
   const displayRef = useRef<HTMLCanvasElement>(null);
 
   const [baseImage, setBaseImage] = useState<HTMLImageElement | null>(null);
@@ -202,6 +204,30 @@ export function AiImageEditorClient() {
     },
     [],
   );
+
+  const loadImageFromUrl = useCallback((url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    setSourceImageUrl(trimmed);
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      setBaseImage(img);
+      setEdit(DEFAULT_EDIT);
+      setHistory([]);
+      setCropMode(false);
+      setCropDrag(null);
+      setHasOriginalFile(false);
+    };
+    img.onerror = () => setAiError("Could not load image from URL.");
+    img.src = trimmed;
+  }, []);
+
+  useEffect(() => {
+    const rel = searchParams.get("rel")?.trim();
+    if (!rel) return;
+    loadImageFromUrl(withAppPathPrefix(`/api/file?rel=${encodeURIComponent(rel)}`));
+  }, [loadImageFromUrl, searchParams]);
 
   const resetImage = useCallback(() => {
     const url = originalUrlRef.current;

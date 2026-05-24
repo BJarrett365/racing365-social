@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { getStore } from "@netlify/blobs";
 import { projectRoot } from "@/app/lib/paths";
+import { createDefaultBrandKnowledgeFiles, brandKnowledgeFileNeedsRefresh } from "@/app/lib/match-report/brand-knowledge";
 import { shouldUseNetlifyBlobStore } from "@/app/lib/netlify-blob-json";
 import type {
   LanguageArticle,
@@ -32,6 +33,15 @@ import type {
   LanguageTranslationMemory,
 } from "@/app/lib/language-studio/types";
 import { uniqueTags } from "@/app/lib/language-studio/tags";
+import {
+  mergeProfilesByIdentity,
+  mergeTwoJournalistDisplayNames,
+  normalizeAuthorIdentity,
+  normalizeLanguageStudioArticleAuthors,
+  journalistIdentityKey,
+} from "@/app/lib/language-studio/author-identity";
+import { ensureJournalistKnowledgeFiles, syncJournalistKnowledgeFile } from "@/app/lib/language-studio/journalist-knowledge-sync";
+import { recomputeJournalistStats } from "@/app/lib/language-studio/journalist-stats";
 import {
   DEFAULT_COMPLIANCE_NOTES,
   DEFAULT_GUARDRAILS,
@@ -122,6 +132,7 @@ const DEFAULT_LANGUAGE_RULES: LanguageRule[] = [
 ];
 
 const DEFAULT_KNOWLEDGE_FILES: LanguageKnowledgeFile[] = [
+  ...createDefaultBrandKnowledgeFiles(),
   {
     id: "seed-knowledge-social-platforms",
     title: "Social platform output requirements",
@@ -185,12 +196,33 @@ function emptyData(): LanguageStudioData {
     cronJobs: {},
     cronRuns: {},
     articleAutomations: {},
+    chartbeatImports: {},
+    chartbeatPageStats: {},
     ignoredQualityIssueTypes: [],
   };
 }
 
-function journalistProfileKey(row: Pick<LanguageJournalistProfile, "brand" | "name">): string {
-  return `${row.brand.trim().toLowerCase()}::${row.name.trim().toLowerCase()}`;
+function journalistProfileIdentityKey(profile: Pick<LanguageJournalistProfile, "brand" | "name">): string | null {
+  const identity = normalizeAuthorIdentity(profile.name, profile.brand);
+  return identity ? journalistIdentityKey(profile.brand, identity) : null;
+}
+
+function fallbackJournalistIdentityKey(profile: Pick<LanguageJournalistProfile, "brand" | "name">): string {
+  return `invalid::${profile.brand.trim().toLowerCase()}::${profile.name.trim().toLowerCase()}`;
+}
+
+function remapJournalistProfileReferences(data: LanguageStudioData, fromId: string, toId: string): void {
+  if (!fromId.trim() || !toId.trim() || fromId === toId) return;
+  for (const automation of Object.values(data.articleAutomations)) {
+    if (!automation?.journalistProfileId) continue;
+    if (automation.journalistProfileId === fromId) automation.journalistProfileId = toId;
+  }
+  for (const article of Object.values(data.articles)) {
+    if (article.journalistProfileId === fromId) article.journalistProfileId = toId;
+  }
+  for (const stat of Object.values(data.chartbeatPageStats ?? {})) {
+    if (stat.journalistProfileId === fromId) stat.journalistProfileId = toId;
+  }
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -198,17 +230,44 @@ function uniqueStrings(values: string[]): string[] {
 }
 
 function mergeJournalistProfiles(base: LanguageJournalistProfile, next: LanguageJournalistProfile): LanguageJournalistProfile {
+  const brand = next.brand || base.brand;
+  const mergedStats = {
+    importedArticleCount: Math.max(base.stats?.importedArticleCount ?? 0, next.stats?.importedArticleCount ?? 0),
+    exportedArticleCount: Math.max(base.stats?.exportedArticleCount ?? 0, next.stats?.exportedArticleCount ?? 0),
+    socialPostCount: Math.max(base.stats?.socialPostCount ?? 0, next.stats?.socialPostCount ?? 0),
+    performanceScore: Math.max(base.stats?.performanceScore ?? 0, next.stats?.performanceScore ?? 0) || undefined,
+    totalPageViews: (base.stats?.totalPageViews ?? 0) + (next.stats?.totalPageViews ?? 0) || undefined,
+    totalEngagedMinutes: (base.stats?.totalEngagedMinutes ?? 0) + (next.stats?.totalEngagedMinutes ?? 0) || undefined,
+    lastPerformanceImportAt: [base.stats?.lastPerformanceImportAt, next.stats?.lastPerformanceImportAt]
+      .filter(Boolean)
+      .sort()
+      .at(-1),
+  };
   return {
     ...base,
     ...next,
     id: base.id,
-    name: next.name || base.name,
-    brand: next.brand || base.brand,
+    name: mergeTwoJournalistDisplayNames(base.name, next.name, brand),
+    brand,
     sports: uniqueStrings([...(base.sports ?? []), ...(next.sports ?? [])]),
     exampleTitles: uniqueStrings([...(next.exampleTitles ?? []), ...(base.exampleTitles ?? [])]).slice(0, 12),
     sampleArticleIds: uniqueStrings([...(next.sampleArticleIds ?? []), ...(base.sampleArticleIds ?? [])]).slice(0, 20),
     styleNotes: next.styleNotes?.trim() || base.styleNotes,
     articleGuidelines: next.articleGuidelines?.trim() || base.articleGuidelines,
+    authorSlug: next.authorSlug?.trim() || base.authorSlug,
+    authorPageUrl: next.authorPageUrl?.trim() || base.authorPageUrl,
+    bio: next.bio?.trim() || base.bio,
+    avatarUrl: next.avatarUrl?.trim() || base.avatarUrl,
+    socialLinks: [...(base.socialLinks ?? []), ...(next.socialLinks ?? [])].filter(
+      (link, index, all) => all.findIndex((row) => row.url === link.url) === index,
+    ),
+    aliases: uniqueStrings([...(base.aliases ?? []), ...(next.aliases ?? [])]),
+    stats: mergedStats,
+    teamSupportMode: next.teamSupportMode !== undefined ? next.teamSupportMode : base.teamSupportMode,
+    supportedClub:
+      next.teamSupportMode === "neutral"
+        ? undefined
+        : next.supportedClub?.trim() || base.supportedClub,
     source: base.source === "manual" || next.source === "manual" ? "manual" : "imported",
     active: next.active,
     createdAt: base.createdAt || next.createdAt,
@@ -217,19 +276,28 @@ function mergeJournalistProfiles(base: LanguageJournalistProfile, next: Language
 }
 
 function dedupeJournalistProfiles(data: LanguageStudioData): void {
-  const byKey = new Map<string, LanguageJournalistProfile>();
+  const groups = new Map<string, LanguageJournalistProfile[]>();
   for (const profile of Object.values(data.journalistProfiles)) {
-    const key = journalistProfileKey(profile);
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, profile);
+    const key = journalistProfileIdentityKey(profile) ?? fallbackJournalistIdentityKey(profile);
+    const list = groups.get(key) ?? [];
+    list.push(profile);
+    groups.set(key, list);
+  }
+  const next: Record<string, LanguageJournalistProfile> = {};
+  for (const profiles of groups.values()) {
+    if (profiles.length === 1) {
+      const p = profiles[0];
+      const identity = normalizeAuthorIdentity(p.name, p.brand);
+      next[p.id] = identity ? { ...p, name: identity.displayName } : p;
       continue;
     }
-    const merged = mergeJournalistProfiles(existing, profile);
-    data.journalistProfiles[existing.id] = merged;
-    byKey.set(key, merged);
-    delete data.journalistProfiles[profile.id];
+    const merged = mergeProfilesByIdentity(profiles);
+    for (const victim of profiles) {
+      if (victim.id !== merged.id) remapJournalistProfileReferences(data, victim.id, merged.id);
+    }
+    next[merged.id] = merged;
   }
+  data.journalistProfiles = next;
 }
 
 function seedDefaultArticleAutomations(data: LanguageStudioData): void {
@@ -265,9 +333,19 @@ function seedGovernance(data: LanguageStudioData): LanguageStudioData {
   if (!Array.isArray(data.ignoredQualityIssueTypes)) data.ignoredQualityIssueTypes = [];
   for (const row of DEFAULT_SOURCE_BRANDS) data.sourceBrands[row.id] ??= row;
   for (const row of DEFAULT_LANGUAGE_RULES) data.rules[row.id] ??= row;
-  for (const row of DEFAULT_KNOWLEDGE_FILES) data.knowledgeFiles[row.id] ??= row;
+  for (const row of DEFAULT_KNOWLEDGE_FILES) {
+    const existing = data.knowledgeFiles[row.id];
+    if (!existing) {
+      data.knowledgeFiles[row.id] = row;
+    } else if (brandKnowledgeFileNeedsRefresh(existing)) {
+      data.knowledgeFiles[row.id] = {
+        ...row,
+        createdAt: existing.createdAt,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+  }
   for (const row of DEFAULT_CLIENTS) data.clients[row.id] ??= row;
-  seedDefaultArticleAutomations(data);
   for (const row of DEFAULT_GUARDRAILS) data.guardrails[row.id] ??= row;
   for (const row of DEFAULT_PROTECTED_TERMS) data.protectedTerms[row.id] ??= row;
   for (const row of DEFAULT_MARKET_RULES) data.marketRules[row.id] ??= row;
@@ -277,6 +355,14 @@ function seedGovernance(data: LanguageStudioData): LanguageStudioData {
   }
   for (const row of DEFAULT_COMPLIANCE_NOTES) data.complianceNotes[row.id] ??= row;
   dedupeJournalistProfiles(data);
+  normalizeLanguageStudioArticleAuthors(data);
+  if (!data.chartbeatImports) data.chartbeatImports = {};
+  if (!data.chartbeatPageStats) data.chartbeatPageStats = {};
+  for (const profile of Object.values(data.journalistProfiles)) {
+    recomputeJournalistStats(data, profile.id);
+  }
+  ensureJournalistKnowledgeFiles(data);
+  seedDefaultArticleAutomations(data);
   return data;
 }
 
@@ -304,6 +390,9 @@ export async function readLanguageStudioData(): Promise<LanguageStudioData> {
 }
 
 export async function writeLanguageStudioData(data: LanguageStudioData): Promise<void> {
+  dedupeJournalistProfiles(data);
+  normalizeLanguageStudioArticleAuthors(data);
+
   if (shouldUseNetlifyBlobStore()) {
     await getStore(BLOB_STORE_NAME).setJSON(BLOB_STORE_KEY, data);
     return;
@@ -476,6 +565,11 @@ export async function upsertTranslation(row: LanguageTranslation): Promise<void>
   if (article) {
     article.status = row.status === "approved" ? "approved" : row.status === "rejected" ? "rejected" : "translated";
     article.updatedAt = new Date().toISOString();
+    if (article.journalistProfileId && (row.status === "approved" || row.status === "exported")) {
+      recomputeJournalistStats(data, article.journalistProfileId);
+      const profile = data.journalistProfiles[article.journalistProfileId];
+      if (profile) syncJournalistKnowledgeFile(data, profile);
+    }
   }
   await writeLanguageStudioData(data);
 }
@@ -500,13 +594,23 @@ export async function upsertKnowledgeFile(row: LanguageKnowledgeFile): Promise<v
 
 export async function upsertJournalistProfile(row: LanguageJournalistProfile): Promise<void> {
   const data = await readLanguageStudioData();
-  const key = journalistProfileKey(row);
-  const existing = Object.values(data.journalistProfiles).find((profile) => journalistProfileKey(profile) === key);
+  const identity = normalizeAuthorIdentity(row.name, row.brand);
+  const normalized = identity ? { ...row, name: identity.displayName } : row;
+  const key = journalistProfileIdentityKey(normalized) ?? fallbackJournalistIdentityKey(normalized);
+  const existing = Object.values(data.journalistProfiles).find((profile) => {
+    const k = journalistProfileIdentityKey(profile);
+    return k === key || (key.startsWith("invalid::") && profile.brand === normalized.brand && profile.name === normalized.name);
+  });
   if (existing) {
-    data.journalistProfiles[existing.id] = mergeJournalistProfiles(existing, row);
-    if (row.id !== existing.id) delete data.journalistProfiles[row.id];
+    data.journalistProfiles[existing.id] = mergeJournalistProfiles(existing, normalized);
+    if (normalized.id !== existing.id) remapJournalistProfileReferences(data, normalized.id, existing.id);
+    if (normalized.id !== existing.id) delete data.journalistProfiles[normalized.id];
+    recomputeJournalistStats(data, existing.id);
+    syncJournalistKnowledgeFile(data, data.journalistProfiles[existing.id]!);
   } else {
-    data.journalistProfiles[row.id] = row;
+    data.journalistProfiles[normalized.id] = normalized;
+    recomputeJournalistStats(data, normalized.id);
+    syncJournalistKnowledgeFile(data, normalized);
   }
   await writeLanguageStudioData(data);
 }

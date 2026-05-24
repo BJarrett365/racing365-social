@@ -2,6 +2,7 @@ import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import { decodeHtmlEntities } from "@/app/lib/html-entities";
 import { inferArticleSport } from "@/app/lib/language-studio/article-sport";
 import type { LanguageArticle, LanguageCode, LanguageSportContext, LanguageTranslation } from "@/app/lib/language-studio/types";
+import { normalizeAuthorIdentity } from "@/app/lib/language-studio/author-identity";
 import { newLanguageId } from "@/app/lib/language-studio/store";
 import { sanitizeImportedContent } from "@/app/lib/language-studio/sanitize";
 
@@ -142,7 +143,9 @@ export function parseLanguageXmlFeed(
     const imageUrl = extractImageUrl(item);
     const publishDate = cleanImportedText(first(item.pubDate, item.published, item.updated));
     const modifiedDate = cleanImportedText(first(item["atom:updated"], item.updated, item.modified));
-    const author = cleanImportedText(first(item["dc:creator"], item.author, rec(item.author).name));
+    let author = cleanImportedText(first(item["dc:creator"], item.author, rec(item.author).name));
+    const normalized = normalizeAuthorIdentity(author, opts.sourceBrand);
+    if (normalized) author = normalized.displayName;
     const tags = extractTags(item);
     const sport = inferArticleSport({
       sourceBrand: opts.sourceBrand,

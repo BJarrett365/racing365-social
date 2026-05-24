@@ -65,7 +65,7 @@ const learningCollections: ActionCard[] = [
   {
     title: "Creator Profiles",
     description: "Journalist and content-creator style notes built from imports and manual editorial learning.",
-    href: "/language-studio?tab=Journalists",
+    href: "/configure/content-creators",
     cta: "Manage creators",
     tag: "Creators",
   },
@@ -103,6 +103,13 @@ const learningCollections: ActionCard[] = [
     href: "/language-studio?tab=Guardrails",
     cta: "Open guardrails",
     tag: "Safety",
+  },
+  {
+    title: "Brand Tone & Style",
+    description: "Brand style guides and tone rules — e.g. TEAMtalk transfer authority — used by Match Report Builder and Language Studio AI.",
+    href: "/configure/brand-style-guides",
+    cta: "Open style guides",
+    tag: "Brand",
   },
   {
     title: "Brand Guidelines",

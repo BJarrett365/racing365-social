@@ -8,6 +8,7 @@ import { parseApiJson } from "@/app/lib/parse-api-json";
 import { EditingStudioErrorDisplay } from "@/features/editing-studio/components/EditingStudioErrorDisplay";
 import { EditingStudioPageFrame } from "@/features/editing-studio/components/EditingStudioPageFrame";
 import { getEditorialDefaultsForBrand } from "@/features/editing-studio/lib/brand-defaults";
+import { BrandSelect } from "@/features/editing-studio/components/BrandSelect";
 import type { ContentType, EditingProject, PlatformType } from "@/features/editing-studio/types/domain";
 import { EDITING_STUDIO_PLATFORM_FILTERS } from "@/features/editing-studio/utils/filter-options";
 import { editingStudioDashboardPath, editingStudioProjectPath } from "@/features/editing-studio/utils/routes";
@@ -72,6 +73,7 @@ export function EditingStudioNewProjectClient() {
   const [platformsManual, setPlatformsManual] = useState<PlatformType[]>([]);
   const contentTypeManualTouched = useRef(false);
   const platformsManualTouched = useRef(false);
+  const fixturePrefilled = useRef(false);
   const [manualBusy, setManualBusy] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ManualFieldKey, string>>>({});
@@ -81,6 +83,52 @@ export function EditingStudioNewProjectClient() {
       urlInputRef.current?.focus();
     }
   }, [mode]);
+
+  useEffect(() => {
+    if (fixturePrefilled.current) return;
+    const fixtureHome = searchParams.get("fixtureHome")?.trim();
+    const fixtureAway = searchParams.get("fixtureAway")?.trim();
+    const calendarEventId = searchParams.get("calendarEventId")?.trim();
+    if (!fixtureHome || !fixtureAway) {
+      if (!calendarEventId) return;
+    }
+    fixturePrefilled.current = true;
+    const brandParam = searchParams.get("brand")?.trim() ?? "";
+    const kickoff = searchParams.get("kickoff")?.trim();
+    const betwayId = searchParams.get("betwayId")?.trim();
+    const fixtureSlug = searchParams.get("fixtureSlug")?.trim();
+    const calendarPhase = searchParams.get("calendarPhase")?.trim();
+    const competition = searchParams.get("competition")?.trim() || "World Cup 2026";
+    const headline =
+      fixtureHome && fixtureAway
+        ? `${fixtureHome} vs ${fixtureAway} — ${competition}`
+        : `Calendar event — ${competition}`;
+    setTitle(headline);
+    setPublicHeadline(headline);
+    if (brandParam) setBrandManual(brandParam);
+    setSummary(
+      fixtureHome && fixtureAway
+        ? `${competition}: ${fixtureHome} vs ${fixtureAway}${kickoff ? ` · Kickoff ${kickoff}` : ""}`
+        : `${competition}${kickoff ? ` · ${kickoff}` : ""}`,
+    );
+    setBodyNotes(
+      [
+        fixtureHome && fixtureAway ? `Fixture: ${fixtureHome} vs ${fixtureAway}` : null,
+        kickoff ? `Kickoff: ${kickoff}` : null,
+        betwayId ? `Betway match ID: ${betwayId}` : null,
+        fixtureSlug ? `Calendar slug: ${fixtureSlug}` : null,
+        calendarEventId ? `Calendar event: ${calendarEventId}` : null,
+        calendarPhase ? `Phase: ${calendarPhase.replace(/_/g, " ")}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
+    if (brandParam) {
+      const d = getEditorialDefaultsForBrand(brandParam);
+      if (d.platforms?.length) setPlatformsManual([...d.platforms]);
+      if (d.contentType) setContentTypeManual(d.contentType);
+    }
+  }, [searchParams]);
 
   const applyBrandDefaults = useCallback(() => {
     const d = getEditorialDefaultsForBrand(brandManual);
@@ -167,6 +215,9 @@ export function EditingStudioNewProjectClient() {
       bodyNotes,
       sourceUrl: sourceUrl.trim() || undefined,
       platforms: platformsResolved,
+      calendarEventId: searchParams.get("calendarEventId")?.trim() || undefined,
+      calendarPhase:
+        (searchParams.get("calendarPhase")?.trim() as ManualProjectCreateInput["calendarPhase"]) || undefined,
     };
 
     const parsed = manualProjectCreateSchema.safeParse(raw);
@@ -341,15 +392,13 @@ export function EditingStudioNewProjectClient() {
 
             <label className="block text-xs font-semibold uppercase tracking-wide text-[color:var(--text-secondary)]">
               Brand *
-              <input
-                className={inputClass}
-                style={inputStyle}
-                type="text"
-                placeholder="e.g. Football365"
+              <BrandSelect
                 value={brandManual}
-                onChange={(e) => setBrandManual(e.target.value)}
-                onBlur={() => applyBrandDefaults()}
+                onChange={(value) => {
+                  setBrandManual(value);
+                }}
                 disabled={manualBusy}
+                required
               />
               {fieldErr("brand") ? (
                 <span className="mt-1 block text-xs text-red-600 dark:text-red-400">{fieldErr("brand")}</span>

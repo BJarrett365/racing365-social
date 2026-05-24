@@ -36,6 +36,19 @@ if (process.env.USE_TURBO !== "1") {
         splitChunks: false,
       };
     }
+    if (!isServer) {
+      config.resolve = {
+        ...config.resolve,
+        fallback: {
+          ...(config.resolve?.fallback ?? {}),
+          fs: false,
+          path: false,
+          net: false,
+          tls: false,
+          child_process: false,
+        },
+      };
+    }
     if (dev && process.env.NEXT_WEBPACK_POLL !== "0") {
       config.watchOptions = {
         ...config.watchOptions,

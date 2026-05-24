@@ -4,7 +4,6 @@ import { BRAND_SUITE_UPPER } from "@/app/lib/brand";
 import {
   NAV_GROUP_LABEL,
   NAV_GROUP_ORDER,
-  NEWS_SHORTS_CARDS,
   PRIMARY_STUDIO_CARDS,
   SUPPORT_CARDS,
   type StudioDashboardCard,
@@ -124,24 +123,6 @@ export default function HomePage() {
           );
         })}
       </div>
-
-      <Panel title="News Shorts & Social Image">
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {NEWS_SHORTS_CARDS.map((card) => (
-            <Link
-              key={card.title}
-              href={card.href}
-              className="block rounded-2xl border bg-[color:var(--surface-muted)] p-4 transition hover:-translate-y-0.5 hover:border-[color:var(--accent)]"
-              style={{ borderColor: "var(--border)" }}
-            >
-              <h2 className="text-xl font-bold text-[color:var(--text-primary)]">{card.title}</h2>
-              <p className="mt-2 text-sm font-semibold text-[color:var(--text-secondary)]">{card.heading}</p>
-              <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">{card.description}</p>
-              <span className="mt-6 inline-flex text-sm font-semibold text-[color:var(--accent)]">{card.cta} →</span>
-            </Link>
-          ))}
-        </div>
-      </Panel>
 
       <Panel title="Support">
         <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">

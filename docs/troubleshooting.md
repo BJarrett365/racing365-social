@@ -111,6 +111,21 @@ If calling manually and `CRON_SECRET` is set, include:
 Authorization: Bearer CRON_SECRET
 ```
 
+## Language Studio rewrite: “Background rewrite worker never started”
+
+This means a rewrite job stayed `pending` and never reached `running` (usually on Netlify live).
+
+**Cause:** The API route must invoke `/.netlify/functions/language-rewrite-background` before returning — not only inside Next.js `after()`, which can be dropped when the Lambda finishes.
+
+**Fix (deploy):** Ensure the latest deploy includes the rewrite route fix that invokes the background function synchronously and marks the job `running` when Netlify accepts the request.
+
+**If it still fails after deploy:**
+
+1. Netlify → **Functions** → confirm `language-rewrite-background` is listed (from `netlify/functions/language-rewrite-background.mts`).
+2. Check function logs for `[language-rewrite-background] starting` or auth errors.
+3. If `CRON_SECRET` is set in production, it must match on both the Next API route and the background function (same site env).
+4. Fallback: the route runs the rewrite inline (up to 15 minutes) when the background function returns 404/502/503.
+
 ## No Export XML/JSON Button
 
 Exports require approved translations.

@@ -34,6 +34,13 @@ const importTools: ToolCard[] = [
 
 const studioTools: ToolCard[] = [
   {
+    name: "Plexa Dev Gateway",
+    description:
+      "Run release checks and QA reviews from release summaries, git diffs, changed files, Cursor plans and deployment notes.",
+    href: "/dev-gateway",
+    status: "Live",
+  },
+  {
     name: "Asset library",
     description:
       "Upload stills or generate images (OpenAI, Higgsfield, Runway) into the shared library for Shorts, Language Studio, and backdrops.",

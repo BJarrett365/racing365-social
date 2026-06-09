@@ -13,13 +13,28 @@ export type ArticleHeroSource = {
 
 export const F365_BRAND_CYAN = "#60CAEA";
 
-/** Creative brief shown in UI — prompts below substitute live fields from the article. */
-export const F365_MATCH_REPORT_SPEC = `Football365 match-report hero — 1280×720 (16:9). Stadium background (venue from article), blur 15–25%, charcoal overlay, post-match mood. Home crest top-left, away crest top-right, score panel between. Brand: Football365 editorial — panels #071326 / #111111 — accent EXACTLY ${F365_BRAND_CYAN} — headline ${F365_BRAND_CYAN}, secondary white — NO yellow or gold. Punchy 4–8 word uppercase headline from article; secondary line Match Report / Player Ratings / Reaction. Optional hero player cut-out with soft cyan glow. Refs: Football365, ESPN FC, The Athletic, Goal. OpenAI preset embeds standfirst + body excerpt for grounding; Runway preset uses a short hook from the same copy.`;
-
-export const F365_PREVIEW_SPEC = `Football365 match-preview hero / YouTube thumbnail — 1280×720 (16:9). Pitch-corner stadium, wide angle, blur 10–20%, subtle charcoal overlay; grass + corner flag visible; premium editorial atmosphere. Two crests top area — home left, away right, modest size, small gap, above headline blocks. Two stacked left-aligned rounded dark panels (#071326 / #111111); line 1 cyan ${F365_BRAND_CYAN}: "{{home_team}} VS" — line 2 cyan: "{{away_team}} {{headline_type}}" (e.g. PREVIEW). Sub-line white optional: "{{preview_subline}}" + thin cyan accent + soft glow rgba(96,202,234,0.25). Typography: heavy condensed uppercase (Bebas/Oswald/DIN feel), tight spacing, slight shadow. Competition / kick-off from article when known. NO yellow/gold, NO sponsors, NO arrows, minimal clutter. OpenAI preset uses article excerpt; Runway uses a short hook.`;
-
 /** Soft cyan rim glow (Football365 preview cards). */
 export const F365_PREVIEW_GLOW_RGBA = "rgba(96,202,234,0.25)";
+
+/** Creative brief shown in UI — prompts below substitute live fields from the article. */
+export const F365_MATCH_REPORT_SPEC = `Football365 full-time hero / YouTube thumbnail — 1280×720 (16:9). Use the HOME club stadium as the background (for example: London Stadium for West Ham), wide-angle pitch-corner view with realistic stadium lighting and visible grass/corner flag. Slight background blur (10–20%) with subtle charcoal overlay to keep text sharp. Place club crests top left area — home club left, away club right, small spacing.
+
+Create two stacked rounded dark panels (#071326 / #111111), left aligned in Football365 style.
+
+Line 1 cyan ${F365_BRAND_CYAN}:
+"{{headline_line_1}}"
+
+Line 2 cyan or white:
+"{{headline_line_2}}"
+
+Optional third line white:
+"{{reaction_line}}"
+
+Heavy condensed uppercase typography (Bebas / Oswald / DIN style), tight spacing, slight shadow, thin cyan accent and soft glow ${F365_PREVIEW_GLOW_RGBA}. Premium Football365 editorial breaking-news style. Keep clean layout with no clutter.
+
+NO yellow/gold, NO sponsors, NO arrows, NO emojis, NO oversized badges.`;
+
+export const F365_PREVIEW_SPEC = `Football365 match-preview hero / YouTube thumbnail — 1280×720 (16:9). Pitch-corner stadium, wide angle, blur 10–20%, subtle charcoal overlay; grass + corner flag visible; premium editorial atmosphere. Two crests top area — home left, away right, modest size, small gap, above headline blocks. Two stacked left-aligned rounded dark panels (#071326 / #111111); line 1 cyan ${F365_BRAND_CYAN}: "{{home_team}} VS" — line 2 cyan: "{{away_team}} {{headline_type}}" (e.g. PREVIEW). Sub-line white optional: "{{preview_subline}}" + thin cyan accent + soft glow rgba(96,202,234,0.25). Typography: heavy condensed uppercase (Bebas/Oswald/DIN feel), tight spacing, slight shadow. Competition / kick-off from article when known. NO yellow/gold, NO sponsors, NO arrows, minimal clutter. OpenAI preset uses article excerpt; Runway uses a short hook.`;
 
 export type F365HeroVars = {
   home_team: string;
@@ -32,6 +47,10 @@ export type F365HeroVars = {
   stadium: string;
   hero_player: string;
   secondary_line: string;
+  headline_line_1: string;
+  headline_line_2: string;
+  reaction_line: string;
+  match_context: string;
 };
 
 /** Variables for preview / YouTube thumbnail prompts. */
@@ -138,6 +157,84 @@ function secondaryFromArticle(article: Pick<ArticleHeroSource, "category" | "tag
   return "Match Report | Premier League";
 }
 
+function hasScore(v: Pick<F365HeroVars, "home_score" | "away_score">): boolean {
+  return v.home_score !== "?" && v.away_score !== "?";
+}
+
+function headlineLinesFromMatchContext(input: {
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: string;
+  awayScore: string;
+  competition: string;
+  headline: string;
+  article: Pick<ArticleHeroSource, "title" | "standfirst" | "body" | "category" | "tags">;
+}): Pick<F365HeroVars, "headline_line_1" | "headline_line_2" | "reaction_line" | "match_context"> {
+  const blob = `${input.article.title} ${input.article.standfirst} ${stripHtml(input.article.body)} ${
+    input.article.category ?? ""
+  } ${input.article.tags?.join(" ") ?? ""}`.toLowerCase();
+  const score = hasScore({ home_score: input.homeScore, away_score: input.awayScore })
+    ? `${input.homeScore}-${input.awayScore}`
+    : "";
+  const headlineUpper = punchyHeadlineUpper(input.headline, 7);
+  const homeScoreLine = score ? `${input.homeTeam.toUpperCase()} ${score}` : input.homeTeam.toUpperCase();
+
+  if (/\brelegated\b|\brelegation\b/.test(blob)) {
+    const club =
+      blob.includes(input.homeTeam.toLowerCase()) || !blob.includes(input.awayTeam.toLowerCase())
+        ? input.homeTeam
+        : input.awayTeam;
+    return {
+      headline_line_1: homeScoreLine,
+      headline_line_2: `${club.toUpperCase()} RELEGATED`,
+      reaction_line: headlineUpper,
+      match_context: "Relegation match-report image treatment",
+    };
+  }
+
+  if (/\btop\b|\btitle\b|\bchampions?\b|\bleaders?\b/.test(blob)) {
+    const club =
+      blob.includes(input.homeTeam.toLowerCase()) || !blob.includes(input.awayTeam.toLowerCase())
+        ? input.homeTeam
+        : input.awayTeam;
+    return {
+      headline_line_1: `${club.toUpperCase()} TOP`,
+      headline_line_2: headlineUpper,
+      reaction_line: score ? `${input.homeTeam} ${score} ${input.awayTeam}` : input.competition,
+      match_context: "Title race / table-impact match-report image treatment",
+    };
+  }
+
+  if (/\bfinal\b/.test(blob) && /\bcup\b|\bfa cup\b|\befl\b|\bchampions league\b|\bfinal\b/.test(blob)) {
+    return {
+      headline_line_1: `${input.competition.toUpperCase()} FINAL`,
+      headline_line_2: `${input.homeTeam.toUpperCase()} ${input.awayTeam.toUpperCase()}`.slice(0, 52),
+      reaction_line: headlineUpper,
+      match_context: "Cup final match-report image treatment",
+    };
+  }
+
+  if (/\bbreaking\b|\burged\b|\bsacked\b|\bconfirmed\b|\bexclusive\b/.test(blob)) {
+    const club =
+      blob.includes(input.homeTeam.toLowerCase()) || !blob.includes(input.awayTeam.toLowerCase())
+        ? input.homeTeam
+        : input.awayTeam;
+    return {
+      headline_line_1: club.toUpperCase(),
+      headline_line_2: headlineUpper,
+      reaction_line: score ? `${input.homeTeam} ${score} ${input.awayTeam}` : input.competition,
+      match_context: "Breaking-news Football365 image treatment",
+    };
+  }
+
+  return {
+    headline_line_1: homeScoreLine,
+    headline_line_2: `${input.awayTeam.toUpperCase()} FULL TIME`,
+    reaction_line: headlineUpper,
+    match_context: "Full-time match-report image treatment",
+  };
+}
+
 function competitionGuess(article: Pick<ArticleHeroSource, "tags" | "standfirst" | "body">): string {
   const blob = `${article.tags?.join(" ") ?? ""} ${article.standfirst} ${article.body}`.toLowerCase();
   if (blob.includes("premier league")) return "Premier League";
@@ -201,17 +298,32 @@ export function f365HeroVarsFromArticle(article: ArticleHeroSource): F365HeroVar
   const vsTeams = parseVsTeamsFromTitle(article.title);
   const headline = headlineLineFromArticle(article, parsed);
   const headline_upper = headline.toUpperCase().slice(0, 120);
+  const home_team = parsed.home_team ?? vsTeams.home_team ?? "Home Club";
+  const away_team = parsed.away_team ?? vsTeams.away_team ?? "Away Club";
+  const home_score = parsed.home_score ?? "?";
+  const away_score = parsed.away_score ?? "?";
+  const competition = competitionGuess(article);
+  const lines = headlineLinesFromMatchContext({
+    homeTeam: home_team,
+    awayTeam: away_team,
+    homeScore: home_score,
+    awayScore: away_score,
+    competition,
+    headline,
+    article,
+  });
   return {
-    home_team: parsed.home_team ?? vsTeams.home_team ?? "Home Club",
-    away_team: parsed.away_team ?? vsTeams.away_team ?? "Away Club",
-    home_score: parsed.home_score ?? "?",
-    away_score: parsed.away_score ?? "?",
+    home_team,
+    away_team,
+    home_score,
+    away_score,
     headline: headline.slice(0, 200),
     headline_upper,
-    competition: competitionGuess(article),
+    competition,
     stadium: stadiumGuess(article.body ?? ""),
     hero_player: heroPlayerGuess(article.body ?? ""),
     secondary_line: secondaryFromArticle(article),
+    ...lines,
   };
 }
 
@@ -285,11 +397,13 @@ export function buildF365MatchReportOpenAiPrompt(
   v: F365HeroVars,
   article?: Pick<ArticleHeroSource, "standfirst" | "body">,
 ): string {
-  const headlineHero = punchyHeadlineUpper(v.headline, 8);
-  const scorePanel = `${v.home_team} ${v.home_score} - ${v.away_score} ${v.away_team}`;
+  const scorePanel = hasScore(v) ? `${v.home_team} ${v.home_score} - ${v.away_score} ${v.away_team}` : `${v.home_team} vs ${v.away_team}`;
+  const row1 = v.headline_line_1 || `${v.home_team.toUpperCase()} ${v.home_score}-${v.away_score}`;
+  const row2 = v.headline_line_2 || `${v.away_team.toUpperCase()} FULL TIME`;
+  const reactionLine = v.reaction_line || v.secondary_line;
   const playerBlock = v.hero_player.trim()
-    ? `Optional foreground: isolated cut-out of ${v.hero_player} celebrating or reacting — overlaps headline slightly — soft glow in Football365 cyan ${F365_BRAND_CYAN} — dynamic pose.`
-    : `Optional foreground: one match-deciding player cut-out celebrating — soft cyan ${F365_BRAND_CYAN} rim glow — overlaps headline slightly.`;
+    ? `Optional foreground: isolated cut-out of ${v.hero_player} celebrating or reacting — keep secondary to the headline panels — soft glow in Football365 cyan ${F365_BRAND_CYAN} — dynamic pose.`
+    : `Optional foreground: one match-deciding player cut-out only if visually natural — soft cyan ${F365_BRAND_CYAN} rim glow — do not clutter the headline panels.`;
 
   const excerpt =
     article &&
@@ -307,35 +421,47 @@ ${excerpt}
     : "";
 
   const text = `
-Create a Football365-style Match Report hero image tied to this fixture.
+Create a Football365 full-time hero / YouTube thumbnail, using the same clean visual system as the Football365 Preview hero template.
 
 Article-derived facts (must respect these names, score and tone):
 - Home: ${v.home_team}. Away: ${v.away_team}.
 - Scoreline: ${v.home_score} - ${v.away_score}.
 - Competition: ${v.competition}.
 - Venue / atmosphere: ${v.stadium}.
-- Main headline wording (large dominant uppercase, aim for roughly 4–8 words): "${headlineHero}".
-- Secondary line (smaller, white): "${v.secondary_line}".
+- Match image context: ${v.match_context}.
+- Headline row 1 (large uppercase, cyan): "${row1}".
+- Headline row 2 (large uppercase; cyan, white or red only when editorial context demands urgency): "${row2}".
+- Optional small sub-line (white): "${reactionLine}".
+- Article angle to influence mood, not required as exact text: "${v.headline_upper}".
 - Key player thread (if relevant): ${v.hero_player.trim() || "infer only subtle cues from headline; do not invent a named player portrait if unclear"}.
 ${excerptBlock}
 Canvas: 1280x720 (16:9).
 
 Background:
-- Full stadium from the actual match venue where possible (${v.stadium}).
-- Slight blur (15–25%).
-- Dark charcoal overlay for contrast — keep pitch and crowd visible.
-- Post-match atmosphere — floodlights, celebrations or reactions allowed — strong depth and stadium lighting.
+- Use the HOME club stadium as the background: ${v.stadium} for ${v.home_team} where possible.
+- Realistic wide-angle pitch-corner view, stadium lighting, visible grass and corner flag.
+- Slight background blur (10–20%).
+- Subtle dark charcoal overlay to keep text sharp — keep pitch, crowd and floodlights visible.
+- Premium Football365 editorial breaking-news style.
 
 Top layout:
-- ${crestHint(v.home_team)} — TOP LEFT.
-- ${crestHint(v.away_team)} — TOP RIGHT.
-- Small score panel BETWEEN the crests showing exactly: ${scorePanel}.
+- Place club crests in the top-left area: ${crestHint(v.home_team)} LEFT — ${crestHint(v.away_team)} RIGHT.
+- Small spacing; no oversized badges.
+- Optional small score strip showing exactly: ${scorePanel}.
+
+Headline area:
+- Two stacked dark rounded rectangles (#071326 / #111111), left-aligned in Football365 style.
+- Line 1 cyan ${F365_BRAND_CYAN}: "${row1}".
+- Line 2 cyan or white: "${row2}".
+- Optional third line white: "${reactionLine}".
 
 Football365 brand style:
 - Modern Football365 editorial look.
 - Dark charcoal / near-black panels (#071326 or #111111).
-- Primary accent EXACTLY Football365 cyan/turquoise ${F365_BRAND_CYAN} — use nowhere else as a second unrelated hue.
+- Line 1 cyan exactly ${F365_BRAND_CYAN}.
+- Line 2 may be cyan or white only.
 - Headline text colour ${F365_BRAND_CYAN}; secondary/supporting text #FFFFFF; thin accent rules/dividers ${F365_BRAND_CYAN}.
+- Optional soft cyan glow around headline zone: ${F365_PREVIEW_GLOW_RGBA}.
 - High contrast, sharp blocks, digital editorial — like Football365 social/feature cards.
 - Do NOT use yellow or gold anywhere.
 
@@ -344,9 +470,9 @@ Typography:
 
 ${playerBlock}
 
-Style references: Football365, ESPN FC, The Athletic social cards, Goal.
+Keep clean layout with no clutter.
 
-Avoid: sponsor logos, clickbait arrows, random effects, excessive gradients, clutter.
+Avoid: sponsor logos, clickbait arrows, emojis, random effects, excessive gradients, yellow/gold, oversized badges.
 `.trim();
 
   return clampOpenAi(text);
@@ -357,8 +483,10 @@ export function buildF365MatchReportRunwayPrompt(
   v: F365HeroVars,
   opts?: { narrativeHook?: string },
 ): string {
-  const headlineHero = punchyHeadlineUpper(v.headline, 8);
   const score = `${v.home_team} ${v.home_score}-${v.away_score} ${v.away_team}`;
+  const row1 = v.headline_line_1 || `${v.home_team.toUpperCase()} ${v.home_score}-${v.away_score}`;
+  const row2 = v.headline_line_2 || `${v.away_team.toUpperCase()} FULL TIME`;
+  const reactionLine = v.reaction_line || v.secondary_line;
   const playerBit = v.hero_player.trim()
     ? ` Cut-out ${v.hero_player.slice(0, 40)} cyan glow ${F365_BRAND_CYAN}.`
     : "";
@@ -369,13 +497,14 @@ export function buildF365MatchReportRunwayPrompt(
       : "";
   return clampRunway(
     [
-      `16:9 1280x720 Football365 MATCH REPORT hero.`,
-      `Fixture ${v.home_team} vs ${v.away_team} score ${v.home_score}-${v.away_score} · ${v.competition} · ${v.stadium}.${hook}`,
-      `Stadium BG blurred 20% charcoal overlay post-match crowd pitch floodlights depth.`,
-      `Crests: ${v.home_team} TL ${v.away_team} TR; score strip centre "${score}".`,
-      `Brand ONLY cyan accent ${F365_BRAND_CYAN} NO yellow gold; panels #071326/#111111; headline ${F365_BRAND_CYAN} uppercase "${headlineHero.slice(0, 72)}"; subline white "${v.secondary_line.slice(0, 48)}".`,
-      `Premium editorial Goal ESPN Athletic card.${playerBit}`,
-      `No sponsors arrows clutter.`,
+      `16:9 1280x720 Football365 full-time hero YouTube thumbnail, final publish image, same layout system as Preview hero.`,
+      `Fixture ${v.home_team} vs ${v.away_team} score ${v.home_score}-${v.away_score} · ${v.competition} · ${v.stadium} · context ${v.match_context}.${hook}`,
+      `Use HOME club stadium background: ${v.stadium} for ${v.home_team}; realistic wide pitch-corner stadium view, grass corner flag lights, blur 10-20%, subtle charcoal overlay.`,
+      `Club crests top-left area ${v.home_team} left ${v.away_team} right, small spacing, no oversized badges; optional score strip "${score}".`,
+      `Two stacked rounded dark panels #071326/#111111 left; line1 cyan ${F365_BRAND_CYAN} "${row1.slice(0, 40)}"; line2 cyan or white "${row2.slice(0, 44)}"; optional third line white "${reactionLine.slice(0, 48)}".`,
+      `Heavy condensed uppercase Bebas Oswald DIN style, tight spacing, shadow, thin cyan accent line, soft glow ${F365_PREVIEW_GLOW_RGBA}.`,
+      `Premium Football365 editorial breaking-news style, clean layout no clutter.${playerBit}`,
+      `NO yellow gold sponsors arrows emojis oversized badges clutter.`,
     ].join(" "),
   );
 }

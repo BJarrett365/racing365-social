@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
+import { ArticleFactCheckPanel } from "@/app/article-studio/ArticleFactCheckPanel";
 import { BRAND_SUITE } from "@/app/lib/brand";
 
 export const metadata = {
@@ -174,6 +175,10 @@ export default function ArticleStudioPage() {
           </Panel>
         ))}
       </div>
+
+      <Panel title="Editorial Brain">
+        <ArticleFactCheckPanel />
+      </Panel>
 
       <Panel title="Language Studio Admin">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">

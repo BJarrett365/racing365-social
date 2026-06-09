@@ -15,6 +15,7 @@ export const GENERATION_STEPS: MatchReportWorkflowStep[] = [
   "transcripts",
   "image_intelligence",
   "media_builder",
+  "fact_check",
   "review",
 ];
 
@@ -45,7 +46,8 @@ export function prevGenerationStep(current: MatchReportWorkflowStep): MatchRepor
 
 export function stepLabel(step: MatchReportWorkflowStep): string {
   const labels: Partial<Record<MatchReportWorkflowStep, string>> = {
-    sport365: "Sport365 commentary",
+    preview_fixture_context: "Form & head-to-head",
+    sport365: "Six Logic commentary",
     league_table: "League table",
     league_stats: "Top scorers & team stats",
     loop_feed: "LoopFeed",
@@ -56,6 +58,7 @@ export function stepLabel(step: MatchReportWorkflowStep): string {
     transcripts: "Import transcripts",
     image_intelligence: "Image intelligence",
     media_builder: "Media builder",
+    fact_check: "Fact check",
     review: "Review",
     published: "Published",
   };

@@ -1,3 +1,4 @@
+import type { ScheduleBrandDualStatus } from "@/app/lib/match-report/schedule-brand-status";
 import type { MatchReportTargetBrand, SavedReportIndexEntry } from "@/app/lib/match-report/types";
 import { enrichBetwayListingFixture } from "@/app/lib/match-report/betway-listing-parse";
 import type { BetwayListingParsedFixture, BetwayListingRawFixture } from "@/app/lib/match-report/betway-listing-types";
@@ -31,6 +32,7 @@ export type EplFixtureSeed = {
 
 export type EplScheduleRow = EplFixtureSeed & {
   brandReports: Wc2026BrandReportStatus[];
+  brandDualStatuses: ScheduleBrandDualStatus[];
 };
 
 export function enrichBetwayEplFixture(raw: BetwayListingRawFixture): BetwayListingParsedFixture {
@@ -49,7 +51,7 @@ export function betwayEplFixturesToSeeds(fixtures: BetwayListingParsedFixture[])
     targetBrands: [...EPL_EDITORIAL_BRANDS],
     betwayMatchId: fixture.betwayMatchId,
     sixLogicSportId: "1",
-    sixLogicMatchId: null,
+    sixLogicMatchId: fixture.betwayMatchId,
   }));
 }
 

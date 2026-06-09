@@ -9,7 +9,9 @@ import {
   MATCH_REPORT_LOOP_FEED_DATE_FILTER,
   loopFeedDateWindowLabel,
 } from "@/app/lib/data-studio/loop-feed";
-import { kickoffContextDate } from "@/app/lib/match-report/health-check";
+import { isMatchPreview } from "@/app/lib/match-report/content-type";
+import { kickoffContextDate, prevImportStepForProject } from "@/app/lib/match-report/health-check";
+import { PREVIEW_IMPORT_LAYER_STEPS } from "@/app/lib/match-report/preview-workflow";
 import { defaultLeagueTableUrl, defaultSport365CompetitionUrl, isWorldCupCompetition } from "@/app/lib/match-report/league-table-defaults";
 import type {
   FixtureContextIntelligence,
@@ -19,7 +21,7 @@ import type {
   MatchReportWorkflowStep,
   Sport365Commentary,
 } from "@/app/lib/match-report/types";
-import { prevImportLayerStep, stepLabel } from "@/app/lib/match-report/workflow";
+import { IMPORT_LAYER_STEPS, stepLabel } from "@/app/lib/match-report/workflow";
 import { LOOP_FEED_TEAMS_PATH } from "@/app/lib/configure/paths";
 import type { LoopFeedTeamRow } from "@/app/lib/tools/loop-feed-teams-store";
 import { filterLoopFeedTeamsByFeedType, matchLoopFeedTeamByName } from "@/app/lib/tools/loop-feed-teams-store";
@@ -33,6 +35,7 @@ import {
   importFieldStyle,
   importLabelClass,
 } from "@/app/match-report-builder/components/ImportStepUi";
+import { sixLogicCommentaryLineCount } from "@/app/lib/match-report/build-sixlogics-commentary";
 import {
   buildImportLayerSummaries,
   fixtureContextSummary,
@@ -63,12 +66,26 @@ type Props = {
 const LOOP_TEAM_CUSTOM = "__custom";
 
 const STEP_META: Record<
-  Extract<MatchReportWorkflowStep, "sport365" | "league_table" | "league_stats" | "loop_feed" | "whoscored" | "manual_sources">,
+  Extract<
+    MatchReportWorkflowStep,
+    | "preview_fixture_context"
+    | "sport365"
+    | "league_table"
+    | "league_stats"
+    | "loop_feed"
+    | "whoscored"
+    | "manual_sources"
+  >,
   { title: string; help: string; skipPenalty?: number }
 > = {
+  preview_fixture_context: {
+    title: "Form & head-to-head",
+    help: "Pull recent form, head-to-head meetings, and upcoming fixtures from the Six Logic foundation feed.",
+    skipPenalty: 8,
+  },
   sport365: {
-    title: "Sport365 commentary",
-    help: "Paste a Sport365 match URL to pull commentary, head-to-head meetings, recent results, and next fixtures into the report.",
+    title: "Six Logic commentary",
+    help: "Pull live commentary, head-to-head meetings, recent results, and next fixtures from the Six Logic feed imported in the foundation step.",
     skipPenalty: LAYER_CONFIDENCE_PENALTIES.sport365Commentary,
   },
   league_table: {
@@ -103,9 +120,10 @@ function formatLoopFeedTeamOption(team: LoopFeedTeamRow): string {
 }
 
 function CompletedImports({ project, hideStep }: { project: MatchReportProject; hideStep?: MatchReportWorkflowStep }) {
+  const fixtureContextStep = isMatchPreview(project) ? "preview_fixture_context" : "sport365";
   const HIDE_BY_LAYER: Partial<Record<string, MatchReportWorkflowStep>> = {
     sport365Commentary: "sport365",
-    fixtureContext: "sport365",
+    fixtureContext: fixtureContextStep,
     leagueTable: "league_table",
     leagueSeasonStats: "league_stats",
     loopFeed: "loop_feed",
@@ -133,6 +151,8 @@ function CompletedImports({ project, hideStep }: { project: MatchReportProject; 
 
 export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy, error }: Props) {
   const step = project.workflowStep;
+  const previewProject = isMatchPreview(project);
+  const importLayerSteps = previewProject ? PREVIEW_IMPORT_LAYER_STEPS : IMPORT_LAYER_STEPS;
   const worldCupProject = isWorldCupCompetition(project.competition);
   const loopDerivedManualCount = project.layers.manualSources.filter((row) => row.derivedFrom === "loop_feed").length;
   const loopFeedTeamGroups = useMemo(
@@ -147,7 +167,10 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
   );
   const manualReadyFromLoop = loopFeedSatisfiesManualSources(project);
   const userManualCount = project.layers.manualSources.length - loopDerivedManualCount;
-  const [sport365Url, setSport365Url] = useState(project.layers.sport365Commentary?.sourceUrl ?? "");
+  const sixLogicFeedLines = useMemo(
+    () => (project.layers.sixLogic ? sixLogicCommentaryLineCount(project.layers.sixLogic) : 0),
+    [project.layers.sixLogic],
+  );
   const [leagueTableUrl, setLeagueTableUrl] = useState(
     project.layers.leagueTable?.sourceUrl ?? defaultLeagueTableUrl(project.competition),
   );
@@ -344,17 +367,43 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
     onProjectChange(data.project);
   };
 
-  const importSport365 = async () => {
+  const importPreviewFixtureContext = async () => {
     setLocalError(null);
     setImportFeedback(null);
-    const url = sport365Url.trim();
-    if (!url) throw new Error("Paste a Sport365 URL or skip.");
+    if (!project.layers.sixLogic) throw new Error("Import Six Logic match foundation first.");
     setImporting(true);
     try {
-      const res = await fetch(studioApiPath("/api/match-report/import/sport365-commentary"), {
+      const res = await fetch(studioApiPath("/api/match-report/import/preview-fixture-context"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: project.id, url }),
+        body: JSON.stringify({ projectId: project.id }),
+      });
+      const data = (await res.json()) as {
+        project?: MatchReportProject;
+        fixtureContext?: FixtureContextIntelligence | null;
+        error?: string;
+      };
+      if (!res.ok || !data.project) throw new Error(data.error || "Fixture context import failed");
+      if (data.fixtureContext) setImportFeedback(fixtureContextSummary(data.fixtureContext));
+      onProjectChange(data.project);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const importSixLogicCommentary = async () => {
+    setLocalError(null);
+    setImportFeedback(null);
+    if (!project.layers.sixLogic) throw new Error("Import Six Logic match foundation first.");
+    if (sixLogicFeedLines === 0) {
+      throw new Error("No commentary or match events found in the Six Logic feed for this fixture.");
+    }
+    setImporting(true);
+    try {
+      const res = await fetch(studioApiPath("/api/match-report/import/sixlogics-commentary"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: project.id }),
       });
       const data = (await res.json()) as {
         project?: MatchReportProject;
@@ -362,7 +411,7 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
         fixtureContext?: FixtureContextIntelligence | null;
         error?: string;
       };
-      if (!res.ok || !data.project) throw new Error(data.error || "Sport365 import failed");
+      if (!res.ok || !data.project) throw new Error(data.error || "Six Logic commentary import failed");
       const feedbackParts = [];
       if (data.commentary) feedbackParts.push(sport365CommentarySummary(data.commentary));
       if (data.fixtureContext) feedbackParts.push(fixtureContextSummary(data.fixtureContext));
@@ -536,11 +585,11 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
   };
 
   const backLabel =
-    step === "sport365"
+    step === "preview_fixture_context" || step === "sport365"
       ? "Back to foundation"
       : step === "build_picture"
         ? `Back to ${stepLabel("manual_sources")}`
-        : `Back to ${stepLabel(prevImportLayerStep(step) ?? "sport365")}`;
+        : `Back to ${stepLabel(prevImportStepForProject(step, project) ?? (previewProject ? "preview_fixture_context" : "sport365"))}`;
 
   const actionButtons = (primary: ReactNode) => (
     <div className="mrb-action-bar flex flex-wrap gap-3 rounded-2xl border px-4 py-4">
@@ -559,9 +608,9 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
           title="Ready to build picture"
           description="Optional imports are complete. Run Build Picture to synthesise the event intelligence layer."
         />
-        <ImportLayerProgress currentStep={step} />
+        <ImportLayerProgress currentStep={step} steps={importLayerSteps} />
         <CompletedImports project={project} />
-        <ImportStatusCard variant="info" title="Report confidence">
+        <ImportStatusCard variant="info" title={previewProject ? "Preview confidence" : "Report confidence"}>
           Current score: <strong>{project.confidence}%</strong>
           {project.health.skippedLayers.length > 0 ? (
             <span className="block pt-1 text-[color:var(--text-secondary)]">
@@ -583,7 +632,15 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
     );
   }
 
-  if (step === "sport365" || step === "league_table" || step === "league_stats" || step === "loop_feed" || step === "whoscored" || step === "manual_sources") {
+  if (
+    step === "preview_fixture_context" ||
+    step === "sport365" ||
+    step === "league_table" ||
+    step === "league_stats" ||
+    step === "loop_feed" ||
+    step === "whoscored" ||
+    step === "manual_sources"
+  ) {
     const meta = STEP_META[step];
 
     return (
@@ -594,7 +651,7 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
           description={meta.help}
           skipPenalty={meta.skipPenalty}
         />
-        <ImportLayerProgress currentStep={step} />
+        <ImportLayerProgress currentStep={step} steps={importLayerSteps} />
         {worldCupProject && step !== "league_table" ? (
           <WorldCupStandingsRefresh project={project} onProjectChange={onProjectChange} compact />
         ) : null}
@@ -606,8 +663,50 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
           </ImportStatusCard>
         ) : null}
 
+        {step === "preview_fixture_context" ? (
+          <div className="space-y-4">
+            {project.layers.sixLogic ? (
+              <ImportStatusCard variant="info" title="Six Logic foundation">
+                {project.layers.sixLogic.facts.homeTeam} v {project.layers.sixLogic.facts.awayTeam} · match{" "}
+                {project.layers.sixLogic.matchId}
+              </ImportStatusCard>
+            ) : (
+              <ImportStatusCard variant="warning" title="Foundation required">
+                Import the Six Logic match foundation first.
+              </ImportStatusCard>
+            )}
+            {project.layers.fixtureContext ? (
+              <ImportStatusCard variant="success" title="Already on file">
+                <p className="text-sm">{fixtureContextSummary(project.layers.fixtureContext)}</p>
+                <p className="mt-2 whitespace-pre-wrap text-xs text-[color:var(--text-muted)]">
+                  {project.layers.fixtureContext.digest}
+                </p>
+              </ImportStatusCard>
+            ) : null}
+          </div>
+        ) : null}
+
         {step === "sport365" ? (
           <div className="space-y-4">
+            {project.layers.sixLogic ? (
+              <ImportStatusCard variant="info" title="Six Logic feed">
+                Match <strong>{project.layers.sixLogic.matchId}</strong> ·{" "}
+                {project.layers.sixLogic.facts.homeTeam} v {project.layers.sixLogic.facts.awayTeam}
+                {sixLogicFeedLines > 0 ? (
+                  <>
+                    {" "}
+                    · <strong>{sixLogicFeedLines}</strong> commentary / event line
+                    {sixLogicFeedLines === 1 ? "" : "s"} available
+                  </>
+                ) : (
+                  <> · no commentary lines in feed (skip or re-import foundation)</>
+                )}
+              </ImportStatusCard>
+            ) : (
+              <ImportStatusCard variant="warning" title="Foundation required">
+                Import the Six Logic match foundation first, then return here to load commentary from the feed.
+              </ImportStatusCard>
+            )}
             {project.layers.sport365Commentary ? (
               <ImportStatusCard variant="success" title="Already on file">
                 {sport365CommentarySummary(project.layers.sport365Commentary)}
@@ -621,17 +720,6 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
                 </p>
               </ImportStatusCard>
             ) : null}
-            <label className="block space-y-2">
-              <span className={importLabelClass}>Sport365 match URL</span>
-              <input
-                className={importFieldClass}
-                style={importFieldStyle}
-                value={sport365Url}
-                onChange={(e) => setSport365Url(e.target.value)}
-                placeholder="https://www.sport365.com/football/…"
-                disabled={importing}
-              />
-            </label>
           </div>
         ) : null}
 
@@ -887,9 +975,27 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
                     ? "Continue with Loop Feed sources"
                     : "Continue"}
               </R365Button>
+            ) : step === "preview_fixture_context" ? (
+              <R365Button
+                onClick={() => runAction(importPreviewFixtureContext)}
+                disabled={busy || importing || !project.layers.sixLogic}
+              >
+                {importing
+                  ? "Loading fixture context…"
+                  : project.layers.fixtureContext
+                    ? "Re-import & continue"
+                    : "Import form & H2H & continue"}
+              </R365Button>
             ) : step === "sport365" ? (
-              <R365Button onClick={() => runAction(importSport365)} disabled={busy || importing || !sport365Url.trim()}>
-                {importing ? "Parsing commentary…" : project.layers.sport365Commentary ? "Re-import" : "Parse & continue"}
+              <R365Button
+                onClick={() => runAction(importSixLogicCommentary)}
+                disabled={busy || importing || !project.layers.sixLogic || sixLogicFeedLines === 0}
+              >
+                {importing
+                  ? "Loading from Six Logic…"
+                  : project.layers.sport365Commentary
+                    ? "Re-import from feed"
+                    : "Import from feed & continue"}
               </R365Button>
             ) : step === "league_table" ? (
               <R365Button onClick={() => runAction(importLeagueTable)} disabled={busy || importing || !leagueTableUrl.trim()}>

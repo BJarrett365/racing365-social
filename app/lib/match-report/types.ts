@@ -1,7 +1,7 @@
 import type { OptaPlayerIntelligence } from "@/app/lib/match-report/opta-player-types";
 
 export type MatchReportSport = "football";
-export type MatchReportContentType = "match_report";
+export type MatchReportContentType = "match_report" | "match_preview";
 export type MatchReportScope = "full" | "first_half";
 export type MatchReportFormat = "home" | "away" | "live_first_half" | "neutral" | "neutral_dual";
 export type MatchReportPerspective = "home" | "away" | "live_first_half" | "neutral";
@@ -19,6 +19,7 @@ export type MatchReportWorkflowStep =
   | "match_id"
   | "sixlogic_core"
   | "competition_rules"
+  | "preview_fixture_context"
   | "sport365"
   | "league_table"
   | "league_stats"
@@ -30,6 +31,7 @@ export type MatchReportWorkflowStep =
   | "transcripts"
   | "image_intelligence"
   | "media_builder"
+  | "fact_check"
   | "review"
   | "published";
 
@@ -48,7 +50,7 @@ export type LayerWeightMap = {
 
 export type EditorialProfile = {
   sport: MatchReportSport;
-  contentStyle: "Match report";
+  contentStyle: "Match report" | "Match preview";
   targetBrand: MatchReportTargetBrand;
   brandStyle: string;
   /** Match-report STYLE prompt (Language Studio content-style preset). */
@@ -119,6 +121,39 @@ export type SixLogicFacts = {
   minuteElapsed?: number;
 };
 
+export type SixLogicAvailableDataSection = {
+  key: string;
+  title: string;
+  description: string;
+  count?: number;
+};
+
+export type SixLogicAvailableData = {
+  competition?: Record<string, unknown>;
+  matchMeta?: Record<string, unknown>;
+  venue?: unknown;
+  officials?: unknown[];
+  competitors?: unknown[];
+  score?: unknown[];
+  goals?: unknown[];
+  cards?: unknown[];
+  corners?: unknown[];
+  substitutions?: unknown[];
+  matchChannels?: unknown[];
+  leagueTable?: unknown[];
+  matchCommentary?: unknown[];
+  matchTeamStats?: unknown[];
+  headToHead?: unknown[];
+  lastHomeResults?: unknown[];
+  lastAwayResults?: unknown[];
+  upcomingHomeFixtures?: unknown[];
+  upcomingAwayFixtures?: unknown[];
+  streaks?: unknown[];
+  odds?: unknown[];
+  otherSections?: Record<string, unknown>;
+  sections: SixLogicAvailableDataSection[];
+};
+
 export type SixLogicFoundation = {
   matchId: string;
   sportId: string;
@@ -126,6 +161,7 @@ export type SixLogicFoundation = {
   lineups: { home: SixLogicLineup; away: SixLogicLineup };
   events: SixLogicEvent[];
   commentary: SixLogicCommentaryLine[];
+  availableData?: SixLogicAvailableData;
   summaryText?: string;
   normalisedAt: string;
   sourceKeyPaths?: string[];
@@ -290,6 +326,9 @@ export type MatchReportCalendarFixture = {
   matchId: string;
   betwayMatchId?: string;
   targetBrands?: MatchReportTargetBrand[];
+  previewProjectId?: string;
+  previewCompletedAt?: string;
+  previewDisplayLabel?: string;
   reportProjectId?: string;
   reportCompletedAt?: string;
   reportDisplayLabel?: string;
@@ -440,6 +479,104 @@ export type MediaOutputs = {
   model?: string;
 };
 
+export type MatchStoryStatValue = {
+  home: number | string;
+  away: number | string;
+  homeRaw?: string;
+  awayRaw?: string;
+};
+
+export type MatchStoryPeriodStats = {
+  sourcePeriod: "ALL" | "1ST" | "2ND" | "sixlogic";
+  groups: Record<string, Record<string, MatchStoryStatValue>>;
+};
+
+export type MatchStoryEvent = {
+  minute?: number;
+  event: string;
+  team: string;
+  player?: string;
+  assist?: string;
+  detail?: string;
+  score?: string;
+};
+
+export type MatchStoryContext = {
+  matchInfo: {
+    competition: string;
+    venue?: string;
+    score: string;
+  };
+  events: MatchStoryEvent[];
+  statisticsByPeriod: {
+    fullTime?: MatchStoryPeriodStats;
+    firstHalf?: MatchStoryPeriodStats;
+    secondHalf?: MatchStoryPeriodStats;
+  };
+  loopFeedIntelligence: {
+    officialClubSignals: string[];
+    trustedJournalistSignals: string[];
+    quoteCandidates: string[];
+    tacticalObservations: string[];
+    moodAndReaction: string[];
+    styleSignals: string[];
+  };
+  derived: {
+    turningPoint?: string;
+    deservedWinner?: string;
+    dominantPhases: string[];
+    storyline: string;
+  };
+  generatedAt: string;
+};
+
+export type FactCheckSourceTier = "tier1" | "tier2" | "tier3";
+export type FactCheckSeverity = "high" | "medium" | "low";
+export type FactCheckIssueType =
+  | "tier1_contradiction"
+  | "unsupported_quote"
+  | "stat_conflict"
+  | "team_player_mismatch"
+  | "unsupported_record"
+  | "weak_tactical_claim"
+  | "style_or_wording_warning";
+
+export type FactCheckIssue = {
+  id: string;
+  severity: FactCheckSeverity;
+  sourceTier: FactCheckSourceTier;
+  type: FactCheckIssueType;
+  title: string;
+  detail: string;
+  evidence?: string;
+  suggestion?: string;
+};
+
+export type ArticleScore = {
+  overall: number;
+  status: "publish_ready" | "needs_edit" | "needs_rewrite" | "blocked";
+  dimensions: {
+    factualAccuracy: number;
+    researchDepth: number;
+    insightQuality: number;
+    journalistVoice: number;
+    brandFit: number;
+    opinionHumour: number;
+    structureReadability: number;
+  };
+  summary: string;
+  topFixes: string[];
+};
+
+export type MatchReportFactCheck = {
+  status: "not_run" | "passed" | "warnings" | "blocked";
+  issues: FactCheckIssue[];
+  articleScore: ArticleScore;
+  storyContext: MatchStoryContext;
+  checkedAt: string;
+  model?: string;
+};
+
 export type ArchiveRecord = {
   /** Language Studio article created when media is generated — edit in Rewrite tab. */
   languageStudioArticleId?: string;
@@ -502,6 +639,7 @@ export type MatchReportProject = {
   playerIntelligence: PlayerIntelligence | null;
   imageIntelligence: ImageIntelligence | null;
   mediaOutputs: MediaOutputs | null;
+  factCheck?: MatchReportFactCheck | null;
   archive: ArchiveRecord | null;
   /** Parent editorial calendar event when started from Schedule Studio. */
   calendarEventId?: string;
@@ -538,6 +676,7 @@ export type CreateMatchReportProjectInput = {
   editorial: Partial<EditorialProfile> & Pick<EditorialProfile, "targetBrand">;
   /** Required when reportFormat is neutral_dual — editorial for the away-perspective linked report. */
   awayEditorial?: Partial<EditorialProfile> & Pick<EditorialProfile, "targetBrand">;
+  contentType?: MatchReportContentType;
   matchId: string;
   sportId?: string;
   reportScope?: MatchReportScope;
@@ -555,6 +694,7 @@ export type PatchMatchReportProjectInput = {
   editorial?: Partial<EditorialProfile>;
   reportScope?: MatchReportScope;
   mediaOutputs?: Partial<MediaOutputs>;
+  factCheck?: MatchReportFactCheck | null;
   status?: MatchReportStatus;
   workflowStep?: MatchReportWorkflowStep;
   workflowPhase?: MatchReportWorkflowPhase;

@@ -20,7 +20,9 @@ Match Report Builder is a linear, data-driven workflow that:
 5. **Persists everything** — reports + data files in blob store `plexa-match-report`
 6. **Publishes** — Language Studio Review Queue
 
-**V1 scope:** Football · Match Report only · WhoScored for player stats (no Opta API yet)
+**V1 scope:** Football · Match Report (+ Match Preview in progress) · WhoScored for player stats (no Opta API yet)
+
+**Match Preview R&D:** See [match-preview-v1-spec.md](./match-preview-v1-spec.md) and [match-preview-rd-report.md](./match-preview-rd-report.md) (F365 editorial benchmark, PIO, 9.5+ product target).
 
 ---
 
@@ -45,18 +47,86 @@ flowchart TB
     C2[Player Intelligence async]
     C3[Import Transcripts Skip OK]
     C4[Image Intelligence library or AI hero]
-    C5[Media Builder async]
+  C5[Media Builder async]
+  C6[Fact Check and Article Score]
   end
   subgraph phaseD [Phase D — Finish]
     D1[Screen D1: Review]
     D2[Publish and Archive]
   end
   A2 --> B0 --> B0b --> B1 --> B2 --> B3 --> B4
-  B4 --> C1 --> C2 --> C3 --> C4 --> C5 --> D1 --> D2
+  B4 --> C1 --> C2 --> C3 --> C4 --> C5 --> C6 --> D1 --> D2
   D2 --> AR[All Reports list]
 ```
 
 **UX principle:** One task per screen · **Complete** or **Skip** · EIO builds incrementally · confidence updates after each step.
+
+---
+
+## R&D Addendum — Fact Check, Story Engine And Article Score
+
+The Match Report Builder now includes an R&D layer between Media Builder and Review:
+
+1. **Story Engine** — normalises match data into editorial context rather than raw stats dumps.
+2. **Fact Check** — validates the generated report against source hierarchy.
+3. **Article Score** — rates factual accuracy, research depth, insight, journalist voice, brand fit, opinion/humour and readability.
+
+### Source hierarchy
+
+| Tier | Source | Role |
+|---|---|---|
+| Tier 1 | SixLogic / EIO / Opta match feed | Goals, assists, cards, lineups, substitutions, match events, scores and table data. Cannot be overridden. |
+| Tier 2 | Sofascore / WhoScored / Opta-style advanced data, official clubs, ESPN, Sky, BBC, Reuters, Premier League | xG, momentum, chance quality, quotes, records, milestones, injury comments and competition implications. Supplements Tier 1. |
+| Tier 3 | AI editorial layer | Narrative, humour, opinion, tactical explanation, headlines and conclusions. Must be evidence-backed. |
+
+### Loop Feed intelligence
+
+Loop Feed is a research and editorial intelligence source, not only an embed source. It should provide:
+
+- Club feed signals: official updates, reaction, injury/selection context, manager/player comments.
+- Top journalist signals: trusted observations, tactical notes, mood, records, controversy and football conversation.
+- Style signals: humour, opinion, attribution habits and phrasing patterns to support Content Creator profiles and brand style guides.
+
+Loop Feed can support context and tone, but it must not override Tier 1 match data. Conflicts become Fact Check Warnings.
+
+### Sofascore / advanced data target
+
+When available, parse all statistics periods:
+
+- `ALL` as full-time.
+- `1ST` as first-half.
+- `2ND` as second-half.
+
+Keep grouped stats for Match overview, Shots, Attack, Passes, Duels, Defending and Goalkeeping. These feed the Story Engine and fact-check warnings.
+
+### Article Score
+
+Score reports out of 100:
+
+| Dimension | Points |
+|---|---:|
+| Factual accuracy | 25 |
+| Research depth | 15 |
+| Insight quality | 15 |
+| Journalist voice / Content Creator fit | 15 |
+| Brand fit | 15 |
+| Opinion and humour | 10 |
+| Structure/readability | 5 |
+
+High-severity Tier 1 contradictions cap the score at 65. Unsupported direct quotes cap the score at 75 unless sourced.
+
+### R&D comparison test
+
+Primary test case: Brighton 0-3 Manchester United.
+
+Expected improvements:
+
+- Catch wrong team/player ownership such as “Brighton’s Kobbie Mainoo”.
+- Catch possession contradictions.
+- Use Dorgu 33, Mbeumo 44 and Fernandes 48 from Tier 1.
+- Use Sofascore-style advanced data to explain Brighton territory versus United chance quality.
+- Use Loop Feed for research/style signals, not automatic embeds.
+- Score whether the article reads like researched journalism, not generic AI sports copy.
 
 ---
 

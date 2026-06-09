@@ -21,10 +21,11 @@ import { resolveEditorialContext } from "@/app/lib/match-report/editorial-govern
 import {
   applyHealthUpdate,
   nextImportStep,
-  prevImportStep,
+  prevImportStepForProject,
   skipLayerEntry,
   upsertSkippedLayer,
 } from "@/app/lib/match-report/health-check";
+import { prevPreviewGenerationStep } from "@/app/lib/match-report/preview-workflow";
 import { newMatchReportProjectId } from "@/app/lib/match-report/ids";
 import {
   assessSixLogicHealth,
@@ -41,6 +42,13 @@ import {
   resolveReportScope,
   storedReportFormat,
 } from "@/app/lib/match-report/match-report-format";
+import {
+  defaultEditorialContentStyle,
+  isMatchPreview,
+  MATCH_PREVIEW_CONTENT_TYPE,
+  MATCH_REPORT_CONTENT_TYPE,
+} from "@/app/lib/match-report/content-type";
+import { recommendedCalendarPhase } from "@/app/lib/match-report/preview-migration";
 import type {
   CreateMatchReportProjectInput,
   CreateMatchReportProjectResult,
@@ -52,7 +60,9 @@ import type {
   LeagueSeasonStatsIntelligence,
   LoopFeedIntelligence,
   ManualSource,
+  MatchReportContentType,
   MatchReportIndex,
+  MatchReportFactCheck,
   MatchReportPerspective,
   MatchReportProject,
   MatchReportScope,
@@ -230,6 +240,7 @@ export class MatchReportRepository {
     if (!project) return null;
     const normalized: MatchReportProject = {
       ...project,
+      factCheck: project.factCheck ?? null,
       reportFormat: project.reportFormat ?? DEFAULT_MATCH_REPORT_FORMAT,
       reportScope: project.reportScope ?? "full",
       layers: {
@@ -285,6 +296,10 @@ export class MatchReportRepository {
     foundation.facts.competitionCode = competition.competitionCode;
 
     const requestedFormat = input.reportFormat ?? DEFAULT_MATCH_REPORT_FORMAT;
+    const contentType = input.contentType ?? MATCH_REPORT_CONTENT_TYPE;
+    if (contentType === MATCH_PREVIEW_CONTENT_TYPE && requestedFormat === "neutral_dual") {
+      throw new MatchReportStoreError("Match preview does not support neutral dual format", "VALIDATION");
+    }
     const reportScope = resolveReportScope(requestedFormat, input.reportScope);
     const ts = nowIso();
 
@@ -337,11 +352,12 @@ export class MatchReportRepository {
       profile,
       matchId,
       sportId,
+      contentType,
       reportFormat: storedReportFormat(requestedFormat),
       reportScope,
       ts,
       calendarEventId: input.calendarEventId,
-      calendarPhase: input.calendarPhase,
+      calendarPhase: input.calendarPhase ?? recommendedCalendarPhase(contentType),
     });
     return { project };
   }
@@ -352,6 +368,7 @@ export class MatchReportRepository {
     profile: EditorialProfile;
     matchId: string;
     sportId: string;
+    contentType?: MatchReportContentType;
     reportFormat: MatchReportPerspective;
     reportScope: MatchReportScope;
     pairedProjectId?: string;
@@ -360,14 +377,19 @@ export class MatchReportRepository {
     calendarPhase?: "pre_match" | "live" | "report_post";
   }): Promise<MatchReportProject> {
     const id = newMatchReportProjectId();
+    const contentType = args.contentType ?? MATCH_REPORT_CONTENT_TYPE;
+    const profile: EditorialProfile = {
+      ...args.profile,
+      contentStyle: defaultEditorialContentStyle(contentType),
+    };
     const project: MatchReportProject = {
       id,
       sport: "football",
-      contentType: "match_report",
+      contentType,
       reportScope: args.reportScope,
       reportFormat: args.reportFormat,
       pairedProjectId: args.pairedProjectId,
-      editorial: args.profile,
+      editorial: profile,
       matchId: args.matchId,
       sportId: args.sportId,
       competition: args.foundation.facts.competition,
@@ -375,7 +397,7 @@ export class MatchReportRepository {
       awayTeam: args.foundation.facts.awayTeam,
       homeScore: args.foundation.facts.homeScore,
       awayScore: args.foundation.facts.awayScore,
-      displayLabel: `${buildDisplayLabel(args.foundation)} · ${matchReportFormatShortLabel(args.reportFormat)}`,
+      displayLabel: `${buildDisplayLabel(args.foundation)} · ${contentType === MATCH_PREVIEW_CONTENT_TYPE ? "Preview" : matchReportFormatShortLabel(args.reportFormat)}`,
       status: "in_progress",
       workflowStep: "competition_rules",
       workflowPhase: "foundation_ready",
@@ -396,6 +418,7 @@ export class MatchReportRepository {
       playerIntelligence: null,
       imageIntelligence: null,
       mediaOutputs: null,
+      factCheck: null,
       archive: null,
       calendarEventId: args.calendarEventId,
       calendarPhase: args.calendarPhase,
@@ -440,6 +463,7 @@ export class MatchReportRepository {
       mediaOutputs: input.mediaOutputs
         ? { ...(existing.mediaOutputs ?? { headline: "", standfirst: "", reportHtml: "", generatedAt: nowIso() }), ...input.mediaOutputs }
         : existing.mediaOutputs,
+      factCheck: input.factCheck === undefined ? existing.factCheck ?? null : input.factCheck,
       editorial: editorialContext
         ? buildEditorialProfile(
             {
@@ -529,7 +553,7 @@ export class MatchReportRepository {
         ...project.health,
         skippedLayers: upsertSkippedLayer(project, entry),
       },
-      workflowStep: nextImportStep(layer),
+      workflowStep: nextImportStep(layer, project),
       workflowPhase: layer === "manual_sources" ? "generation" : "import_layers",
     };
     return this.saveProject(next);
@@ -570,7 +594,7 @@ export class MatchReportRepository {
         loopFeed: imported,
         manualSources: dedupeManualSourcesById([...keptManualSources, ...loopManualSources]),
       },
-      workflowStep: nextImportStep("loop_feed"),
+      workflowStep: nextImportStep("loop_feed", project),
       workflowPhase: "import_layers",
       health: {
         ...project.health,
@@ -678,7 +702,7 @@ export class MatchReportRepository {
     const next: MatchReportProject = {
       ...project,
       eventPicture,
-      workflowStep: "player_intelligence",
+      workflowStep: isMatchPreview(project) ? "image_intelligence" : "player_intelligence",
       workflowPhase: "generation",
       status: "in_progress",
     };
@@ -698,7 +722,7 @@ export class MatchReportRepository {
         sport365Commentary: commentary,
         fixtureContext: fixtureContext ?? project.layers.fixtureContext ?? null,
       },
-      workflowStep: nextImportStep("sport365"),
+      workflowStep: nextImportStep("sport365", project),
       workflowPhase: "import_layers",
       health: {
         ...project.health,
@@ -713,7 +737,7 @@ export class MatchReportRepository {
     const next: MatchReportProject = {
       ...project,
       layers: { ...project.layers, leagueTable },
-      workflowStep: nextImportStep("league_table"),
+      workflowStep: nextImportStep("league_table", project),
       workflowPhase: "import_layers",
       health: {
         ...project.health,
@@ -741,7 +765,7 @@ export class MatchReportRepository {
     const next: MatchReportProject = {
       ...project,
       layers: { ...project.layers, leagueSeasonStats },
-      workflowStep: nextImportStep("league_stats"),
+      workflowStep: nextImportStep("league_stats", project),
       workflowPhase: "import_layers",
       health: {
         ...project.health,
@@ -761,7 +785,7 @@ export class MatchReportRepository {
     const next: MatchReportProject = {
       ...project,
       layers: { ...project.layers, optaPlayerData: reconciledOpta },
-      workflowStep: nextImportStep("whoscored"),
+      workflowStep: nextImportStep("whoscored", project),
       workflowPhase: "import_layers",
       health: {
         ...project.health,
@@ -891,9 +915,22 @@ export class MatchReportRepository {
     const next: MatchReportProject = {
       ...project,
       mediaOutputs,
-      workflowStep: "review",
-      workflowPhase: "review",
-      status: "review",
+      factCheck: null,
+      workflowStep: "fact_check",
+      workflowPhase: "generation",
+      status: "in_progress",
+    };
+    return this.saveProject(next);
+  }
+
+  async setFactCheck(id: string, factCheck: MatchReportFactCheck): Promise<MatchReportProject> {
+    const project = await this.requireProject(id);
+    const next: MatchReportProject = {
+      ...project,
+      factCheck,
+      workflowStep: "fact_check",
+      workflowPhase: "generation",
+      status: "in_progress",
     };
     return this.saveProject(next);
   }
@@ -939,9 +976,10 @@ export class MatchReportRepository {
 
   async advanceToImportLayers(id: string): Promise<MatchReportProject> {
     const project = await this.requireProject(id);
+    const firstImportStep = isMatchPreview(project) ? "preview_fixture_context" : "sport365";
     const next: MatchReportProject = {
       ...project,
-      workflowStep: project.workflowStep === "competition_rules" ? "sport365" : project.workflowStep,
+      workflowStep: project.workflowStep === "competition_rules" ? firstImportStep : project.workflowStep,
       workflowPhase: "import_layers",
     };
     return this.saveProject(next);
@@ -949,7 +987,7 @@ export class MatchReportRepository {
 
   async retreatImportStep(id: string): Promise<MatchReportProject> {
     const project = await this.requireProject(id);
-    if (project.workflowStep === "sport365") {
+    if (project.workflowStep === "preview_fixture_context" || project.workflowStep === "sport365") {
       return this.saveProject({
         ...project,
         workflowStep: "competition_rules",
@@ -963,7 +1001,7 @@ export class MatchReportRepository {
         workflowPhase: "import_layers",
       });
     }
-    const prev = prevImportStep(project.workflowStep);
+    const prev = prevImportStepForProject(project.workflowStep, project);
     if (!prev) {
       throw new MatchReportStoreError("Cannot go back from this step", "VALIDATION");
     }
@@ -976,6 +1014,18 @@ export class MatchReportRepository {
 
   async retreatGenerationStep(id: string): Promise<MatchReportProject> {
     const project = await this.requireProject(id);
+    if (isMatchPreview(project)) {
+      const prev = prevPreviewGenerationStep(project.workflowStep);
+      if (!prev) {
+        throw new MatchReportStoreError("Cannot go back from this step", "VALIDATION");
+      }
+      return this.saveProject({
+        ...project,
+        workflowStep: prev,
+        workflowPhase: "generation",
+        status: prev === "media_builder" && project.status === "review" ? "in_progress" : project.status,
+      });
+    }
     const prevByStep: Partial<Record<MatchReportWorkflowStep, MatchReportWorkflowStep>> = {
       transcripts: "player_intelligence",
       image_intelligence: "transcripts",

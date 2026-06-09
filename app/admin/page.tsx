@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PlexaGatewayPopout } from "@/app/components/PlexaGatewayPopout";
 import { BRAND_SUITE } from "@/app/lib/brand";
 
 export const metadata = {
@@ -6,6 +7,12 @@ export const metadata = {
 };
 
 const adminLinks = [
+  {
+    title: "Plexa Dev Gateway",
+    href: "/dev-gateway",
+    description: "Run advisory release checks, QA reviews, rollback checks and Cursor fix prompts before testing.",
+    status: "Admin",
+  },
   {
     title: "Users and permissions",
     href: "/admin/users-and-permissions",
@@ -107,6 +114,10 @@ export default function AdminPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <PlexaGatewayPopout
+              triggerLabel="Plexa Gateway"
+              triggerClassName="rounded-full bg-[color:var(--accent)] px-4 py-2 text-sm font-bold text-[color:var(--accent-foreground)] transition hover:bg-[color:var(--accent-hover)]"
+            />
             <Link href="/admin/reports" className="rounded-full bg-[color:var(--accent)] px-4 py-2 text-sm font-bold text-[color:var(--accent-foreground)] transition hover:bg-[color:var(--accent-hover)]">
               Open R&D Reports
             </Link>

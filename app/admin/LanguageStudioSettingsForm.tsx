@@ -10,6 +10,7 @@ type LanguageSettingsStatus = {
   openaiConfigured: boolean;
   deeplConfigured: boolean;
   deeplApiKeyMasked?: string;
+  deeplKeySource?: "admin" | "environment" | "none";
   deeplApiUrl?: string;
   adminTokenRequired: boolean;
 };
@@ -21,11 +22,14 @@ export function LanguageStudioSettingsForm() {
   const [status, setStatus] = useState<LanguageSettingsStatus | null>(null);
   const [adminToken, setAdminToken] = useState("");
   const [deeplApiKey, setDeeplApiKey] = useState("");
+  const [deeplKeyDirty, setDeeplKeyDirty] = useState(false);
   const [deeplApiUrl, setDeeplApiUrl] = useState("");
   const [languageProviderMode, setLanguageProviderMode] = useState<LanguageSettingsStatus["providerMode"]>("openai");
   const [languageOpenaiModel, setLanguageOpenaiModel] = useState("gpt-4o-mini");
   const [clearDeeplKey, setClearDeeplKey] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [deeplCheckBusy, setDeeplCheckBusy] = useState(false);
+  const [deeplCheckMessage, setDeeplCheckMessage] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +41,8 @@ export function LanguageStudioSettingsForm() {
     setLanguageProviderMode(data.providerMode);
     setLanguageOpenaiModel(data.openaiModel || "gpt-4o-mini");
     setDeeplApiUrl(data.deeplApiUrl || "");
+    setDeeplKeyDirty(false);
+    setDeeplApiKey("");
   };
 
   useEffect(() => {
@@ -57,7 +63,7 @@ export function LanguageStudioSettingsForm() {
         },
         body: JSON.stringify({
           adminToken: tok || undefined,
-          deeplApiKey: deeplApiKey.trim() || undefined,
+          deeplApiKey: deeplKeyDirty ? deeplApiKey.trim() || undefined : undefined,
           deeplApiUrl: deeplApiUrl.trim() || undefined,
           languageProviderMode,
           languageOpenaiModel: languageOpenaiModel.trim() || undefined,
@@ -68,6 +74,7 @@ export function LanguageStudioSettingsForm() {
       if (!res.ok) throw new Error(data.error || "Save failed");
       setMessage("Language Studio settings saved.");
       setDeeplApiKey("");
+      setDeeplKeyDirty(false);
       setClearDeeplKey(false);
       await load();
     } catch (e) {
@@ -77,86 +84,194 @@ export function LanguageStudioSettingsForm() {
     }
   };
 
+  const testDeeplConnection = async () => {
+    setDeeplCheckBusy(true);
+    setDeeplCheckMessage(null);
+    setError(null);
+    try {
+      const tok = adminToken.trim();
+      const res = await fetch("/api/admin/deepl-check", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(tok ? { "x-admin-token": tok } : {}),
+        },
+        body: JSON.stringify({
+          adminToken: tok || undefined,
+          deeplApiKey: deeplKeyDirty ? deeplApiKey.trim() || undefined : undefined,
+          deeplApiUrl: deeplApiUrl.trim() || undefined,
+        }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        serverUrl?: string;
+        characterCount?: number | null;
+        characterLimit?: number | null;
+      };
+      if (!res.ok || !data.ok) throw new Error(data.error || "DeepL connection failed");
+      const usage =
+        data.characterCount != null && data.characterLimit != null
+          ? ` Usage: ${data.characterCount.toLocaleString()} / ${data.characterLimit.toLocaleString()} characters.`
+          : "";
+      setDeeplCheckMessage(`DeepL connected (${data.serverUrl ?? "default API"}).${usage}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "DeepL connection failed");
+    } finally {
+      setDeeplCheckBusy(false);
+    }
+  };
+
   return (
-    <Panel title="Language Studio" className="space-y-4 p-5">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#22c55e]">Language Studio</p>
-        <h2 className="mt-1 text-xl font-black text-white">Provider keys and language engine settings</h2>
-        <p className="mt-2 text-sm text-slate-400">
-          OpenAI is the default MVP provider. DeepL is optional and can be combined with OpenAI localisation.
+    <div className="space-y-4">
+      <Panel title="Language Studio provider mode" className="space-y-4 p-5">
+        <p className="text-sm text-slate-400">
+          OpenAI is the default MVP provider. DeepL is optional for translation and can be combined with OpenAI
+          localisation. Environment variables still override stored values when set.
         </p>
-      </div>
-      {status ? (
-        <div className="grid gap-3 text-xs text-slate-300 md:grid-cols-2">
-          <div>OpenAI configured: {status.openaiConfigured ? "yes" : "no"}</div>
-          <div>DeepL configured: {status.deeplConfigured ? "yes" : "no"} {status.deeplApiKeyMasked ? `(${status.deeplApiKeyMasked})` : ""}</div>
-        </div>
-      ) : null}
-      {status?.adminTokenRequired ? (
-        <div className="rounded-xl border border-[#1f2d26] bg-black/20 p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
+        {status ? (
+          <div className="grid gap-3 text-xs text-slate-300 md:grid-cols-2">
+            <div>OpenAI configured: {status.openaiConfigured ? "yes" : "no"}</div>
             <div>
-              <p className="text-sm font-bold text-white">Admin token</p>
-              <p className="mt-1 text-xs text-slate-500">Required before protected Language Studio settings can be saved.</p>
+              DeepL configured: {status.deeplConfigured ? "yes" : "no"}
+              {status.deeplApiKeyMasked ? ` (${status.deeplApiKeyMasked})` : ""}
+              {status.deeplKeySource === "environment" ? " — from env" : ""}
             </div>
-            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-xs font-bold text-amber-200">
-              Required
-            </span>
           </div>
+        ) : null}
+        {status?.adminTokenRequired ? (
+          <div className="rounded-xl border border-[#1f2d26] bg-black/20 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-white">Admin token</p>
+                <p className="mt-1 text-xs text-slate-500">Required before protected Language Studio settings can be saved.</p>
+              </div>
+              <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-xs font-bold text-amber-200">
+                Required
+              </span>
+            </div>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              ADMIN_TOKEN
+              <input className={inputClass} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} />
+            </label>
+          </div>
+        ) : null}
+        <div className="grid gap-3 md:grid-cols-2">
           <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-            ADMIN_TOKEN
-            <input className={inputClass} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} />
+            Provider mode
+            <select
+              className={inputClass}
+              value={languageProviderMode}
+              onChange={(e) => setLanguageProviderMode(e.target.value as LanguageSettingsStatus["providerMode"])}
+            >
+              <option value="openai">OpenAI only</option>
+              <option value="deepl">DeepL only</option>
+              <option value="deepl-openai">DeepL + OpenAI localisation</option>
+            </select>
+          </label>
+          <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            OpenAI model
+            <input
+              className={inputClass}
+              value={languageOpenaiModel}
+              onChange={(e) => setLanguageOpenaiModel(e.target.value)}
+              placeholder="gpt-4o-mini"
+            />
           </label>
         </div>
-      ) : null}
-      <div className="grid gap-3 md:grid-cols-3">
-        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Provider mode
-          <select className={inputClass} value={languageProviderMode} onChange={(e) => setLanguageProviderMode(e.target.value as LanguageSettingsStatus["providerMode"])}>
-            <option value="openai">OpenAI only</option>
-            <option value="deepl">DeepL only</option>
-            <option value="deepl-openai">DeepL + OpenAI localisation</option>
-          </select>
-        </label>
-        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-          OpenAI model
-          <input className={inputClass} value={languageOpenaiModel} onChange={(e) => setLanguageOpenaiModel(e.target.value)} placeholder="gpt-4o-mini" />
-        </label>
-        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-          DeepL API URL (optional)
-          <input className={inputClass} value={deeplApiUrl} onChange={(e) => setDeeplApiUrl(e.target.value)} placeholder="https://api-free.deepl.com" />
-        </label>
-      </div>
-      <div className="rounded-xl border border-[#1f2d26] bg-black/20 p-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-bold text-white">DeepL</p>
-            <p className="mt-1 text-xs text-slate-500">Translation provider key for DeepL-only or DeepL + OpenAI localisation mode.</p>
+      </Panel>
+
+      <Panel title="Translation (DeepL)">
+        <p className="text-sm text-slate-400">
+          Used by Language Studio when provider mode is <strong className="text-slate-300">DeepL only</strong> or{" "}
+          <strong className="text-slate-300">DeepL + OpenAI localisation</strong>. Free-tier keys use the free API host;
+          Pro keys use the default API.
+        </p>
+        <div className="mt-3 rounded-lg border border-[#1f2d26] bg-[#0a0e0c] p-3">
+          <p className="text-xs font-semibold text-slate-300">DeepL API keys &amp; account</p>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Free API: <code>https://api-free.deepl.com</code> · Pro API: <code>https://api.deepl.com</code>
+          </p>
+          <div className="mt-2 flex flex-wrap gap-3">
+            <a
+              className="inline-flex text-[11px] font-semibold normal-case text-[#22c55e] hover:underline"
+              href="https://www.deepl.com/en/your-account/keys"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              Open DeepL API keys →
+            </a>
+            <a
+              className="inline-flex text-[11px] font-semibold normal-case text-[#22c55e] hover:underline"
+              href="https://www.deepl.com/en/pro-api"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              DeepL API documentation →
+            </a>
+            <a
+              className="inline-flex text-[11px] font-semibold normal-case text-[#22c55e] hover:underline"
+              href="https://www.deepl.com/en/your-account/summary"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              Open DeepL account →
+            </a>
           </div>
-          <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${status?.deeplConfigured ? "border-[#22c55e]/30 bg-[#22c55e]/10 text-[#22c55e]" : "border-slate-700 bg-slate-900/40 text-slate-500"}`}>
-            {status?.deeplConfigured ? "Key on file" : "Optional"}
-          </span>
         </div>
-        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-          DEEPL_API_KEY
-          <input
-            className={inputClass}
-            type="password"
-            value={deeplApiKey}
-            onChange={(e) => setDeeplApiKey(e.target.value)}
-            placeholder={status?.deeplConfigured ? "Leave blank to keep existing, or enter new key" : "Paste new DeepL key"}
-          />
-        </label>
-        <label className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-          <input type="checkbox" checked={clearDeeplKey} onChange={(e) => setClearDeeplKey(e.target.checked)} />
-          Clear stored DeepL key
-        </label>
-      </div>
+        <div className="mt-4 space-y-4">
+          <label className="block text-xs font-semibold uppercase text-slate-500">
+            DEEPL_API_KEY
+            <input
+              type="password"
+              className={inputClass}
+              value={
+                clearDeeplKey
+                  ? ""
+                  : deeplApiKey || (deeplKeyDirty ? "" : (status?.deeplApiKeyMasked ?? ""))
+              }
+              onChange={(e) => {
+                setDeeplKeyDirty(true);
+                setDeeplApiKey(e.target.value);
+              }}
+              placeholder={status?.deeplConfigured ? "••••••••  enter new key to replace" : "Paste DeepL auth key…"}
+              autoComplete="off"
+            />
+            <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+              <input type="checkbox" checked={clearDeeplKey} onChange={(e) => setClearDeeplKey(e.target.checked)} />
+              Remove stored DeepL key
+            </label>
+            <div className="mt-3">
+              <R365Button variant="ghost" onClick={() => void testDeeplConnection()} disabled={deeplCheckBusy}>
+                {deeplCheckBusy ? "Testing DeepL…" : "Test DeepL key"}
+              </R365Button>
+              {deeplCheckMessage ? (
+                <p className="mt-2 text-xs normal-case text-[#22c55e]">{deeplCheckMessage}</p>
+              ) : null}
+            </div>
+          </label>
+          <label className="block text-xs font-semibold uppercase text-slate-500">
+            DEEPL_API_URL (optional)
+            <input
+              className={inputClass}
+              value={deeplApiUrl}
+              onChange={(e) => setDeeplApiUrl(e.target.value)}
+              placeholder="https://api-free.deepl.com"
+            />
+            <p className="mt-1 text-[11px] normal-case text-slate-500">
+              Leave blank for Pro API default. Free-tier keys: use <code>https://api-free.deepl.com</code>
+            </p>
+          </label>
+        </div>
+      </Panel>
+
       <div className="flex flex-wrap items-center gap-3">
-        <R365Button type="button" onClick={() => void save()} disabled={busy}>{busy ? "Saving..." : "Save Language Studio settings"}</R365Button>
+        <R365Button type="button" onClick={() => void save()} disabled={busy}>
+          {busy ? "Saving…" : "Save Language Studio settings"}
+        </R365Button>
         {message ? <span className="text-xs text-emerald-400">{message}</span> : null}
         {error ? <span className="text-xs text-red-400">{error}</span> : null}
       </div>
-    </Panel>
+    </div>
   );
 }

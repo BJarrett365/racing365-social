@@ -21,6 +21,20 @@ export async function POST(req: Request) {
     if (!project.imageIntelligence?.hero?.url) {
       return NextResponse.json({ error: "Hero image is required before publish." }, { status: 400 });
     }
+    const blockingIssues =
+      project.factCheck?.issues.filter((issue) => issue.sourceTier === "tier1" && issue.severity === "high") ?? [];
+    if (!project.factCheck) {
+      return NextResponse.json({ error: "Run the match report fact check before publishing." }, { status: 400 });
+    }
+    if (blockingIssues.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Resolve ${blockingIssues.length} high-severity Tier 1 fact-check issue${blockingIssues.length === 1 ? "" : "s"} before publishing.`,
+          issues: blockingIssues,
+        },
+        { status: 400 },
+      );
+    }
 
     const synced = await syncMatchReportToLanguageStudio(project, {
       heroImageUrl: project.imageIntelligence.hero.url,

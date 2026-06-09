@@ -565,10 +565,10 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
     setDataT2iError(null);
     setDataT2iMessage(
       dataT2iProvider === "openai"
-        ? "Match-report prompt filled from draft (OpenAI long brief)."
+        ? "Football365 full-time hero prompt filled from draft (OpenAI long brief)."
         : dataT2iProvider === "higgsfield"
-          ? "Match-report prompt filled from draft (Higgsfield — OpenAI-style long brief)."
-          : "Match-report Runway prompt filled from draft (compact + hook).",
+          ? "Football365 full-time hero prompt filled from draft (Higgsfield — OpenAI-style long brief)."
+          : "Football365 full-time hero Runway prompt filled from draft (compact + hook).",
     );
   }, [draftArticleHeroSource, dataT2iProvider]);
 
@@ -1306,7 +1306,7 @@ export function FixtureFetchPanel({ dataStudioVertical = "football" }: FixtureFe
                   )}
                   <div className="flex flex-wrap gap-2">
                     <R365Button type="button" variant="ghost" disabled={!draftArticleHeroSource} onClick={applyDataF365MatchReportPrompt}>
-                      Match report hero
+                      Football365
                     </R365Button>
                     <R365Button type="button" variant="ghost" disabled={!draftArticleHeroSource} onClick={applyDataF365PreviewPrompt}>
                       Preview hero

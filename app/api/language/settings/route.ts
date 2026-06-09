@@ -20,13 +20,26 @@ function maskPreview(v: string | undefined) {
 
 export async function GET() {
   const s = await readStoredSettingsAsync();
+  const storedDeeplKey = s.deeplApiKey?.trim();
+  const envDeeplKey = process.env.DEEPL_API_KEY?.trim();
+  const deeplConfigured = Boolean(storedDeeplKey || envDeeplKey);
+  const deeplApiKeyMasked = storedDeeplKey
+    ? maskPreview(storedDeeplKey)
+    : envDeeplKey
+      ? `${"•".repeat(14)} (environment)`
+      : "";
+  const deeplApiUrl =
+    s.deeplApiUrl?.trim() ||
+    process.env.DEEPL_API_URL?.trim() ||
+    "";
   return NextResponse.json({
     providerMode: s.languageProviderMode ?? "openai",
     openaiModel: s.languageOpenaiModel ?? "gpt-4o-mini",
     openaiConfigured: Boolean(s.openaiApiKey?.trim() || process.env.OPENAI_API_KEY?.trim()),
-    deeplConfigured: Boolean(s.deeplApiKey?.trim() || process.env.DEEPL_API_KEY?.trim()),
-    deeplApiKeyMasked: maskPreview(s.deeplApiKey),
-    deeplApiUrl: s.deeplApiUrl ?? "",
+    deeplConfigured,
+    deeplApiKeyMasked,
+    deeplKeySource: storedDeeplKey ? "admin" : envDeeplKey ? "environment" : "none",
+    deeplApiUrl,
     adminTokenRequired: Boolean(process.env.ADMIN_TOKEN?.trim()),
   });
 }

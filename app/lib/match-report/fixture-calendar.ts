@@ -9,6 +9,8 @@ import {
 } from "@/app/lib/match-report/premier-league-schedule";
 import { buildWc2026GroupFixtures, fixtureTeamsMatch, type Wc2026FixtureSeed, type Wc2026ScheduleRow, buildBrandReportsForFixture } from "@/app/lib/match-report/wc2026-schedule";
 import { SCHEDULE_EDITORIAL_BRANDS } from "@/app/lib/match-report/schedule-editorial-brands";
+import { isMatchPreview } from "@/app/lib/match-report/content-type";
+import { buildScheduleBrandDualStatuses } from "@/app/lib/match-report/schedule-brand-status";
 import type { MatchReportCalendarFixture, MatchReportProject, SavedReportIndexEntry } from "@/app/lib/match-report/types";
 
 const STORE = "plexa-match-report";
@@ -264,6 +266,7 @@ export async function buildWc2026ScheduleRows(
       sixLogicMatchId: sixLogicMatchId || null,
       betwayMatchId: seed.betwayMatchId ?? calendarRow?.betwayMatchId ?? null,
       brandReports: buildBrandReportsForFixture({ ...seed, targetBrands: brands }, indexEntries),
+      brandDualStatuses: buildScheduleBrandDualStatuses(brands, indexEntries, seed.homeTeam, seed.awayTeam),
     };
   });
 }
@@ -381,6 +384,7 @@ export async function registerMatchReportCalendarFixture(project: MatchReportPro
   const store = await readCalendarStore();
   const id = fixtureId(project.sportId, project.matchId);
   const existing = store.fixtures.find((row) => row.id === id);
+  const preview = isMatchPreview(project);
   const next: MatchReportCalendarFixture = {
     id,
     kickoffIso: project.layers.sixLogic?.facts.kickoffIso,
@@ -389,10 +393,14 @@ export async function registerMatchReportCalendarFixture(project: MatchReportPro
     competition: project.competition,
     sportId: project.sportId,
     matchId: project.matchId,
-    targetBrands: [project.editorial.targetBrand],
-    reportProjectId: project.id,
-    reportCompletedAt: project.mediaOutputs ? project.updatedAt : existing?.reportCompletedAt,
-    reportDisplayLabel: project.mediaOutputs ? project.displayLabel : existing?.reportDisplayLabel,
+    targetBrands: [...new Set([...(existing?.targetBrands ?? []), project.editorial.targetBrand])],
+    previewProjectId: preview ? project.id : existing?.previewProjectId,
+    previewCompletedAt: preview && project.mediaOutputs ? project.updatedAt : existing?.previewCompletedAt,
+    previewDisplayLabel:
+      preview && project.mediaOutputs ? project.displayLabel : existing?.previewDisplayLabel,
+    reportProjectId: preview ? existing?.reportProjectId : project.id,
+    reportCompletedAt: !preview && project.mediaOutputs ? project.updatedAt : existing?.reportCompletedAt,
+    reportDisplayLabel: !preview && project.mediaOutputs ? project.displayLabel : existing?.reportDisplayLabel,
   };
   store.fixtures = [next, ...store.fixtures.filter((row) => row.id !== id)];
   await writeCalendarStore(store);
@@ -404,6 +412,7 @@ export async function markMatchReportCalendarComplete(project: MatchReportProjec
   const store = await readCalendarStore();
   const id = fixtureId(project.sportId, project.matchId);
   const idx = store.fixtures.findIndex((row) => row.id === id);
+  const preview = isMatchPreview(project);
   const row: MatchReportCalendarFixture = {
     id,
     kickoffIso: project.layers.sixLogic?.facts.kickoffIso,
@@ -413,12 +422,27 @@ export async function markMatchReportCalendarComplete(project: MatchReportProjec
     sportId: project.sportId,
     matchId: project.matchId,
     targetBrands: [project.editorial.targetBrand],
-    reportProjectId: project.id,
-    reportCompletedAt: project.updatedAt,
-    reportDisplayLabel: project.displayLabel,
+    previewProjectId: preview ? project.id : undefined,
+    previewCompletedAt: preview ? project.updatedAt : undefined,
+    previewDisplayLabel: preview ? project.displayLabel : undefined,
+    reportProjectId: preview ? undefined : project.id,
+    reportCompletedAt: preview ? undefined : project.updatedAt,
+    reportDisplayLabel: preview ? undefined : project.displayLabel,
   };
-  if (idx >= 0) store.fixtures[idx] = { ...store.fixtures[idx], ...row };
-  else store.fixtures.unshift(row);
+  if (idx >= 0) {
+    const existing = store.fixtures[idx]!;
+    store.fixtures[idx] = {
+      ...existing,
+      ...row,
+      previewProjectId: preview ? project.id : existing.previewProjectId,
+      previewCompletedAt: preview ? project.updatedAt : existing.previewCompletedAt,
+      previewDisplayLabel: preview ? project.displayLabel : existing.previewDisplayLabel,
+      reportProjectId: preview ? existing.reportProjectId : project.id,
+      reportCompletedAt: preview ? existing.reportCompletedAt : project.updatedAt,
+      reportDisplayLabel: preview ? existing.reportDisplayLabel : project.displayLabel,
+      targetBrands: [...new Set([...(existing.targetBrands ?? []), project.editorial.targetBrand])],
+    };
+  } else store.fixtures.unshift(row);
   await writeCalendarStore(store);
   await syncWc2026FixtureFromProject(project).catch(() => undefined);
   await syncEplFixtureFromProject(project).catch(() => undefined);
@@ -499,6 +523,7 @@ export async function buildEplScheduleRows(indexEntries: SavedReportIndexEntry[]
       sixLogicMatchId: sixLogicMatchId || null,
       betwayMatchId: seed.betwayMatchId ?? calendarRow?.betwayMatchId ?? null,
       brandReports: buildBrandReportsForEplFixture({ ...seed, targetBrands: brands }, indexEntries),
+      brandDualStatuses: buildScheduleBrandDualStatuses(brands, indexEntries, seed.homeTeam, seed.awayTeam),
     };
   });
 }

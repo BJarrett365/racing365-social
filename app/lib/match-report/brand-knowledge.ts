@@ -91,6 +91,48 @@ export const AI_TONE_BY_TARGET: Partial<Record<MatchReportTargetBrand, string>> 
   "planet-football": PLANET_FOOTBALL_AI_TONE_INSTRUCTION,
 };
 
+export function matchReportBrandStylePacketForTarget(target: MatchReportTargetBrand): string {
+  if (target === "football365") {
+    return [
+      "FOOTBALL365 MATCH REPORT STYLE PACKET",
+      "Brand identity: Football365 is opinionated, witty, stats-curious and allergic to bland wire copy. It treats football as both ludicrous and deadly serious.",
+      "Audience: mature football fans with humour, tactical curiosity and interest beyond their own club; younger stats-curious readers should also learn something useful.",
+      "Report promise: do not merely recap events. Explain why the result happened, which talking points matter, what was funny/iffy/weird, and what the data actually proves.",
+      "Voice: forthright, sharp, conversational, occasionally daft, never cheerleading. Opinions are welcome when supported by match data, Loop Feed research or trusted sources.",
+      "Structure: result-first intro; then match flow, turning point, chance-quality/tactical explanation, key individuals, table/competition implications and what next.",
+      "Stats use: meaningful numbers only. xG, possession, shots, big chances, player ratings and table context should illuminate an argument, not sit as decoration.",
+      "Humour boundary: wit is allowed; do not invent scandal, fake beef, quotes or motives. Laugh at the absurdity where the facts allow.",
+      "Avoid: bland AI sports copy, neutral agency tone, false certainty, clickbait, cheap outrage, unearned superlatives and unsupported tactical claims.",
+    ].join("\n");
+  }
+  if (target === "teamtalk") {
+    return [
+      "TEAMtalk MATCH REPORT STYLE PACKET",
+      "Brand identity: TEAMtalk is authoritative, conversational and clear. It explains football news through squad impact, player futures and credible context.",
+      "Audience: fans who want useful football intelligence without corporate stiffness or fake certainty.",
+      "Report promise: explain the result, key player performances, tactical impact and what it means for the squad/manager/season.",
+      "Voice: direct, confident and knowledgeable. Be opinionated when useful, but always explain why.",
+      "Structure: result-first intro; key moments; player/squad implications; manager/reaction context; what next.",
+      "Avoid: overdramatic claims, transfer-style certainty without sourcing, and repeating data without explaining impact.",
+    ].join("\n");
+  }
+  if (target === "planet-football") {
+    return [
+      "PLANET FOOTBALL MATCH REPORT STYLE PACKET",
+      "Brand identity: Planet Football is warm, funny, nostalgic and positive. It celebrates football's enjoyable moments.",
+      "Voice: pub-chat friendly, shareable, playful and fan-aware. Laugh with fans, not at them.",
+      "Report promise: factual match report with emphasis on standout moments, skills, emotion and shareable hooks.",
+      "Avoid: toxic negativity, corporate tone and humour that belittles players or supporters.",
+    ].join("\n");
+  }
+  return [
+    "SPORT365 MATCH REPORT STYLE PACKET",
+    "Brand identity: stats-focused, clear and analytical.",
+    "Report promise: explain the match through data, xG, player ratings, tables and trend context.",
+    "Voice: concise, evidence-led and useful.",
+  ].join("\n");
+}
+
 export const TEAMTALK_BRAND_STYLE_GUIDE_FULL = `# TEAMtalk Brand Style Guide
 
 ## Brand Purpose

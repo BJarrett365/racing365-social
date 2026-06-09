@@ -12,7 +12,15 @@ type Body = {
   reason?: string;
 };
 
-const SKIPPABLE: MatchReportWorkflowStep[] = ["sport365", "league_table", "league_stats", "loop_feed", "whoscored", "manual_sources"];
+const SKIPPABLE: MatchReportWorkflowStep[] = [
+  "preview_fixture_context",
+  "sport365",
+  "league_table",
+  "league_stats",
+  "loop_feed",
+  "whoscored",
+  "manual_sources",
+];
 
 export async function POST(req: Request) {
   try {

@@ -44,6 +44,7 @@ export function ManualSourceForm({
     excerpt: "",
   });
   const [selectedSourceId, setSelectedSourceId] = useState("");
+  const [addingPair, setAddingPair] = useState(false);
 
   const pickerGroups = useMemo(() => {
     const order: string[] = [];
@@ -67,11 +68,37 @@ export function ManualSourceForm({
     setDraft((prev) => mergeManualSourceDraftFromPick(prev, picked.draft));
   };
 
+  const pairedSourceOptions = useMemo(() => {
+    const home = sourcePickerOptions.filter((row) => row.teamSlot === "home");
+    const away = sourcePickerOptions.filter((row) => row.teamSlot === "away");
+    if (home.length === 0 || away.length === 0) return null;
+
+    const selected = sourcePickerOptions.find((row) => row.id === selectedSourceId);
+    if (selected?.teamSlot === "home") return { home: selected, away: away[0]! };
+    if (selected?.teamSlot === "away") return { home: home[0]!, away: selected };
+    return { home: home[0]!, away: away[0]! };
+  }, [selectedSourceId, sourcePickerOptions]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     await onSubmit(draft);
     setDraft((prev) => ({ ...prev, excerpt: "", title: "", url: "" }));
     setSelectedSourceId("");
+  };
+
+  const handleAddHomeAwaySources = async () => {
+    if (!pairedSourceOptions) return;
+    setAddingPair(true);
+    try {
+      await onSubmit(pairedSourceOptions.home.draft);
+      if (pairedSourceOptions.away.id !== pairedSourceOptions.home.id) {
+        await onSubmit(pairedSourceOptions.away.draft);
+      }
+      setDraft((prev) => ({ ...prev, excerpt: "", title: "", url: "" }));
+      setSelectedSourceId("");
+    } finally {
+      setAddingPair(false);
+    }
   };
 
   return (
@@ -208,9 +235,27 @@ export function ManualSourceForm({
           required
         />
       </label>
-      <R365Button type="submit" variant="ghost" disabled={busy || !draft.excerpt.trim()}>
-        Add source
-      </R365Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <R365Button type="submit" variant="ghost" disabled={busy || addingPair || !draft.excerpt.trim()}>
+          Add source
+        </R365Button>
+        {pairedSourceOptions ? (
+          <R365Button
+            type="button"
+            variant="ghost"
+            disabled={busy || addingPair}
+            onClick={() => void handleAddHomeAwaySources()}
+          >
+            {addingPair ? "Adding home + away…" : "Add home + away sources"}
+          </R365Button>
+        ) : null}
+      </div>
+      {pairedSourceOptions ? (
+        <p className="text-xs text-[color:var(--text-muted)]">
+          Adds one source from {pairedSourceOptions.home.groupLabel ?? "home"} and one from{" "}
+          {pairedSourceOptions.away.groupLabel ?? "away"}. Select a reporter first to use that source for its side.
+        </p>
+      ) : null}
       {sourceCount > 0 ? (
         <p className="text-xs text-[color:var(--text-muted)]">
           {sourceCount} additional manual source{sourceCount === 1 ? "" : "s"} added.

@@ -1,4 +1,4 @@
-import { getServerSecretAsync, readStoredSettingsAsync } from "@/app/lib/server-secrets";
+import { aiChatJsonObject } from "@/app/lib/ai";
 import { assembleEioPromptSections } from "@/app/lib/match-report/eio-summaries";
 import { reconcilePlayerIntelligence } from "@/app/lib/match-report/reconcile-player-ratings";
 import type { MatchReportProject, PlayerIntelligence, PlayerRatingEntry } from "@/app/lib/match-report/types";
@@ -6,12 +6,6 @@ import type { MatchReportProject, PlayerIntelligence, PlayerRatingEntry } from "
 const SYSTEM = `You are a football editor producing player ratings (1-10) for both teams.
 Use ONLY facts from the EIO. When Opta/WhoScored ratings are provided, use them as ground truth for numeric scores.
 Return JSON only.`;
-
-function extractJson(text: string): unknown {
-  const trimmed = text.trim();
-  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  return JSON.parse(fence ? fence[1]!.trim() : trimmed) as unknown;
-}
 
 function ratingsFromOpta(project: MatchReportProject): PlayerRatingEntry[] | null {
   const opta = project.layers.optaPlayerData;
@@ -42,14 +36,6 @@ export async function runPlayerIntelligenceJob(project: MatchReportProject): Pro
     });
   }
 
-  const key = await getServerSecretAsync("OPENAI_API_KEY");
-  if (!key) throw new Error("OpenAI API key is not configured.");
-  const settings = await readStoredSettingsAsync();
-  const model =
-    settings.languageOpenaiModel?.trim() ||
-    process.env.LANGUAGE_OPENAI_MODEL?.trim() ||
-    "gpt-4o-mini";
-
   const userPrompt = `${assembleEioPromptSections(project)}
 
 ${project.eventPicture ? `EVENT_PICTURE:\n${JSON.stringify(project.eventPicture, null, 2)}` : ""}
@@ -57,24 +43,14 @@ ${project.eventPicture ? `EVENT_PICTURE:\n${JSON.stringify(project.eventPicture,
 Return JSON: { ratings: [{ name, team: "home"|"away", rating: 1-10, justification, isSubstitute? }], manOfTheMatch?, narrativeDigest }
 Cover BOTH teams when lineups exist. Do not invent stats.`;
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      temperature: 0.35,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM },
-        { role: "user", content: userPrompt },
-      ],
-    }),
+  const { data, meta } = await aiChatJsonObject({
+    task: "entity_extraction",
+    system: SYSTEM,
+    user: userPrompt,
+    temperature: 0.35,
+    json: true,
   });
-  const body = (await res.json()) as { error?: { message?: string }; choices?: Array<{ message?: { content?: string } }> };
-  if (!res.ok) throw new Error(body.error?.message || `OpenAI HTTP ${res.status}`);
-  const content = body.choices?.[0]?.message?.content;
-  if (!content) throw new Error("Empty OpenAI response.");
-  const parsed = extractJson(content) as { ratings?: PlayerRatingEntry[]; manOfTheMatch?: string; narrativeDigest?: string };
+  const parsed = data as { ratings?: PlayerRatingEntry[]; manOfTheMatch?: string; narrativeDigest?: string };
   const ratings = Array.isArray(parsed.ratings) ? parsed.ratings.filter((r) => r.name && r.rating) : [];
   if (ratings.length === 0) throw new Error("No player ratings generated.");
 
@@ -85,7 +61,7 @@ Cover BOTH teams when lineups exist. Do not invent stats.`;
     manOfTheMatch: parsed.manOfTheMatch,
     narrativeDigest: parsed.narrativeDigest ?? "",
     generatedAt: new Date().toISOString(),
-    model,
+    model: meta.model,
     usedOptaRatings: false,
   });
 }

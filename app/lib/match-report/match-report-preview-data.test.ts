@@ -16,11 +16,11 @@ describe("match-report-preview-data", () => {
     expect(possession).toEqual({ homePct: 34, awayPct: 66 });
   });
 
-  it("strips ratings and summary sections from report html", () => {
+  it("strips ratings sections from report html", () => {
     const html =
       "<h1>Title</h1><p>Body one.</p><p>Body two.</p><h2>Match Summary</h2><p>Summary</p><h2>Player Ratings</h2><table></table>";
     expect(stripReportHtmlForNarrative(html)).toContain("Body one.");
-    expect(stripReportHtmlForNarrative(html)).not.toContain("Match Summary");
+    expect(stripReportHtmlForNarrative(html)).toContain("Match Summary");
     expect(stripReportHtmlForNarrative(html)).not.toContain("Player Ratings");
   });
 
@@ -41,6 +41,17 @@ describe("match-report-preview-data", () => {
     expect(sections.mainParagraphs).toEqual(["First paragraph.", "Second paragraph."]);
     expect(sections.extendedText).toContain("Thread one.");
     expect(sections.extendedText).not.toContain("Brighton 8th.");
+  });
+
+  it("parses explicit Match Analysis and Extended Report sections", () => {
+    const sections = parseReportSections(
+      "<h1>Title</h1><h2>Match Analysis</h2><p>Analysis one.</p><p>Analysis two.</p><h2>Extended Report</h2><p>Extended one.</p><p>Extended two.</p><h2>Player Ratings</h2><table></table>",
+      null,
+    );
+    expect(sections.mainParagraphs).toEqual(["Analysis one.", "Analysis two."]);
+    expect(sections.extendedText).toContain("Extended one.");
+    expect(sections.extendedText).toContain("Extended two.");
+    expect(sections.extendedText).not.toContain("Player Ratings");
   });
 
   it("builds preview events with injury-time minute labels", () => {

@@ -38,6 +38,14 @@ export type AdminStoredSettings = {
   deeplApiUrl?: string;
   languageProviderMode?: "openai" | "deepl" | "deepl-openai";
   languageOpenaiModel?: string;
+  /** DeepSeek API key (maps DEEPSEEK_API_KEY). */
+  deepseekApiKey?: string;
+  /** Default LLM provider for Plexa AI routing (openai | deepseek). */
+  defaultAiProvider?: "openai" | "deepseek";
+  /** Enable DeepSeek as the low-cost processing layer. */
+  enableDeepseek?: boolean;
+  /** DeepSeek chat model (default deepseek-chat). */
+  deepseekModel?: string;
   /** Default model for `/api/openai/text-to-image` (e.g. gpt-image-1, dall-e-2). Override with OPENAI_IMAGE_MODEL env. */
   openaiImageModel?: string;
   /** Higgsfield Cloud API key id (maps HF_API_KEY when stored in admin). */
@@ -149,6 +157,7 @@ function secretFileKey(envName: string): keyof AdminStoredSettings | undefined {
   const map: Record<string, keyof AdminStoredSettings> = {
     ELEVENLABS_API_KEY: "elevenlabsApiKey",
     OPENAI_API_KEY: "openaiApiKey",
+    DEEPSEEK_API_KEY: "deepseekApiKey",
     RUNWAYML_API_SECRET: "runwaymlApiKey",
     FFMPEG_PATH: "ffmpegPath",
     RESTREAM_CLIENT_ID: "restreamClientId",
@@ -159,6 +168,7 @@ function secretFileKey(envName: string): keyof AdminStoredSettings | undefined {
     DAILY_API_KEY: "dailyApiKey",
     LIVEPEER_API_KEY: "livepeerApiKey",
     DEEPL_API_KEY: "deeplApiKey",
+    DEEPL_API_URL: "deeplApiUrl",
     APIFY_API_TOKEN: "apifyApiToken",
     SUPABASE_URL: "supabaseUrl",
     SUPABASE_SERVICE_ROLE_KEY: "supabaseServiceRoleKey",

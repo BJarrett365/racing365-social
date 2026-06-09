@@ -78,6 +78,15 @@ function parseParagraphsFromHtml(html: string): string[] {
   return paragraphs;
 }
 
+function extractHtmlSectionByH2(html: string, title: string): string {
+  const heading = new RegExp(`<h2[^>]*>\\s*${title}\\s*<\\/h2>`, "i");
+  const match = heading.exec(html);
+  if (match?.index == null) return "";
+  const start = match.index + match[0].length;
+  const next = html.slice(start).search(/<h2[\s>]/i);
+  return next >= 0 ? html.slice(start, start + next) : html.slice(start);
+}
+
 function truncateBeforeSection(html: string, headings: RegExp[]): string {
   let cutIndex = html.length;
   for (const heading of headings) {
@@ -93,18 +102,23 @@ export function stripReportHtmlForNarrative(html: string): string {
     /<h3[^>]*>\s*Leeds/i,
     /<table[\s>]/i,
   ]);
-  return truncateBeforeSection(withoutRatings, [
-    /<h2[^>]*>\s*Match Summary/i,
-    /<h2[^>]*>\s*Key Moments/i,
-    /<h2[^>]*>\s*What Next/i,
-  ]);
+  return truncateBeforeSection(withoutRatings, [/<h2[^>]*>\s*16 Conclusions/i]);
 }
 
 export function parseReportSections(reportHtml: string, eventPicture: EventPicture | null): PreviewReportSections {
   const narrativeHtml = stripReportHtmlForNarrative(reportHtml);
-  const mainParagraphs = parseParagraphsFromHtml(narrativeHtml);
+  const matchAnalysisHtml = extractHtmlSectionByH2(narrativeHtml, "Match Analysis");
+  const extendedReportHtml = extractHtmlSectionByH2(narrativeHtml, "Extended Report");
+  const extendedParagraphs = parseParagraphsFromHtml(extendedReportHtml);
+  const mainParagraphs = parseParagraphsFromHtml(matchAnalysisHtml || narrativeHtml).filter(
+    (paragraph) => !extendedReportHtml || !extendedParagraphs.includes(paragraph),
+  );
+  const extendedFromHtml = extendedParagraphs.join("\n\n");
 
   const extendedParts: string[] = [];
+  if (extendedFromHtml) {
+    extendedParts.push(extendedFromHtml);
+  }
   if (eventPicture?.narrativeThreads?.length) {
     extendedParts.push(...eventPicture.narrativeThreads);
   }

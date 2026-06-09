@@ -179,13 +179,34 @@ function buildPlayerStatSummary(player: OptaPlayerProfile): string {
 function resolveFeedTeamSides(captures: WhoScoredCapturedJson[]): Map<string, "home" | "away"> {
   const sides = new Map<string, "home" | "away">();
   const summaryFeeds = captures.filter(
-    (cap) => cap.url.includes("getmatchcentreplayerstatistics") && cap.url.includes("category=summary"),
+    (cap) => {
+      const url = cap.url.toLowerCase();
+      return url.includes("getmatchcentreplayerstatistics") && url.includes("category=summary");
+    },
   );
   summaryFeeds.forEach((cap, index) => {
-    const teamId = cap.url.match(/teamIds=(\d+)/i)?.[1];
+    const ids = cap.url
+      .match(/teamIds=([^&]+)/i)?.[1]
+      ?.split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (ids?.length === 2) {
+      sides.set(ids[0]!, "home");
+      sides.set(ids[1]!, "away");
+      return;
+    }
+
+    const teamId = ids?.[0];
     if (teamId) sides.set(teamId, index === 0 ? "home" : "away");
   });
   return sides;
+}
+
+function teamIdFromFeedRow(row: Record<string, unknown>): string | null {
+  const raw = row.teamId ?? row.TeamId ?? row.team_id ?? row.teamID;
+  if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
+  if (typeof raw === "string" && raw.trim()) return raw.trim();
+  return null;
 }
 
 function playerFromFeedRow(
@@ -257,7 +278,10 @@ function parseStatisticsFeedCaptures(
   const teamSides = resolveFeedTeamSides(captures);
   const players: OptaPlayerProfile[] = [];
   const summaryCaptures = captures.filter(
-    (cap) => cap.url.includes("getmatchcentreplayerstatistics") && cap.url.includes("category=summary"),
+    (cap) => {
+      const url = cap.url.toLowerCase();
+      return url.includes("getmatchcentreplayerstatistics") && url.includes("category=summary");
+    },
   );
 
   summaryCaptures.forEach((capture, index) => {
@@ -266,10 +290,11 @@ function parseStatisticsFeedCaptures(
 
     const teamId = capture.url.match(/teamIds=(\d+)/i)?.[1] ?? "";
     const team = teamSides.get(teamId) ?? (index === 0 ? "home" : "away");
-    const teamName = team === "home" ? homeTeam : awayTeam;
 
     for (const row of payload.playerTableStats) {
-      const parsed = playerFromFeedRow(row, team, teamName);
+      const rowTeam = teamSides.get(teamIdFromFeedRow(row) ?? "") ?? team;
+      const rowTeamName = rowTeam === "home" ? homeTeam : awayTeam;
+      const parsed = playerFromFeedRow(row, rowTeam, rowTeamName);
       if (parsed) players.push(parsed);
     }
   });
@@ -415,7 +440,7 @@ export function parseWhoScoredFromHtml(
   const htmlPlayers = parseWhoScoredSummaryTables(html, homeTeam, awayTeam);
   let players = mergePlayersByName([...feedPlayers, ...htmlPlayers]);
 
-  if (players.length < 6) {
+  if (players.length < 6 && feedPlayers.length === 0) {
     const blobs = extractEmbeddedJson(html, jsonCaptures.map((cap) => cap.data));
     for (const blob of blobs) {
       const fromJson = collectPlayers(blob, homeTeam, awayTeam);

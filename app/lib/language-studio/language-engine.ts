@@ -1,4 +1,5 @@
 import { Translator } from "deepl-node";
+import { aiChatJsonObject } from "@/app/lib/ai";
 import { getServerSecretAsync, readStoredSettingsAsync } from "@/app/lib/server-secrets";
 import {
   LANGUAGE_LABELS,
@@ -200,39 +201,17 @@ async function openAiModel(): Promise<string> {
   return settings.languageOpenaiModel?.trim() || process.env.LANGUAGE_OPENAI_MODEL?.trim() || "gpt-4o-mini";
 }
 
-async function callOpenAiJson(prompt: string): Promise<TranslationFields> {
-  const key = await getServerSecretAsync("OPENAI_API_KEY");
-  if (!key) throw new Error("OpenAI API key is not configured.");
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: await openAiModel(),
-      temperature: 0.35,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are Language Studio, a careful sports editorial translation and localisation engine. Return strict JSON only. Preserve facts, names, quotes, numbers, dates and racing/F1 context.",
-        },
-        { role: "user", content: prompt },
-      ],
-      response_format: { type: "json_object" },
-    }),
-    cache: "no-store",
+async function callOpenAiJson(prompt: string, task: "translation_support" | "rewrite_support" = "translation_support"): Promise<TranslationFields> {
+  const { data } = await aiChatJsonObject<Partial<TranslationFields>>({
+    task,
+    system:
+      "You are Language Studio, a careful sports editorial translation and localisation engine. Return strict JSON only. Preserve facts, names, quotes, numbers, dates and racing/F1 context.",
+    user: prompt,
+    model: await openAiModel(),
+    temperature: 0.35,
+    json: true,
   });
-  const json = (await res.json().catch(() => ({}))) as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } };
-  if (!res.ok) throw new Error(json.error?.message || `OpenAI request failed (${res.status})`);
-  const content = json.choices?.[0]?.message?.content ?? "{}";
-  let parsed: Partial<TranslationFields>;
-  try {
-    parsed = JSON.parse(content) as Partial<TranslationFields>;
-  } catch {
-    throw new Error("OpenAI returned invalid JSON for the Language Studio request.");
-  }
+  const parsed = data;
   const socialEmbeds = Array.isArray(parsed.socialEmbeds)
     ? parsed.socialEmbeds
         .map((embed) => ({
@@ -499,9 +478,9 @@ export async function translateContent(input: TranslateInput): Promise<Translati
       fields = await callOpenAiJson(promptFor({ ...input, article: { ...input.article, ...fields } }, mode));
     }
   } else if (mode === "rewrite-only") {
-    fields = await callOpenAiJson(promptFor(input, mode));
+    fields = await callOpenAiJson(promptFor(input, mode), "rewrite_support");
   } else {
-    fields = await callOpenAiJson(promptFor(input, mode));
+    fields = await callOpenAiJson(promptFor(input, mode), "translation_support");
   }
   const cleanedBody = stripModelOutputSourceNoise(fields.body);
   return ensureExclusiveSourceCredit({

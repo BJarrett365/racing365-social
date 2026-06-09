@@ -10,7 +10,7 @@ import {
   type LoopFeedContext,
 } from "@/app/lib/data-studio/loop-feed";
 import type { MatchCopyMode } from "@/app/lib/data-studio/types";
-import { getServerSecretAsync, readStoredSettingsAsync } from "@/app/lib/server-secrets";
+import { aiChatText } from "@/app/lib/ai";
 
 const MAX_FIXTURE_JSON_CHARS = 120_000;
 const MAX_LOOP_FEED_JSON_CHARS = 36_000;
@@ -78,47 +78,25 @@ MANDATORY — PLAYER RATINGS FOR **BOTH** TEAMS: After Key moments, include \`<h
   return line;
 }
 
-async function openAiChatMarkdown(systemPrompt: string, userPrompt: string): Promise<string> {
-  const key = await getServerSecretAsync("OPENAI_API_KEY");
-  if (!key) {
-    throw new Error("OpenAI API key is not configured (Language Studio / Admin or OPENAI_API_KEY env).");
-  }
-  const settings = await readStoredSettingsAsync();
-  const model =
-    settings.languageOpenaiModel?.trim() ||
-    process.env.LANGUAGE_OPENAI_MODEL?.trim() ||
-    "gpt-4o-mini";
+function matchCopyTask(mode: MatchCopyMode): "preview_analysis" | "match_report_analysis" | "article_analysis" {
+  if (mode === "preview") return "preview_analysis";
+  if (mode === "report" || mode === "sixteen_conclusions") return "match_report_analysis";
+  return "article_analysis";
+}
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.35,
-      max_tokens: 8192,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    }),
-    cache: "no-store",
+async function openAiChatMarkdown(
+  systemPrompt: string,
+  userPrompt: string,
+  mode: MatchCopyMode,
+): Promise<string> {
+  const result = await aiChatText({
+    task: matchCopyTask(mode),
+    system: systemPrompt,
+    user: userPrompt,
+    temperature: 0.35,
+    maxTokens: 8192,
   });
-
-  const json = (await res.json().catch(() => ({}))) as {
-    choices?: Array<{ message?: { content?: string | null } }>;
-    error?: { message?: string };
-  };
-  if (!res.ok) {
-    throw new Error(json.error?.message || `OpenAI request failed (${res.status})`);
-  }
-  const text = json.choices?.[0]?.message?.content?.trim();
-  if (!text) {
-    throw new Error("OpenAI returned an empty response.");
-  }
-  return text;
+  return result.text;
 }
 
 /** Generates Data Studio copy as a WordPress-ready HTML fragment (preview, match report, or 16 Conclusions). */
@@ -268,5 +246,5 @@ ${fixtureBlock}${loopSectionTrailing}
 
 ${closing}`;
 
-  return openAiChatMarkdown(system, user);
+  return openAiChatMarkdown(system, user, opts.mode);
 }

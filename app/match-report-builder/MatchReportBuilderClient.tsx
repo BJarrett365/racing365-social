@@ -14,7 +14,20 @@ import {
   aiToneForTargetBrand,
   BRAND_KNOWLEDGE_FILE_IDS,
 } from "@/app/lib/match-report/brand-knowledge";
-import type { EditorialProfile, MatchReportFormat, MatchReportProject, MatchReportScope, MatchReportTargetBrand } from "@/app/lib/match-report/types";
+import {
+  parseContentTypeParam,
+  MATCH_PREVIEW_CONTENT_TYPE,
+  MATCH_REPORT_CONTENT_TYPE,
+} from "@/app/lib/match-report/content-type";
+import { isMatchPreview } from "@/app/lib/match-report/content-type";
+import type {
+  EditorialProfile,
+  MatchReportContentType,
+  MatchReportFormat,
+  MatchReportProject,
+  MatchReportScope,
+  MatchReportTargetBrand,
+} from "@/app/lib/match-report/types";
 import { matchReportFormatLabel, isDualReportFormat, DEFAULT_MATCH_REPORT_FORMAT } from "@/app/lib/match-report/match-report-format";
 import { parseScheduleCompetitionId } from "@/app/lib/match-report/schedule-competitions";
 import { MatchReportTypeStep } from "@/app/match-report-builder/components/MatchReportTypeStep";
@@ -67,21 +80,33 @@ function buildProfileFromDraft(draft: EditorialBriefDraft): EditorialProfile | n
 }
 
 function screenForProject(project: MatchReportProject, eventPictureAcknowledged: boolean): Screen {
+  const preview = isMatchPreview(project);
+  const postPictureStep = preview ? "image_intelligence" : "player_intelligence";
   if (project.workflowPhase === "review" || project.workflowStep === "review") return "review";
   if (project.status === "published" || project.workflowStep === "published") return "review";
   if (
-    ["player_intelligence", "transcripts", "image_intelligence", "media_builder"].includes(project.workflowStep) &&
-    eventPictureAcknowledged
+    ["player_intelligence", "transcripts", "image_intelligence", "media_builder", "fact_check"].includes(
+      project.workflowStep,
+    ) &&
+    (preview || eventPictureAcknowledged)
   ) {
     return "generation";
   }
-  if (project.eventPicture && project.workflowStep === "player_intelligence" && !eventPictureAcknowledged) {
+  if (project.eventPicture && project.workflowStep === postPictureStep && !eventPictureAcknowledged) {
     return "event_picture";
   }
   if (
     project.workflowPhase === "import_layers" ||
     project.workflowStep === "build_picture" ||
-    ["sport365", "loop_feed", "whoscored", "manual_sources", "league_table", "league_stats"].includes(project.workflowStep)
+    [
+      "preview_fixture_context",
+      "sport365",
+      "loop_feed",
+      "whoscored",
+      "manual_sources",
+      "league_table",
+      "league_stats",
+    ].includes(project.workflowStep)
   ) {
     return "import";
   }
@@ -97,8 +122,10 @@ export function MatchReportBuilderClient({ initialProjectId }: Props) {
   const prefilledBetwayId = searchParams.get("betway_id")?.trim() ?? searchParams.get("betwayId")?.trim() ?? "";
   const prefilledBrand = searchParams.get("brand")?.trim() as EditorialBriefDraft["targetBrand"] | undefined;
   const prefilledCompetition = parseScheduleCompetitionId(searchParams.get("competition")?.trim());
+  const prefilledContentType = parseContentTypeParam(searchParams.get("content_type")?.trim());
 
   const [screen, setScreen] = useState<Screen>("report_type");
+  const [contentType, setContentType] = useState<MatchReportContentType>(prefilledContentType);
   const [reportFormat, setReportFormat] = useState<MatchReportFormat>(DEFAULT_MATCH_REPORT_FORMAT);
   const [pairedProject, setPairedProject] = useState<MatchReportProject | null>(null);
   const [eventPictureAcknowledged, setEventPictureAcknowledged] = useState(false);
@@ -128,6 +155,7 @@ export function MatchReportBuilderClient({ initialProjectId }: Props) {
       const data = (await res.json()) as { project?: MatchReportProject; error?: string };
       if (!res.ok || !data.project) throw new Error(data.error || "Failed to load project");
       setProject(data.project);
+      setContentType(data.project.contentType ?? MATCH_REPORT_CONTENT_TYPE);
       setEditorial(data.project.editorial);
       setReportFormat(data.project.reportFormat);
       if (data.project.pairedProjectId) {
@@ -163,7 +191,7 @@ export function MatchReportBuilderClient({ initialProjectId }: Props) {
     const brandStyleGuide = aiToneForTargetBrand(targetBrand) ?? undefined;
     const profile = buildEditorialProfile({
       sport: "football",
-      contentStyle: "Match report",
+      contentStyle: prefilledContentType === MATCH_PREVIEW_CONTENT_TYPE ? "Match preview" : "Match report",
       targetBrand,
       rewriteStyle: DEFAULT_MATCH_REPORT_REWRITE_STYLE,
       useCreatorProfile: false,
@@ -173,14 +201,14 @@ export function MatchReportBuilderClient({ initialProjectId }: Props) {
       brandStyleGuide,
     });
     setEditorial(profile);
-  }, [scheduleDeepLink, editorial, prefilledBrand]);
+  }, [scheduleDeepLink, editorial, prefilledBrand, prefilledContentType]);
 
   useEffect(() => {
     if (project) setScreen(screenForProject(project, eventPictureAcknowledged));
   }, [project, eventPictureAcknowledged]);
 
   const panelTitle = useMemo(() => {
-    if (screen === "report_type") return "Report type";
+    if (screen === "report_type") return contentType === MATCH_PREVIEW_CONTENT_TYPE ? "Content type" : "Report type";
     if (screen === "editorial") return "Editorial brief";
     if (screen === "match_id") return "Match ID";
     if (screen === "foundation") return "SixLogics foundation";
@@ -193,7 +221,10 @@ export function MatchReportBuilderClient({ initialProjectId }: Props) {
   const handleContinueToMatchId = () => {
     const homeProfile = buildProfileFromDraft(briefDraft);
     if (!homeProfile) return;
-    if (isDualReportFormat(reportFormat)) {
+    if (contentType === MATCH_PREVIEW_CONTENT_TYPE && isDualReportFormat(reportFormat)) {
+      setReportFormat(DEFAULT_MATCH_REPORT_FORMAT);
+    }
+    if (isDualReportFormat(reportFormat) && contentType !== MATCH_PREVIEW_CONTENT_TYPE) {
       const awayProfile = buildProfileFromDraft(awayBriefDraft);
       if (!awayProfile) return;
       setEditorial(homeProfile);
@@ -218,6 +249,7 @@ export function MatchReportBuilderClient({ initialProjectId }: Props) {
         body: JSON.stringify({
           matchId: input.matchId,
           sportId: input.sportId,
+          contentType,
           reportScope: input.reportScope,
           reportFormat,
           editorial,
@@ -424,6 +456,8 @@ export function MatchReportBuilderClient({ initialProjectId }: Props) {
       <Panel title={panelTitle}>
         {screen === "report_type" && !resumeId ? (
           <MatchReportTypeStep
+            contentType={contentType}
+            onContentTypeChange={setContentType}
             value={reportFormat}
             onChange={setReportFormat}
             onContinue={() => {

@@ -7,6 +7,14 @@ import { R365Button } from "@/app/components/R365Button";
 type Status = {
   elevenlabs: { configured: boolean };
   openai: { configured: boolean };
+  deepseek: { configured: boolean };
+  aiProvider?: {
+    defaultProvider: "openai" | "deepseek";
+    enableDeepseek: boolean;
+    deepseekModel: string;
+    deepseekKeySource?: "admin" | "environment" | "none";
+  };
+  deepseekApiKeyMasked?: string;
   runwayml: { configured: boolean };
   higgsfield: { configured: boolean };
   restream: { configured: boolean };
@@ -71,6 +79,10 @@ export function AdminSettingsForm() {
   const [adminToken, setAdminToken] = useState("");
   const [elevenlabsApiKey, setElevenlabsApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [deepseekApiKey, setDeepseekApiKey] = useState("");
+  const [deepseekModel, setDeepseekModel] = useState("deepseek-chat");
+  const [defaultAiProvider, setDefaultAiProvider] = useState<"openai" | "deepseek">("openai");
+  const [enableDeepseek, setEnableDeepseek] = useState(false);
   const [runwaymlApiKey, setRunwaymlApiKey] = useState("");
   const [restreamClientId, setRestreamClientId] = useState("");
   const [restreamClientSecret, setRestreamClientSecret] = useState("");
@@ -87,6 +99,7 @@ export function AdminSettingsForm() {
   const [apifyYoutubeTranscriptTimeoutSeconds, setApifyYoutubeTranscriptTimeoutSeconds] = useState("90");
   const [elevenlabsKeyDirty, setElevenlabsKeyDirty] = useState(false);
   const [openaiKeyDirty, setOpenaiKeyDirty] = useState(false);
+  const [deepseekKeyDirty, setDeepseekKeyDirty] = useState(false);
   const [runwayKeyDirty, setRunwayKeyDirty] = useState(false);
   const [restreamIdDirty, setRestreamIdDirty] = useState(false);
   const [restreamSecretDirty, setRestreamSecretDirty] = useState(false);
@@ -106,6 +119,7 @@ export function AdminSettingsForm() {
   const [elevenlabsModel, setElevenlabsModel] = useState("");
   const [clearElevenlabsKey, setClearElevenlabsKey] = useState(false);
   const [clearOpenaiKey, setClearOpenaiKey] = useState(false);
+  const [clearDeepseekKey, setClearDeepseekKey] = useState(false);
   const [clearRunwaymlKey, setClearRunwaymlKey] = useState(false);
   const [clearRestreamKeys, setClearRestreamKeys] = useState(false);
   const [clearMuxKeys, setClearMuxKeys] = useState(false);
@@ -120,6 +134,8 @@ export function AdminSettingsForm() {
   const [error, setError] = useState<string | null>(null);
   const [openaiCheckBusy, setOpenaiCheckBusy] = useState(false);
   const [openaiCheckMessage, setOpenaiCheckMessage] = useState<string | null>(null);
+  const [deepseekCheckBusy, setDeepseekCheckBusy] = useState(false);
+  const [deepseekCheckMessage, setDeepseekCheckMessage] = useState<string | null>(null);
   const [elevenlabsCheckBusy, setElevenlabsCheckBusy] = useState(false);
   const [elevenlabsCheckMessage, setElevenlabsCheckMessage] = useState<string | null>(null);
   const [runwayCheckBusy, setRunwayCheckBusy] = useState(false);
@@ -175,8 +191,12 @@ export function AdminSettingsForm() {
     setApifyYoutubeTranscriptActorId(data.apifyYoutubeTranscriptActorId || "apilabs/youtube-caption-transcription-scraper");
     setApifyYoutubeTranscriptLanguage(data.apifyYoutubeTranscriptLanguage || "en");
     setApifyYoutubeTranscriptTimeoutSeconds(data.apifyYoutubeTranscriptTimeoutSeconds || "90");
+    setDefaultAiProvider(data.aiProvider?.defaultProvider === "deepseek" ? "deepseek" : "openai");
+    setEnableDeepseek(Boolean(data.aiProvider?.enableDeepseek));
+    setDeepseekModel(data.aiProvider?.deepseekModel || "deepseek-chat");
     setElevenlabsKeyDirty(false);
     setOpenaiKeyDirty(false);
+    setDeepseekKeyDirty(false);
     setRunwayKeyDirty(false);
     setHiggsfieldKeyDirty(false);
     setHiggsfieldSecretDirty(false);
@@ -204,6 +224,7 @@ export function AdminSettingsForm() {
     try {
       const nextElevenlabs = elevenlabsApiKey.trim();
       const nextOpenAi = openaiApiKey.trim();
+      const nextDeepseek = deepseekApiKey.trim();
       const nextRunway = runwaymlApiKey.trim();
       const nextHiggsfieldKey = higgsfieldApiKey.trim();
       const nextHiggsfieldSecret = higgsfieldApiSecret.trim();
@@ -228,6 +249,10 @@ export function AdminSettingsForm() {
           adminToken: tok || undefined,
           elevenlabsApiKey: elevenlabsKeyDirty ? nextElevenlabs || undefined : undefined,
           openaiApiKey: openaiKeyDirty ? nextOpenAi || undefined : undefined,
+          deepseekApiKey: deepseekKeyDirty ? nextDeepseek || undefined : undefined,
+          deepseekModel: deepseekModel.trim() || undefined,
+          defaultAiProvider,
+          enableDeepseek,
           runwaymlApiKey: runwayKeyDirty ? nextRunway || undefined : undefined,
           restreamClientId: restreamIdDirty ? nextRestreamId || undefined : undefined,
           restreamClientSecret: restreamSecretDirty ? nextRestreamSecret || undefined : undefined,
@@ -253,6 +278,7 @@ export function AdminSettingsForm() {
           elevenlabsModel: elevenlabsModel.trim() || undefined,
           clearElevenlabsKey,
           clearOpenaiKey,
+          clearDeepseekKey,
           clearRunwaymlKey,
           clearRestreamKeys,
           clearMuxKeys,
@@ -275,6 +301,9 @@ export function AdminSettingsForm() {
       }
       if (!clearOpenaiKey && nextOpenAi && !refreshed.openai.configured) {
         throw new Error("OpenAI key save could not be verified.");
+      }
+      if (!clearDeepseekKey && nextDeepseek && !refreshed.deepseek.configured) {
+        throw new Error("DeepSeek key save could not be verified.");
       }
       if (!clearRunwaymlKey && nextRunway && !refreshed.runwayml.configured) {
         throw new Error("Runway API secret save could not be verified.");
@@ -306,6 +335,7 @@ export function AdminSettingsForm() {
       setMessage("Saved to admin settings. Keys are now stored and active for the next build.");
       setElevenlabsApiKey("");
       setOpenaiApiKey("");
+      setDeepseekApiKey("");
       setRunwaymlApiKey("");
       setHiggsfieldApiKey("");
       setHiggsfieldApiSecret("");
@@ -321,6 +351,7 @@ export function AdminSettingsForm() {
       setSupabaseServiceRoleKey("");
       setElevenlabsKeyDirty(false);
       setOpenaiKeyDirty(false);
+      setDeepseekKeyDirty(false);
       setRunwayKeyDirty(false);
       setHiggsfieldKeyDirty(false);
       setHiggsfieldSecretDirty(false);
@@ -336,6 +367,7 @@ export function AdminSettingsForm() {
       setSupabaseKeyDirty(false);
       setClearElevenlabsKey(false);
       setClearOpenaiKey(false);
+      setClearDeepseekKey(false);
       setClearRunwaymlKey(false);
       setClearRestreamKeys(false);
       setClearMuxKeys(false);
@@ -379,6 +411,32 @@ export function AdminSettingsForm() {
       setError(e instanceof Error ? e.message : "OpenAI connection failed");
     } finally {
       setOpenaiCheckBusy(false);
+    }
+  };
+
+  const testDeepSeekConnection = async () => {
+    setDeepseekCheckBusy(true);
+    setDeepseekCheckMessage(null);
+    setError(null);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const tok = adminToken.trim();
+      if (tok) headers["x-admin-token"] = tok;
+      const res = await fetch("/api/admin/deepseek-check", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          adminToken: tok || undefined,
+          deepseekApiKey: deepseekKeyDirty ? deepseekApiKey.trim() || undefined : undefined,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error || "DeepSeek connection failed");
+      setDeepseekCheckMessage("DeepSeek connected. API key is valid.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "DeepSeek connection failed");
+    } finally {
+      setDeepseekCheckBusy(false);
     }
   };
 
@@ -711,6 +769,17 @@ export function AdminSettingsForm() {
               OpenAI:{" "}
               <span className={status.openai.configured ? "text-[#22c55e]" : "text-slate-600"}>
                 {status.openai.configured ? "key on file" : "not set"}
+              </span>
+            </li>
+            <li>
+              DeepSeek:{" "}
+              <span className={status.deepseek.configured ? "text-[#22c55e]" : "text-slate-600"}>
+                {status.deepseek.configured
+                  ? status.aiProvider?.deepseekKeySource === "environment"
+                    ? "key (environment)"
+                    : "key on file"
+                  : "not set"}
+                {status.aiProvider?.enableDeepseek ? " · enabled" : ""}
               </span>
             </li>
             <li>
@@ -1049,6 +1118,115 @@ export function AdminSettingsForm() {
                 )}
               </div>
               {openaiCheckMessage && <p className="mt-2 text-xs normal-case text-[#22c55e]">{openaiCheckMessage}</p>}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[#1f2d26] bg-black/20 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-white">DeepSeek</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Optional low-cost AI processing layer. Routing is off until you enable it — OpenAI remains the premium
+                  editorial layer.
+                </p>
+              </div>
+              <span
+                className={`rounded-full border px-2 py-0.5 text-xs font-bold ${
+                  status?.deepseek.configured
+                    ? "border-[#22c55e]/30 bg-[#22c55e]/10 text-[#22c55e]"
+                    : "border-slate-700 bg-slate-900/40 text-slate-500"
+                }`}
+              >
+                {status?.deepseek.configured ? "Key on file" : "Not set"}
+              </span>
+            </div>
+            <label className="block text-xs font-semibold uppercase text-slate-500">
+              DEEPSEEK_API_KEY
+              <input
+                type="password"
+                className={inputClass}
+                value={
+                  clearDeepseekKey
+                    ? ""
+                    : deepseekApiKey || (deepseekKeyDirty ? "" : (status?.deepseekApiKeyMasked ?? ""))
+                }
+                onChange={(e) => {
+                  setDeepseekKeyDirty(true);
+                  setDeepseekApiKey(e.target.value);
+                }}
+                placeholder={status?.deepseek.configured ? "••••••••  enter new key to replace" : "sk-…"}
+                autoComplete="off"
+              />
+            </label>
+            <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+              <input type="checkbox" checked={clearDeepseekKey} onChange={(e) => setClearDeepseekKey(e.target.checked)} />
+              Remove stored DeepSeek key
+            </label>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="block text-xs font-semibold uppercase text-slate-500">
+                DEEPSEEK_MODEL
+                <input
+                  className={inputClass}
+                  value={deepseekModel}
+                  onChange={(e) => setDeepseekModel(e.target.value)}
+                  placeholder="deepseek-chat"
+                />
+              </label>
+              <label className="block text-xs font-semibold uppercase text-slate-500">
+                DEFAULT_AI_PROVIDER
+                <select
+                  className={inputClass}
+                  value={defaultAiProvider}
+                  onChange={(e) => setDefaultAiProvider(e.target.value as "openai" | "deepseek")}
+                >
+                  <option value="openai">openai</option>
+                  <option value="deepseek">deepseek</option>
+                </select>
+              </label>
+            </div>
+            <label className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+              <input type="checkbox" checked={enableDeepseek} onChange={(e) => setEnableDeepseek(e.target.checked)} />
+              Enable DeepSeek processing layer (ENABLE_DEEPSEEK)
+            </label>
+            <div className="mt-3 rounded-lg border border-[#1f2d26] bg-[#0a0e0c] p-3">
+              <p className="text-[11px] normal-case text-slate-400">
+                OpenAI-compatible API at <code className="text-slate-500">https://api.deepseek.com</code>. Save settings
+                after entering a key, then test before enabling routing.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-3">
+                <a
+                  className="inline-flex text-[11px] font-semibold normal-case text-[#22c55e] hover:underline"
+                  href="https://platform.deepseek.com/api_keys"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  Open DeepSeek API keys →
+                </a>
+                <a
+                  className="inline-flex text-[11px] font-semibold normal-case text-[#22c55e] hover:underline"
+                  href="https://platform.deepseek.com/usage"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  Open DeepSeek usage →
+                </a>
+                <a
+                  className="inline-flex text-[11px] font-semibold normal-case text-[#22c55e] hover:underline"
+                  href="https://api-docs.deepseek.com/"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  DeepSeek API docs →
+                </a>
+              </div>
+              <div className="mt-3">
+                <R365Button variant="ghost" onClick={() => void testDeepSeekConnection()} disabled={deepseekCheckBusy}>
+                  {deepseekCheckBusy ? "Testing DeepSeek…" : "Test DeepSeek key"}
+                </R365Button>
+              </div>
+              {deepseekCheckMessage ? (
+                <p className="mt-2 text-xs normal-case text-[#22c55e]">{deepseekCheckMessage}</p>
+              ) : null}
             </div>
           </div>
 
@@ -1639,8 +1817,10 @@ export function AdminSettingsForm() {
             {
               provider: "deepseek",
               label: "DeepSeek",
-              state: "unsupported",
-              summary: "Planned connector. Use dashboard/manual export first, then add app-side usage logging.",
+              state: status?.deepseek.configured ? "permission_required" : "missing_key",
+              summary: status?.deepseek.configured
+                ? "Key configured. Usage dashboard available; in-app usage logging records Plexa AI calls."
+                : "No DeepSeek key is configured.",
               dashboardUrl: "https://platform.deepseek.com/usage",
             },
           ] as AiUsageProvider[]).map((provider) => (

@@ -7,14 +7,14 @@ import {
   buildPreviewEvents,
   buildPreviewScoreboard,
   extractPossessionFromCommentary,
-  parseReportSections,
   wordCountFromPreviewContent,
 } from "@/app/lib/match-report/match-report-preview-data";
 import { renderPlayerRatingsHtml } from "@/app/lib/match-report/player-ratings-html";
 import type { MatchReportProject, MediaOutputs } from "@/app/lib/match-report/types";
+import { extractYouTubeVideoId } from "@/app/lib/youtube-script/utils";
 import { PlayerRatingsTable } from "@/app/match-report-builder/components/PlayerRatingsTable";
 import { SixteenConclusionsList } from "@/app/match-report-builder/components/SixteenConclusionsList";
-import { SocialPostsList } from "@/app/match-report-builder/components/SocialPostsList";
+import { SocialPostsList, type SocialPostEmbedSource } from "@/app/match-report-builder/components/SocialPostsList";
 
 export type MatchReportPreviewContent = {
   headline: string;
@@ -81,14 +81,20 @@ function MetaBadge({
   );
 }
 
-function DropCapParagraph({ text }: { text: string }) {
-  const first = text.charAt(0);
-  const rest = text.slice(1);
+function YouTubeInterviewEmbed({ title, url }: { title: string; url?: string }) {
+  const videoId = url ? extractYouTubeVideoId(url) : null;
+  if (!videoId) return null;
+
   return (
-    <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
-      <span className="float-left mr-2 mt-0.5 text-5xl font-black leading-none text-emerald-400">{first}</span>
-      {rest}
-    </p>
+    <div className="mt-3 overflow-hidden rounded-xl border" style={{ borderColor: "var(--border)" }}>
+      <iframe
+        className="aspect-video w-full"
+        src={`https://www.youtube.com/embed/${videoId}`}
+        title={title}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      />
+    </div>
   );
 }
 
@@ -171,6 +177,35 @@ function ScoreboardCard({ project }: { project?: MatchReportProject }) {
       </div>
     </section>
   );
+}
+
+function loopFeedSocialEmbedSources(project?: MatchReportProject): SocialPostEmbedSource[] {
+  const loop = project?.layers.loopFeed;
+  if (!loop) return [];
+  const seen = new Set<string>();
+  const out: SocialPostEmbedSource[] = [];
+
+  for (const side of loop.sides) {
+    if (side.error) continue;
+    for (const post of side.posts) {
+      if (!post.postUrl.trim()) continue;
+      const key = post.postUrl.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        id: `${side.sideLabel}-${out.length}-${post.postUrl}`,
+        sideLabel: side.sideLabel,
+        text: post.text,
+        postUrl: post.postUrl,
+        author: post.author,
+        handle: post.handle,
+        time: post.time,
+        media: post.media,
+      });
+    }
+  }
+
+  return out.slice(0, 12);
 }
 
 function PossessionBar({
@@ -259,11 +294,6 @@ export function MatchReportOutputPreview({
   const showHeadlineOutside = sections.headline.trim() && !reportHtmlHasH1(sections.bodyHtml);
   const hero = heroImageUrl ?? project?.imageIntelligence?.hero?.url;
 
-  const reportSections = useMemo(
-    () => parseReportSections(sections.bodyHtml, project?.eventPicture ?? null),
-    [sections.bodyHtml, project?.eventPicture],
-  );
-
   const possession = useMemo(
     () => extractPossessionFromCommentary(project?.layers.sport365Commentary?.lines ?? []),
     [project?.layers.sport365Commentary?.lines],
@@ -290,7 +320,8 @@ export function MatchReportOutputPreview({
     }));
   }, [project]);
 
-  const socialPosts = project?.mediaOutputs?.socialPosts ?? [];
+  const socialEmbedSources = useMemo(() => loopFeedSocialEmbedSources(project), [project]);
+  const socialPosts = socialEmbedSources.length > 0 ? [] : project?.mediaOutputs?.socialPosts ?? [];
 
   return (
     <div
@@ -343,35 +374,18 @@ export function MatchReportOutputPreview({
 
         <ScoreboardCard project={project} />
 
-        {reportSections.mainParagraphs.length > 0 ? (
-          <PreviewCard title="Match Report">
-            <div className="space-y-4">
-              <DropCapParagraph text={reportSections.mainParagraphs[0] ?? ""} />
-              {reportSections.mainParagraphs.slice(1).map((paragraph) => (
-                <p key={paragraph.slice(0, 24)} className="text-sm leading-7 text-[color:var(--text-secondary)]">
-                  {paragraph}
-                </p>
-              ))}
-            </div>
-          </PreviewCard>
-        ) : sections.bodyHtml.trim() ? (
-          <PreviewCard title="Match Report">
+        {sections.bodyHtml.trim() ? (
+          <PreviewCard title="Full Report" className="shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
             <div
-              className="prose prose-invert max-w-none text-sm text-[color:var(--text-secondary)] prose-p:leading-7"
+              className="prose prose-invert max-w-none text-[15px] leading-8 text-[color:var(--text-secondary)] prose-headings:text-[color:var(--text-primary)] prose-h1:mb-6 prose-h1:text-3xl prose-h1:font-black prose-h1:leading-tight prose-h1:tracking-tight prose-h2:mt-10 prose-h2:border-b prose-h2:border-emerald-400/25 prose-h2:pb-3 prose-h2:text-xl prose-h2:font-black prose-h2:uppercase prose-h2:tracking-[0.12em] prose-h2:text-emerald-300 prose-h3:mt-7 prose-h3:text-lg prose-h3:font-extrabold prose-p:my-5 prose-p:leading-8 prose-li:my-2 prose-li:leading-8 prose-ul:my-5 prose-strong:text-[color:var(--text-primary)] sm:text-base sm:leading-9 sm:prose-p:leading-9 [&_p:first-of-type:first-letter]:float-left [&_p:first-of-type:first-letter]:mr-3 [&_p:first-of-type:first-letter]:mt-1 [&_p:first-of-type:first-letter]:text-6xl [&_p:first-of-type:first-letter]:font-black [&_p:first-of-type:first-letter]:leading-[0.85] [&_p:first-of-type:first-letter]:text-emerald-400"
               dangerouslySetInnerHTML={{ __html: sections.bodyHtml }}
             />
           </PreviewCard>
         ) : (
-          <PreviewCard title="Match Report">
+          <PreviewCard title="Full Report">
             <p className="text-sm text-[color:var(--text-muted)]">No report body yet.</p>
           </PreviewCard>
         )}
-
-        {reportSections.extendedText ? (
-          <PreviewCard title="Extended Report">
-            <p className="text-sm leading-7 text-[color:var(--text-secondary)]">{reportSections.extendedText}</p>
-          </PreviewCard>
-        ) : null}
 
         {possession ? (
           <PreviewCard title="Match Stats">
@@ -436,9 +450,9 @@ export function MatchReportOutputPreview({
           </PreviewCard>
         ) : null}
 
-        {socialPosts.length > 0 ? (
+        {socialEmbedSources.length > 0 || socialPosts.length > 0 ? (
           <PreviewCard title="Social Posts">
-            <SocialPostsList posts={socialPosts} />
+            <SocialPostsList posts={socialPosts} embedSources={socialEmbedSources} />
           </PreviewCard>
         ) : null}
 
@@ -448,6 +462,7 @@ export function MatchReportOutputPreview({
               {interviewBlocks.map((block) => (
                 <article key={`${block.title}-${block.body.slice(0, 24)}`}>
                   <h4 className="text-sm font-bold text-[color:var(--text-primary)]">{block.title}</h4>
+                  <YouTubeInterviewEmbed title={block.title} url={block.url} />
                   <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">{block.body}</p>
                   {block.url ? (
                     <a

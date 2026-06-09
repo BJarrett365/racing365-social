@@ -1,3 +1,4 @@
+import type { ScheduleBrandDualStatus } from "@/app/lib/match-report/schedule-brand-status";
 import type { MatchReportTargetBrand, SavedReportIndexEntry } from "@/app/lib/match-report/types";
 import { BETWAY_WC2026_GROUPS } from "@/app/lib/match-report/betway-wc2026-constants";
 import { SCHEDULE_EDITORIAL_BRANDS } from "@/app/lib/match-report/schedule-editorial-brands";
@@ -149,6 +150,7 @@ export type Wc2026BrandReportStatus = {
 
 export type Wc2026ScheduleRow = Wc2026FixtureSeed & {
   brandReports: Wc2026BrandReportStatus[];
+  brandDualStatuses: ScheduleBrandDualStatus[];
 };
 
 export function brandReportStatusFromIndex(

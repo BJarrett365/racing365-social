@@ -13,6 +13,7 @@ import { PlayerRatingsTable } from "@/app/match-report-builder/components/Player
 import { MatchReportDistributionPanel } from "@/app/match-report-builder/components/MatchReportDistributionPanel";
 import { SkippedLayersReport } from "@/app/match-report-builder/components/SkippedLayersReport";
 import { WorldCupStandingsRefresh } from "@/app/match-report-builder/components/WorldCupStandingsRefresh";
+import { FactCheckPanel } from "@/app/match-report-builder/components/FactCheckPanel";
 
 const inputClass =
   "w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus)]";
@@ -135,6 +136,8 @@ export function ReviewScreen({ project, onProjectChange, onBack, busy, error }: 
           }}
           disabled={busy}
         />
+
+        <FactCheckPanel factCheck={project.factCheck} />
 
         <div className="flex flex-wrap gap-2">
           {(["preview", "edit"] as const).map((panel) => (

@@ -358,6 +358,107 @@ export type LanguageQualityCheck = {
   updatedAt: string;
 };
 
+export type CreatorDNA = {
+  voice: {
+    tone?: "Direct" | "Conversational" | "Analytical" | "Witty" | "Measured" | "Punchy" | string;
+    humour?: "None" | "Low" | "Medium" | "High" | string;
+    opinion?: "Low" | "Medium" | "High" | string;
+  };
+  headlineStyle?: string;
+  sentenceLength?: "Short" | "Mixed" | "Long" | string;
+  habits?: {
+    intro?: string;
+    attribution?: string;
+    cta?: string;
+  };
+  sources: string[];
+  avoid: string[];
+  confidence: number;
+  evidence: string[];
+  lastLearnedAt?: string;
+};
+
+export type EditorialLearningProposalType = "creator" | "prompt" | "knowledge" | "factcheck" | "reporter";
+export type EditorialLearningProposalStatus = "pending" | "approved" | "rejected";
+
+export type EditorialLearningProposal = {
+  id: string;
+  type: EditorialLearningProposalType;
+  title: string;
+  summary: string;
+  confidence: number;
+  evidence: string[];
+  before: string;
+  after: string;
+  impact: string;
+  approvalRequired: true;
+  proposedChanges: Record<string, unknown>;
+  targetEntityType?: "journalistProfile" | "knowledgeFile" | "promptRule" | "qualityCheck" | "reporterConfidence";
+  targetEntityId?: string;
+  sourceArticleId?: string;
+  sourceTranslationId?: string;
+  sourceFactCheckId?: string;
+  status: EditorialLearningProposalStatus;
+  decisionReason?: string;
+  decidedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ArticleFactCheckStatus = "verified" | "weak_evidence" | "conflict_found" | "not_checked";
+export type ArticleFactCheckClaimType = "stat" | "quote" | "transfer_status" | "name" | "club" | "date" | "competition";
+
+export type ArticleFactCheckClaim = {
+  id: string;
+  type: ArticleFactCheckClaimType;
+  claim: string;
+  status: ArticleFactCheckStatus;
+  source?: string;
+  confidence: number;
+  evidence: string[];
+  suggestion?: string;
+};
+
+export type ArticleStudioScore = {
+  overall: number;
+  grade: "publish" | "review" | "needs_edits" | "reject";
+  dimensions: {
+    factualAccuracy: number;
+    sourceQuality: number;
+    brandFit: number;
+    creatorFit: number;
+    originality: number;
+    readability: number;
+    seoSocialReadiness: number;
+  };
+  summary: string;
+};
+
+export type ArticleFactCheck = {
+  id: string;
+  articleId: string;
+  translationId?: string;
+  overallScore: number;
+  score: ArticleStudioScore;
+  checks: ArticleFactCheckClaim[];
+  learningProposalIds: string[];
+  model?: string;
+  checkedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ReporterConfidence = {
+  id: string;
+  name: string;
+  sportKey: string;
+  score: number;
+  tier: 1 | 2 | 3;
+  correctStories: number;
+  incorrectStories: number;
+  lastUpdated: string;
+};
+
 export type LanguageGlossaryEntry = {
   id: string;
   brand: string;
@@ -410,6 +511,7 @@ export type LanguageJournalistProfile = {
   socialLinks?: { platform: string; url: string }[];
   aliases?: string[];
   stats?: LanguageJournalistStats;
+  creatorDNA?: CreatorDNA;
   exampleTitles: string[];
   sampleArticleIds: string[];
   source: "imported" | "manual";
@@ -610,6 +712,9 @@ export type LanguageStudioData = {
   complianceNotes: Record<string, LanguageComplianceNote>;
   translationMemory: Record<string, LanguageTranslationMemory>;
   qualityChecks: Record<string, LanguageQualityCheck>;
+  editorialLearningProposals: Record<string, EditorialLearningProposal>;
+  articleFactChecks: Record<string, ArticleFactCheck>;
+  reporterConfidence: Record<string, ReporterConfidence>;
   exports: Record<string, LanguageExport>;
   auditLogs: Record<string, LanguageAuditLog>;
   clients: Record<string, LanguageClient>;

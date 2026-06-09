@@ -13,6 +13,7 @@ import {
   PLANET_FOOTBALL_BRAND_STYLE_SUMMARY,
   TEAMTALK_BRAND_STYLE_SUMMARY,
   brandStyleSummaryForTarget,
+  matchReportBrandStylePacketForTarget,
 } from "@/app/lib/match-report/brand-knowledge";
 import { MATCH_REPORT_PUBLISHING_EEAT_GUIDELINES } from "@/app/lib/match-report/match-report-publishing-guidelines";
 import type { EditorialProfile, LayerWeightMap, MatchReportTargetBrand } from "@/app/lib/match-report/types";
@@ -38,6 +39,7 @@ export const BRAND_STYLE_BY_TARGET: Record<MatchReportTargetBrand, string> = {
 };
 
 export { brandStyleSummaryForTarget };
+export { matchReportBrandStylePacketForTarget };
 
 export const BRAND_LABEL_BY_TARGET: Record<MatchReportTargetBrand, string> = {
   football365: "Football365",
@@ -89,9 +91,13 @@ const DEFAULT_LAYER_WEIGHTS: Record<MatchReportTargetBrand, LayerWeightMap> = {
   },
 };
 
+function normaliseBrandMatchKey(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
 function brandMatchesProfile(targetBrand: MatchReportTargetBrand, profileBrand: string): boolean {
-  const label = BRAND_LABEL_BY_TARGET[targetBrand].toLowerCase();
-  const normalised = profileBrand.trim().toLowerCase();
+  const label = normaliseBrandMatchKey(BRAND_LABEL_BY_TARGET[targetBrand]);
+  const normalised = normaliseBrandMatchKey(profileBrand);
   if (normalised === "global") return true;
   return normalised.includes(label) || label.includes(normalised);
 }

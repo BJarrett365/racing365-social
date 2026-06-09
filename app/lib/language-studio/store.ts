@@ -188,6 +188,9 @@ function emptyData(): LanguageStudioData {
     complianceNotes: {},
     translationMemory: {},
     qualityChecks: {},
+    editorialLearningProposals: {},
+    articleFactChecks: {},
+    reporterConfidence: {},
     exports: {},
     auditLogs: {},
     clients: {},
@@ -358,6 +361,9 @@ function seedGovernance(data: LanguageStudioData): LanguageStudioData {
   normalizeLanguageStudioArticleAuthors(data);
   if (!data.chartbeatImports) data.chartbeatImports = {};
   if (!data.chartbeatPageStats) data.chartbeatPageStats = {};
+  if (!data.editorialLearningProposals) data.editorialLearningProposals = {};
+  if (!data.articleFactChecks) data.articleFactChecks = {};
+  if (!data.reporterConfidence) data.reporterConfidence = {};
   for (const profile of Object.values(data.journalistProfiles)) {
     recomputeJournalistStats(data, profile.id);
   }

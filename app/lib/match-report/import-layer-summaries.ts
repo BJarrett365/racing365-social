@@ -13,7 +13,7 @@ import type {
 } from "@/app/lib/match-report/types";
 
 const SKIPPED_LAYER_TITLES: Record<string, string> = {
-  sport365Commentary: "Sport365 commentary",
+  sport365Commentary: "Six Logic commentary",
   leagueTable: "League table",
   leagueSeasonStats: "Top scorers & team stats",
   loopFeed: "Loop Feed",
@@ -141,7 +141,7 @@ export function buildImportLayerSummaries(project: MatchReportProject): EventPic
     const commentary = project.layers.sport365Commentary;
     summaries.push({
       layer: "sport365Commentary",
-      title: "Sport365 commentary",
+      title: "Six Logic commentary",
       summary: sport365CommentarySummary(commentary),
       digestExcerpt: digestExcerpt(commentary.digest),
     });

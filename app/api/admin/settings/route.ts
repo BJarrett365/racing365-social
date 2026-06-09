@@ -47,6 +47,11 @@ type Body = {
   clearSupabase?: boolean;
   clearHiggsfieldKeys?: boolean;
   clearHiggsfieldImageEndpoint?: boolean;
+  deepseekApiKey?: string;
+  deepseekModel?: string;
+  defaultAiProvider?: "openai" | "deepseek";
+  enableDeepseek?: boolean;
+  clearDeepseekKey?: boolean;
   supabaseUrl?: string;
   supabaseServiceRoleKey?: string;
 };
@@ -65,6 +70,14 @@ export async function GET() {
   const muxWebhookOk = Boolean(s.muxWebhookSigningSecret?.trim());
   const supabaseOk = Boolean(s.supabaseUrl?.trim() && s.supabaseServiceRoleKey?.trim());
   const higgsfieldOk = Boolean(s.higgsfieldApiKey?.trim() && s.higgsfieldApiSecret?.trim());
+  const storedDeepseekKey = s.deepseekApiKey?.trim();
+  const envDeepseekKey = process.env.DEEPSEEK_API_KEY?.trim();
+  const deepseekConfigured = Boolean(storedDeepseekKey || envDeepseekKey);
+  const deepseekApiKeyMasked = storedDeepseekKey
+    ? maskPreview(storedDeepseekKey)
+    : envDeepseekKey
+      ? `${"•".repeat(14)} (environment)`
+      : "";
   const supabaseUrlHost = (() => {
     const raw = (s.supabaseUrl ?? "").trim();
     if (!raw) return "";
@@ -77,6 +90,16 @@ export async function GET() {
   return NextResponse.json({
     elevenlabs: { configured: mask(s.elevenlabsApiKey) },
     openai: { configured: mask(s.openaiApiKey) },
+    deepseek: { configured: deepseekConfigured },
+    aiProvider: {
+      defaultProvider: s.defaultAiProvider ?? process.env.DEFAULT_AI_PROVIDER?.trim() ?? "openai",
+      enableDeepseek:
+        typeof s.enableDeepseek === "boolean"
+          ? s.enableDeepseek
+          : process.env.ENABLE_DEEPSEEK?.trim().toLowerCase() === "true",
+      deepseekModel: s.deepseekModel?.trim() || process.env.DEEPSEEK_MODEL?.trim() || "deepseek-chat",
+      deepseekKeySource: storedDeepseekKey ? "admin" : envDeepseekKey ? "environment" : "none",
+    },
     runwayml: { configured: mask(s.runwaymlApiKey) },
     restream: { configured: restreamOk },
     mux: { configured: muxOk },
@@ -89,6 +112,7 @@ export async function GET() {
     supabaseUrlHost,
     elevenlabsApiKeyMasked: maskPreview(s.elevenlabsApiKey),
     openaiApiKeyMasked: maskPreview(s.openaiApiKey),
+    deepseekApiKeyMasked,
     runwaymlApiKeyMasked: maskPreview(s.runwaymlApiKey),
     restreamClientIdMasked: maskPreview(s.restreamClientId),
     restreamClientSecretMasked: maskPreview(s.restreamClientSecret),
@@ -148,10 +172,17 @@ export async function POST(request: Request) {
   if (body.clearSupabase) clearKeys.push("supabaseUrl", "supabaseServiceRoleKey");
   if (body.clearHiggsfieldKeys) clearKeys.push("higgsfieldApiKey", "higgsfieldApiSecret");
   if (body.clearHiggsfieldImageEndpoint) clearKeys.push("higgsfieldImageEditEndpoint");
+  if (body.clearDeepseekKey) clearKeys.push("deepseekApiKey");
 
   const partial: Partial<AdminStoredSettings> = {};
   if (body.elevenlabsApiKey?.trim()) partial.elevenlabsApiKey = body.elevenlabsApiKey.trim();
   if (body.openaiApiKey?.trim()) partial.openaiApiKey = body.openaiApiKey.trim();
+  if (body.deepseekApiKey?.trim()) partial.deepseekApiKey = body.deepseekApiKey.trim();
+  if (body.defaultAiProvider === "openai" || body.defaultAiProvider === "deepseek") {
+    partial.defaultAiProvider = body.defaultAiProvider;
+  }
+  if (typeof body.enableDeepseek === "boolean") partial.enableDeepseek = body.enableDeepseek;
+  if (body.deepseekModel?.trim()) partial.deepseekModel = body.deepseekModel.trim();
   if (body.runwaymlApiKey?.trim()) partial.runwaymlApiKey = body.runwaymlApiKey.trim();
   if (body.restreamClientId?.trim()) partial.restreamClientId = body.restreamClientId.trim();
   if (body.restreamClientSecret?.trim()) partial.restreamClientSecret = body.restreamClientSecret.trim();

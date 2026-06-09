@@ -5,6 +5,8 @@ import { AuthControls } from "@/app/components/AuthControls";
 import { AppNavLink } from "@/app/components/AppNavLink";
 import { StudiosNavMenu } from "@/app/components/StudiosNavMenu";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
+import { PlexaAssistant } from "@/app/components/PlexaAssistant";
+import { PlexaGatewayPopout } from "@/app/components/PlexaGatewayPopout";
 
 /** Geometric sans aligned with the logo wordmark style (see /brand/plexa-logo.png). */
 const plexaFont = Montserrat({
@@ -16,6 +18,7 @@ const plexaFont = Montserrat({
 const nav = [
   { href: "/", label: "Dashboard" },
   { href: "/#studios", label: "Studios", scroll: true },
+  { href: "/match-report-builder/reports", label: "Reports" },
   { href: "/configure", label: "Configure" },
   { href: "/library", label: "Library" },
   { href: "/editing-studio", label: "Schedule" },
@@ -27,6 +30,7 @@ const footerLinks = [
   { href: "/product", label: "Product" },
   { href: "/how-it-works", label: "How It Works" },
   { href: "/knowledge-base", label: "Knowledge Base" },
+  { href: "/match-report-builder/reports", label: "Match Reports" },
   { href: "/configure", label: "Configure" },
   { href: "/tools", label: "Tools" },
   { href: "/admin/provider-keys-and-platform-services", label: "Integrations" },
@@ -81,6 +85,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </AppNavLink>
               <StudiosNavMenu />
               <AppNavLink
+                href="/match-report-builder/reports"
+                className="app-nav-link rounded-full px-3 py-2 transition"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Match Reports
+              </AppNavLink>
+              <PlexaAssistant triggerLabel="Ask Plexa" />
+              <AppNavLink
                 href="/configure"
                 className="app-nav-link rounded-full px-3 py-2 transition"
                 style={{ color: "var(--text-secondary)" }}
@@ -126,12 +138,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-5 pb-24 outline-none sm:px-6 sm:py-8 lg:px-8 lg:pb-8"
+        className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-5 pb-32 outline-none sm:px-6 sm:py-8 lg:px-8 lg:pb-8"
       >
         {children}
       </main>
       <nav className="mobile-tab-bar fixed inset-x-0 bottom-0 z-50 border-t px-2 py-2 backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-7 gap-1">
+        <div className="mx-auto grid max-w-lg grid-cols-4 gap-1">
           {nav.map((n) =>
             "scroll" in n && n.scroll ? (
               <Link
@@ -153,6 +165,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </AppNavLink>
             ),
           )}
+          <PlexaAssistant
+            triggerLabel="Ask Plexa"
+            triggerClassName="app-nav-link rounded-xl px-1 py-2 text-center text-[10px] font-semibold leading-tight transition sm:text-[11px]"
+          />
         </div>
       </nav>
       <footer className="hidden border-t md:block" style={{ borderColor: "var(--border)" }}>
@@ -177,6 +193,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </footer>
+      <PlexaGatewayPopout triggerLabel="Gateway" floating />
     </div>
   );
 }

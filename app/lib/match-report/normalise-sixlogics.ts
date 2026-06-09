@@ -1,5 +1,6 @@
 import { flattenJsonKeyPaths } from "@/app/lib/data-studio/sixlogics-fixture";
 import type {
+  SixLogicAvailableData,
   SixLogicCommentaryLine,
   SixLogicEvent,
   SixLogicFacts,
@@ -316,6 +317,25 @@ function parseSportccEvents(match: Record<string, unknown>): SixLogicEvent[] {
   return out.sort((a, b) => (a.minute ?? 0) - (b.minute ?? 0));
 }
 
+function parseSportccCommentary(match: Record<string, unknown>): SixLogicCommentaryLine[] {
+  const rows = Array.isArray(match.matchCommentary) ? match.matchCommentary.filter(isRecord) : [];
+  const out: SixLogicCommentaryLine[] = [];
+  for (const row of rows) {
+    const minute = asNumber(row.matchMinute ?? row.minute ?? row.Minute);
+    const plusMinute = asNumber(row.plusMinute);
+    const prefix = minute !== undefined ? `${minute}${plusMinute ? `+${plusMinute}` : ""}' ` : "";
+    const type = asString(row.commenTypeText ?? row.commentType);
+    const comment = asString(row.comment ?? row.text ?? row.description);
+    const text = [type ? `[${type}]` : "", comment].filter(Boolean).join(" ");
+    if (!text.trim()) continue;
+    out.push({
+      minute,
+      text: `${prefix}${text}`.trim(),
+    });
+  }
+  return out;
+}
+
 function parseSportccVenue(match: Record<string, unknown>): Pick<
   SixLogicFacts,
   "venue" | "venueCity" | "venueCapacity" | "attendance"
@@ -343,6 +363,249 @@ function parseSportccCoach(competitor: Record<string, unknown> | undefined): str
   const coach = competitor.coach;
   if (isRecord(coach)) return asString(coach.name);
   return asString(coach);
+}
+
+const SPORTCC_AVAILABLE_SECTION_DESCRIPTIONS: Record<string, { title: string; description: string }> = {
+  competition: {
+    title: "Competition",
+    description: "Tournament, season, league, contest group and competition metadata.",
+  },
+  matchMeta: {
+    title: "Match metadata",
+    description: "Status, date, round, publication flags, clock and full-time timing.",
+  },
+  venue: {
+    title: "Venue",
+    description: "Stadium, capacity, attendance and venue identifiers.",
+  },
+  officials: {
+    title: "Officials",
+    description: "Referee and match official records.",
+  },
+  competitors: {
+    title: "Teams / competitors",
+    description: "Team identifiers, codes, badges, coaches, lineups and bench players.",
+  },
+  score: {
+    title: "Score",
+    description: "Half-time, full-time and other score states supplied by SixLogics.",
+  },
+  goals: {
+    title: "Goals",
+    description: "Goal events with scorer, minute, score state and assist records.",
+  },
+  cards: {
+    title: "Cards",
+    description: "Yellow/red card events with minute, team and player details.",
+  },
+  corners: {
+    title: "Corners",
+    description: "Corner summary rows supplied by the feed.",
+  },
+  substitutions: {
+    title: "Substitutions",
+    description: "Player on/off events, team and minute.",
+  },
+  matchChannels: {
+    title: "Match channels",
+    description: "Broadcast or channel metadata where supplied.",
+  },
+  leagueTable: {
+    title: "League table",
+    description: "Competition table rows and positional context.",
+  },
+  matchCommentary: {
+    title: "Match commentary",
+    description: "Live commentary event stream with event types and timestamps.",
+  },
+  matchTeamStats: {
+    title: "Team stats",
+    description: "Possession, shots, corners, cards, attacks and dangerous attacks by stats period.",
+  },
+  headToHead: {
+    title: "Head-to-head",
+    description: "Recent meetings between the two teams.",
+  },
+  lastHomeResults: {
+    title: "Last home results",
+    description: "Recent match results for the home-team context.",
+  },
+  lastAwayResults: {
+    title: "Last away results",
+    description: "Recent match results for the away-team context.",
+  },
+  upcomingHomeFixtures: {
+    title: "Upcoming home fixtures",
+    description: "Future fixtures for the home side where supplied.",
+  },
+  upcomingAwayFixtures: {
+    title: "Upcoming away fixtures",
+    description: "Future fixtures for the away side where supplied.",
+  },
+  streaks: {
+    title: "Streaks",
+    description: "Form and trend streak records.",
+  },
+  odds: {
+    title: "Odds",
+    description: "Bookmaker odds snapshots.",
+  },
+};
+
+const SPORTCC_MATCH_META_KEYS = [
+  "id",
+  "status",
+  "date",
+  "curentPeriod",
+  "roundId",
+  "roundName",
+  "minutes",
+  "commentary",
+  "published",
+  "fttime",
+  "winner",
+  "ibwd",
+  "isFavourite",
+  "plusMinutes",
+  "plusBit",
+];
+
+function withoutSocialLinks(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutSocialLinks);
+  if (!isRecord(value)) return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (/^socialLinks$/i.test(key)) continue;
+    out[key] = withoutSocialLinks(child);
+  }
+  return out;
+}
+
+function cloneSection<T = unknown>(value: unknown): T | undefined {
+  if (value === undefined || value === null) return undefined;
+  return withoutSocialLinks(value) as T;
+}
+
+function sectionCount(value: unknown): number | undefined {
+  if (Array.isArray(value)) return value.length;
+  if (isRecord(value)) return Object.keys(value).length;
+  return undefined;
+}
+
+function buildSportccAvailableData(
+  match: Record<string, unknown>,
+  ctx: Pick<SportccContext, "tournamentName" | "categoryName" | "season">,
+): SixLogicAvailableData {
+  const competition = cloneSection<Record<string, unknown>>({
+    categoryName: ctx.categoryName,
+    tournamentName: ctx.tournamentName,
+    season: ctx.season,
+  });
+  const matchMeta = cloneSection<Record<string, unknown>>(
+    Object.fromEntries(SPORTCC_MATCH_META_KEYS.map((key) => [key, match[key]]).filter(([, value]) => value !== undefined)),
+  );
+  const data: SixLogicAvailableData = {
+    competition,
+    matchMeta,
+    venue: cloneSection(match.venue),
+    officials: cloneSection<unknown[]>(match.official),
+    competitors: cloneSection<unknown[]>(match.competitor),
+    score: cloneSection<unknown[]>(match.score),
+    goals: cloneSection<unknown[]>(match.goal),
+    cards: cloneSection<unknown[]>(match.card),
+    corners: cloneSection<unknown[]>(match.corners),
+    substitutions: cloneSection<unknown[]>(match.substitution),
+    matchChannels: cloneSection<unknown[]>(match.matchChannels),
+    leagueTable: cloneSection<unknown[]>(match.leagueTable),
+    matchCommentary: cloneSection<unknown[]>(match.matchCommentary),
+    matchTeamStats: cloneSection<unknown[]>(match.matchTeamStats),
+    headToHead: cloneSection<unknown[]>(match.headToHead),
+    lastHomeResults: cloneSection<unknown[]>(match.lastHomeResults),
+    lastAwayResults: cloneSection<unknown[]>(match.lastAwayResults),
+    upcomingHomeFixtures: cloneSection<unknown[]>(match.upcomingHomeFixtures),
+    upcomingAwayFixtures: cloneSection<unknown[]>(match.upcomingAwayFixtures),
+    streaks: cloneSection<unknown[]>(match.streaks),
+    odds: cloneSection<unknown[]>(match.odds),
+    sections: [],
+  };
+
+  const knownRawKeys = new Set([
+    ...SPORTCC_MATCH_META_KEYS,
+    "venue",
+    "official",
+    "competitor",
+    "score",
+    "goal",
+    "card",
+    "corners",
+    "substitution",
+    "matchChannels",
+    "leagueTable",
+    "matchCommentary",
+    "matchTeamStats",
+    "headToHead",
+    "lastHomeResults",
+    "lastAwayResults",
+    "upcomingHomeFixtures",
+    "upcomingAwayFixtures",
+    "streaks",
+    "odds",
+    "socialLinks",
+    "summary",
+  ]);
+  const otherSections: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(match)) {
+    if (knownRawKeys.has(key) || value === undefined || value === null) continue;
+    otherSections[key] = cloneSection(value);
+  }
+  if (Object.keys(otherSections).length > 0) data.otherSections = otherSections;
+
+  const sectionValues: Array<[keyof SixLogicAvailableData, unknown]> = [
+    ["competition", data.competition],
+    ["matchMeta", data.matchMeta],
+    ["venue", data.venue],
+    ["officials", data.officials],
+    ["competitors", data.competitors],
+    ["score", data.score],
+    ["goals", data.goals],
+    ["cards", data.cards],
+    ["corners", data.corners],
+    ["substitutions", data.substitutions],
+    ["matchChannels", data.matchChannels],
+    ["leagueTable", data.leagueTable],
+    ["matchCommentary", data.matchCommentary],
+    ["matchTeamStats", data.matchTeamStats],
+    ["headToHead", data.headToHead],
+    ["lastHomeResults", data.lastHomeResults],
+    ["lastAwayResults", data.lastAwayResults],
+    ["upcomingHomeFixtures", data.upcomingHomeFixtures],
+    ["upcomingAwayFixtures", data.upcomingAwayFixtures],
+    ["streaks", data.streaks],
+    ["odds", data.odds],
+  ];
+  data.sections = sectionValues
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => {
+      const meta = SPORTCC_AVAILABLE_SECTION_DESCRIPTIONS[String(key)] ?? {
+        title: String(key),
+        description: "Additional SixLogics feed section.",
+      };
+      return {
+        key: String(key),
+        title: meta.title,
+        description: meta.description,
+        count: sectionCount(value),
+      };
+    });
+  if (data.otherSections) {
+    data.sections.push({
+      key: "otherSections",
+      title: "Other available sections",
+      description: "Additional SixLogics match fields not covered by the standard section map.",
+      count: Object.keys(data.otherSections).length,
+    });
+  }
+  return data;
 }
 
 function normaliseSportccFoundation(params: {
@@ -388,7 +651,8 @@ function normaliseSportccFoundation(params: {
       away: parseSportccLineUp(awayComp?.lineUp ?? awayComp?.lineup),
     },
     events: parseSportccEvents(match),
-    commentary: [],
+    commentary: parseSportccCommentary(match),
+    availableData: buildSportccAvailableData(match, ctx),
     summaryText: asString(match.summary),
     normalisedAt: new Date().toISOString(),
     sourceKeyPaths: flattenJsonKeyPaths(match, 80),
@@ -712,7 +976,7 @@ export function buildFoundationImportPreview(foundation: SixLogicFoundation): Fo
   const commentaryNote =
     commentary.length > 0
       ? `${commentary.length} commentary lines included from SixLogics.`
-      : "No live commentary in the SixLogics feed — import Sport365 commentary in the next step.";
+      : "No live commentary in the SixLogics feed — the commentary import step will use match events if available.";
 
   return {
     matchDetails,

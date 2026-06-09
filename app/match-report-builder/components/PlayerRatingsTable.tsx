@@ -173,14 +173,6 @@ export function PlayerRatingsTable({ intelligence, project }: Props) {
         manOfTheMatch={reconciled.manOfTheMatch}
         positionIndex={positionIndex}
       />
-
-      {reconciled.narrativeDigest?.trim() ? (
-        <p className="rounded-xl border px-4 py-3 text-xs leading-5 text-[color:var(--text-secondary)]"
-          style={{ borderColor: "var(--border)", background: "var(--surface-muted)" }}
-        >
-          {reconciled.narrativeDigest.trim()}
-        </p>
-      ) : null}
     </div>
   );
 }

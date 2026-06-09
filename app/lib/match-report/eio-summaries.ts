@@ -1,25 +1,39 @@
 import { loopFeedEditorDigest } from "@/app/lib/data-studio/loop-feed";
 import { creatorTeamSupportPrompt } from "@/app/lib/language-studio/creator-team-support";
-import { BRAND_LABEL_BY_TARGET, MATCH_REPORT_PUBLISHING_EEAT_GUIDELINES } from "@/app/lib/match-report/editorial-governance";
+import {
+  BRAND_LABEL_BY_TARGET,
+  MATCH_REPORT_PUBLISHING_EEAT_GUIDELINES,
+  matchReportBrandStylePacketForTarget,
+} from "@/app/lib/match-report/editorial-governance";
 import { formatImportLayerSummariesBlock } from "@/app/lib/match-report/import-layer-summaries";
 import { buildMatchFoundationSummary } from "@/app/lib/match-report/normalise-sixlogics";
+import { buildMatchStoryContext } from "@/app/lib/match-report/story-engine";
 import type { MatchReportProject } from "@/app/lib/match-report/types";
 
 export function buildEditorialGovernanceBlock(project: MatchReportProject): string {
   const e = project.editorial;
   const lines = [
+    "STYLE PRIORITY:",
+    "1. Website / brand style is mandatory: match the target publication's editorial attitude, structure, headline instincts and reader expectations.",
+    "2. Content Creator profile is mandatory when selected: use it for sentence rhythm, paragraph length, attribution habits, framing and level of edge.",
+    "3. Facts still come only from the EIO; style must change voice and presentation, not invent details.",
+    "",
     `Sport: ${e.sport}`,
     `Content style: ${e.contentStyle}`,
     `Brand: ${BRAND_LABEL_BY_TARGET[e.targetBrand]}`,
-    `Brand style: ${e.brandStyle}`,
-    `Style prompt: ${e.rewriteStyle}`,
+    `Website style summary: ${e.brandStyle}`,
+    "",
+    "DEEP BRAND / STYLE PACKET (mandatory for OpenAI report generation):",
+    matchReportBrandStylePacketForTarget(e.targetBrand),
+    "",
+    `Report style instruction: ${e.rewriteStyle}`,
   ];
   if (e.brandStyleGuide?.trim()) {
-    lines.push(`Brand style guide (Knowledge Base):\n${e.brandStyleGuide.trim()}`);
+    lines.push(`Website brand style guide (must be followed):\n${e.brandStyleGuide.trim()}`);
   }
   if (e.useCreatorProfile && e.creatorName) {
-    lines.push(`Creator: ${e.creatorName}`);
-    if (e.creatorStyleNotes.trim()) lines.push(`Creator style: ${e.creatorStyleNotes.trim()}`);
+    lines.push(`Content Creator profile (must be reflected in copy): ${e.creatorName}`);
+    if (e.creatorStyleNotes.trim()) lines.push(`Content Creator style notes:\n${e.creatorStyleNotes.trim()}`);
     lines.push(
       creatorTeamSupportPrompt(
         { teamSupportMode: e.creatorTeamSupportMode, supportedClub: e.creatorSupportedClub },
@@ -44,6 +58,27 @@ export function buildMatchFoundationSummaryBlock(project: MatchReportProject): s
   const foundation = project.layers.sixLogic;
   if (!foundation) return "SixLogic foundation missing.";
   return buildMatchFoundationSummary(foundation);
+}
+
+export function buildSixLogicAvailableDataBlock(project: MatchReportProject): string {
+  const available = project.layers.sixLogic?.availableData;
+  if (!available?.sections.length) return "(no expanded SixLogics sections normalised)";
+  const sectionLines = available.sections.map((section) => {
+    const count = section.count !== undefined ? ` (${section.count})` : "";
+    return `- ${section.title}${count}: ${section.description}`;
+  });
+  const statsRows = available.matchTeamStats?.length
+    ? `\nTeam stats periods: ${available.matchTeamStats
+        .map((row) => (typeof row === "object" && row !== null && "statsType" in row ? String(row.statsType) : "unknown"))
+        .join(", ")}`
+    : "";
+  return [
+    "SixLogics import now includes all available non-social match sections. Treat these as Tier 1 match data; Loop Feed handles social/reaction intelligence separately.",
+    ...sectionLines,
+    statsRows,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function buildKeyMomentsTimelineBlock(project: MatchReportProject): string {
@@ -132,6 +167,9 @@ export function assembleEioPromptSections(project: MatchReportProject): string {
     "MATCH_FOUNDATION_SUMMARY",
     buildMatchFoundationSummaryBlock(project),
     "",
+    "SIXLOGICS_AVAILABLE_DATA",
+    buildSixLogicAvailableDataBlock(project),
+    "",
     "COMMENTARY_DIGEST",
     project.layers.sport365Commentary?.digest || "(SixLogic fallback in timeline)",
     "",
@@ -158,6 +196,9 @@ export function assembleEioPromptSections(project: MatchReportProject): string {
     "",
     "INTERVIEW_TRANSCRIPTS",
     buildInterviewDigestBlock(project) || "(none)",
+    "",
+    "STORY_ENGINE_CONTEXT",
+    JSON.stringify(buildMatchStoryContext(project), null, 2),
     "",
     "CONFIDENCE_AND_SKIPPED_LAYERS",
     `Confidence: ${project.confidence}`,

@@ -101,13 +101,19 @@ export function ImportStepHeader({
   );
 }
 
-export function ImportLayerProgress({ currentStep }: { currentStep: MatchReportWorkflowStep }) {
-  const idx = IMPORT_LAYER_STEPS.indexOf(currentStep as (typeof IMPORT_LAYER_STEPS)[number]);
+export function ImportLayerProgress({
+  currentStep,
+  steps = IMPORT_LAYER_STEPS,
+}: {
+  currentStep: MatchReportWorkflowStep;
+  steps?: MatchReportWorkflowStep[];
+}) {
+  const idx = steps.indexOf(currentStep);
   if (idx === -1 && currentStep !== "build_picture") return null;
 
   return (
     <div className="mrb-layer-progress flex flex-wrap gap-2 rounded-2xl border px-3 py-3">
-      {IMPORT_LAYER_STEPS.map((layer, i) => {
+      {steps.map((layer, i) => {
         const done = currentStep === "build_picture" || i < idx;
         const current = i === idx && currentStep !== "build_picture";
         const stateClass = done ? "mrb-layer-tab--done" : current ? "mrb-layer-tab--current" : "mrb-layer-tab--idle";

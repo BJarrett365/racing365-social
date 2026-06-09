@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
@@ -132,6 +132,24 @@ function formatTranscriptAttemptDetails(details?: Record<string, unknown>): stri
 }
 
 export default function YouTubeScriptImporterPage() {
+  return (
+    <Suspense fallback={<YouTubeScriptImporterFallback />}>
+      <YouTubeScriptImporterContent />
+    </Suspense>
+  );
+}
+
+function YouTubeScriptImporterFallback() {
+  return (
+    <main className="mx-auto max-w-7xl space-y-6 px-4 py-8">
+      <Panel title="YouTube Script Importer">
+        <p className="text-sm text-slate-400">Loading importer...</p>
+      </Panel>
+    </main>
+  );
+}
+
+function YouTubeScriptImporterContent() {
   const searchParams = useSearchParams();
   const prefilledUrl = searchParams.get("url")?.trim() ?? "";
   const [url, setUrl] = useState(prefilledUrl);

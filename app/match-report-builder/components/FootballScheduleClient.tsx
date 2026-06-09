@@ -6,8 +6,9 @@ import { withAppPathPrefix, studioApiPath } from "@/app/lib/app-base-path";
 import { BRAND_LABEL_BY_TARGET } from "@/app/lib/match-report/editorial-governance";
 import type { EplScheduleRow } from "@/app/lib/match-report/premier-league-schedule";
 import { EPL_BETWAY_UPCOMINGS_URL } from "@/app/lib/match-report/premier-league-schedule";
+import type { ScheduleBrandDualStatus, ScheduleContentStatus } from "@/app/lib/match-report/schedule-brand-status";
 import { SCHEDULE_EDITORIAL_BRANDS } from "@/app/lib/match-report/schedule-editorial-brands";
-import type { MatchReportTargetBrand } from "@/app/lib/match-report/types";
+import type { MatchReportContentType, MatchReportTargetBrand } from "@/app/lib/match-report/types";
 import type { Wc2026BrandReportStatus, Wc2026ScheduleRow } from "@/app/lib/match-report/wc2026-schedule";
 import { MatchReportNav } from "@/app/match-report-builder/components/MatchReportNav";
 import { Panel } from "@/app/components/Panel";
@@ -59,8 +60,9 @@ const COMPETITION_META: Record<
         >
           Betway Scores
         </a>
-        . All fixtures include Betway match IDs. SixLogics IDs can be set manually or resolved from existing Match
-        Report projects.
+        . Track <strong className="text-[color:var(--text-primary)]">preview</strong> and{" "}
+        <strong className="text-[color:var(--text-primary)]">report</strong> progress per brand. SixLogics IDs can be
+        set manually or resolved from existing projects.
       </>
     ),
     betwayUrl: "https://www.betwayscores.com/football/world-cup-2026/263/upcomings",
@@ -80,8 +82,8 @@ const COMPETITION_META: Record<
         <a href={EPL_BETWAY_UPCOMINGS_URL} target="_blank" rel="noreferrer" className="text-sky-300 underline">
           Betway Scores
         </a>
-        . Betway only exposes a limited upcomings window — refresh regularly. SixLogics IDs can be set manually or
-        resolved from existing Match Report projects.
+        . Track preview and report status separately per brand. Betway only exposes a limited upcomings window — refresh
+        regularly.
       </>
     ),
     betwayUrl: EPL_BETWAY_UPCOMINGS_URL,
@@ -92,16 +94,22 @@ const COMPETITION_META: Record<
   },
 };
 
-function statusLabel(status: Wc2026BrandReportStatus["status"]): string {
+function statusLabel(status: ScheduleContentStatus): string {
   if (status === "complete") return "Complete";
   if (status === "in_progress") return "In progress";
   return "Not started";
 }
 
-function statusClass(status: Wc2026BrandReportStatus["status"]): string {
+function statusClass(status: ScheduleContentStatus): string {
   if (status === "complete") return "text-emerald-300 bg-emerald-500/15 border-emerald-500/30";
   if (status === "in_progress") return "text-amber-200 bg-amber-500/15 border-amber-500/30";
   return "text-[color:var(--text-muted)] bg-[var(--surface-muted)] border-[color:var(--border)]";
+}
+
+function actionLabel(status: ScheduleContentStatus): string {
+  if (status === "complete") return "Open";
+  if (status === "in_progress") return "Continue";
+  return "Start";
 }
 
 export function FootballScheduleClient() {
@@ -148,7 +156,12 @@ export function FootballScheduleClient() {
     });
   }, [rows, brand, groupFilter, meta.showGroupFilter]);
 
-  const reportHref = (f: ScheduleFixtureRow, targetBrand: MatchReportTargetBrand, projectId?: string) => {
+  const builderHref = (
+    f: ScheduleFixtureRow,
+    targetBrand: MatchReportTargetBrand,
+    contentType: MatchReportContentType,
+    projectId?: string,
+  ) => {
     if (projectId) {
       return withAppPathPrefix(`/match-report-builder?project=${encodeURIComponent(projectId)}`);
     }
@@ -158,8 +171,12 @@ export function FootballScheduleClient() {
     params.set("sport_id", f.sixLogicSportId);
     params.set("brand", targetBrand);
     params.set("competition", competition);
+    if (contentType === "match_preview") params.set("content_type", "match_preview");
     return withAppPathPrefix(`/match-report-builder?${params.toString()}`);
   };
+
+  const brandDual = (f: ScheduleFixtureRow, targetBrand: MatchReportTargetBrand): ScheduleBrandDualStatus | undefined =>
+    f.brandDualStatuses?.find((row) => row.brand === targetBrand);
 
   const brandReport = (f: ScheduleFixtureRow, targetBrand: MatchReportTargetBrand) =>
     f.brandReports.find((row) => row.brand === targetBrand);
@@ -209,6 +226,38 @@ export function FootballScheduleClient() {
   };
 
   const visibleBrands = (f: ScheduleFixtureRow) => (brand === "all" ? f.targetBrands : [brand]);
+
+  const renderStatusChip = (label: string, status: ScheduleContentStatus) => (
+    <span
+      className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusClass(status)}`}
+    >
+      {label} · {statusLabel(status)}
+    </span>
+  );
+
+  const renderActionLink = (
+    f: ScheduleFixtureRow,
+    targetBrand: MatchReportTargetBrand,
+    contentType: MatchReportContentType,
+    status: ScheduleContentStatus,
+    projectId?: string,
+    tone: "sky" | "emerald" = "emerald",
+  ) => {
+    const colors =
+      tone === "sky"
+        ? { text: "text-sky-300", border: "rgba(56,189,248,0.35)", hover: "hover:bg-sky-500/10" }
+        : { text: "text-emerald-300", border: "rgba(52,211,153,0.35)", hover: "hover:bg-emerald-500/10" };
+    const prefix = contentType === "match_preview" ? "Preview" : "Report";
+    return (
+      <Link
+        href={builderHref(f, targetBrand, contentType, projectId)}
+        className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${colors.text} ${colors.hover}`}
+        style={{ borderColor: colors.border }}
+      >
+        {BRAND_LABEL_BY_TARGET[targetBrand]} · {prefix} · {actionLabel(status)}
+      </Link>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -313,7 +362,14 @@ export function FootballScheduleClient() {
                     <th className="px-3 py-2">Match</th>
                     <th className="px-3 py-2">SixLogics ID</th>
                     <th className="px-3 py-2">Betway ID</th>
-                    <th className="px-3 py-2">Report status</th>
+                    {brand !== "all" ? (
+                      <>
+                        <th className="px-3 py-2">Preview</th>
+                        <th className="px-3 py-2">Report</th>
+                      </>
+                    ) : (
+                      <th className="px-3 py-2">Preview / Report status</th>
+                    )}
                     <th className="px-3 py-2">Actions</th>
                   </tr>
                 </thead>
@@ -369,41 +425,66 @@ export function FootballScheduleClient() {
                         )}
                       </td>
                       <td className="px-3 py-2 font-mono text-xs">{f.betwayMatchId ?? "—"}</td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-col gap-1">
-                          {visibleBrands(f).map((b) => {
-                            const report = brandReport(f, b);
-                            const status = report?.status ?? "not_started";
-                            return (
-                              <span
-                                key={b}
-                                className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusClass(status)}`}
-                              >
-                                {BRAND_LABEL_BY_TARGET[b]} · {statusLabel(status)}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </td>
+                      {brand !== "all" ? (
+                        <>
+                          <td className="px-3 py-2">
+                            {renderStatusChip(
+                              "Preview",
+                              brandDual(f, brand)?.preview.status ??
+                                (brandReport(f, brand)?.status === "complete" ? "complete" : "not_started"),
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {renderStatusChip(
+                              "Report",
+                              brandDual(f, brand)?.report.status ?? brandReport(f, brand)?.status ?? "not_started",
+                            )}
+                          </td>
+                        </>
+                      ) : (
+                        <td className="px-3 py-2">
+                          <div className="flex flex-col gap-1">
+                            {visibleBrands(f).map((b) => {
+                              const dual = brandDual(f, b);
+                              const legacyReport = brandReport(f, b);
+                              const previewStatus = dual?.preview.status ?? "not_started";
+                              const reportStatus = dual?.report.status ?? legacyReport?.status ?? "not_started";
+                              return (
+                                <div key={b} className="flex flex-wrap gap-1">
+                                  {renderStatusChip(`${BRAND_LABEL_BY_TARGET[b]} preview`, previewStatus)}
+                                  {renderStatusChip(`${BRAND_LABEL_BY_TARGET[b]} report`, reportStatus)}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      )}
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-1.5">
                           {visibleBrands(f).map((b) => {
-                            const report = brandReport(f, b);
-                            const label =
-                              report?.status === "complete"
-                                ? "Open"
-                                : report?.status === "in_progress"
-                                  ? "Continue"
-                                  : "Start";
+                            const dual = brandDual(f, b);
+                            const legacyReport = brandReport(f, b);
+                            const previewStatus = dual?.preview.status ?? "not_started";
+                            const reportStatus = dual?.report.status ?? legacyReport?.status ?? "not_started";
                             return (
-                              <Link
-                                key={b}
-                                href={reportHref(f, b, report?.projectId)}
-                                className="rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300 hover:bg-emerald-500/10"
-                                style={{ borderColor: "rgba(52,211,153,0.35)" }}
-                              >
-                                {BRAND_LABEL_BY_TARGET[b]} · {label}
-                              </Link>
+                              <div key={b} className="flex flex-wrap gap-1">
+                                {renderActionLink(
+                                  f,
+                                  b,
+                                  "match_preview",
+                                  previewStatus,
+                                  dual?.preview.projectId,
+                                  "sky",
+                                )}
+                                {renderActionLink(
+                                  f,
+                                  b,
+                                  "match_report",
+                                  reportStatus,
+                                  dual?.report.projectId ?? legacyReport?.projectId,
+                                  "emerald",
+                                )}
+                              </div>
                             );
                           })}
                         </div>

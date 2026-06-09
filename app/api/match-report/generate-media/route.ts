@@ -37,7 +37,7 @@ export async function POST(req: Request) {
 
     const runJob = () =>
       runMatchReportGenerateMediaJob(projectId, jobId, {
-        includeSixteenConclusions: body.includeSixteenConclusions,
+        includeSixteenConclusions: body.includeSixteenConclusions ?? true,
       }).catch(async (e) => {
         await failMatchReportJobAny(jobId, e instanceof Error ? e.message : "Job failed");
       });
@@ -47,12 +47,12 @@ export async function POST(req: Request) {
       const invoked = await invokeMatchReportBackgroundFunction(origin, "match-report-generate-media-background", {
         jobId,
         projectId,
-        includeSixteenConclusions: body.includeSixteenConclusions,
+        includeSixteenConclusions: body.includeSixteenConclusions ?? true,
       });
       if (!invoked) {
         try {
           await runMatchReportGenerateMediaJob(projectId, jobId, {
-            includeSixteenConclusions: body.includeSixteenConclusions,
+            includeSixteenConclusions: body.includeSixteenConclusions ?? true,
           });
         } catch (e) {
           const message = e instanceof Error ? e.message : "Media generation failed";

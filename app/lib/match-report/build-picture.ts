@@ -1,5 +1,6 @@
-import { getServerSecretAsync, readStoredSettingsAsync } from "@/app/lib/server-secrets";
+import { aiChatJsonObject } from "@/app/lib/ai";
 import { assembleEioPromptSections } from "@/app/lib/match-report/eio-summaries";
+import { isMatchPreview } from "@/app/lib/match-report/content-type";
 import type { EventPicture, MatchReportProject } from "@/app/lib/match-report/types";
 
 const SYSTEM_PROMPT = `You are a senior football editor building an Event Picture — a structured editorial brief before writing a match report.
@@ -13,13 +14,6 @@ Rules:
 - narrativeThreads: 2–4 storylines for the report body.
 - factualAnchors: bullet facts that must appear in the final report.
 - Use IMPORT_LAYER_SUMMARIES and each digest section to ground angles in imported Sport365, table, stats, Loop Feed, WhoScored, and manual source context.`;
-
-function extractJson(text: string): unknown {
-  const trimmed = text.trim();
-  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const raw = fence ? fence[1]!.trim() : trimmed;
-  return JSON.parse(raw) as unknown;
-}
 
 function parseEventPicture(raw: unknown, model: string): EventPicture {
   if (!raw || typeof raw !== "object") throw new Error("Model returned invalid Event Picture JSON.");
@@ -62,15 +56,7 @@ function parseEventPicture(raw: unknown, model: string): EventPicture {
 }
 
 export async function runBuildPictureJob(project: MatchReportProject): Promise<EventPicture> {
-  const key = await getServerSecretAsync("OPENAI_API_KEY");
-  if (!key) {
-    throw new Error("OpenAI API key is not configured.");
-  }
-  const settings = await readStoredSettingsAsync();
-  const model =
-    settings.languageOpenaiModel?.trim() ||
-    process.env.LANGUAGE_OPENAI_MODEL?.trim() ||
-    "gpt-4o-mini";
+  const task = isMatchPreview(project) ? "preview_analysis" : "match_report_analysis";
 
   const userPrompt = `${assembleEioPromptSections(project)}
 
@@ -82,31 +68,12 @@ narrativeThreads (string[])
 factualAnchors (string[])
 toneNotes (string)`;
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.35,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-    }),
+  const { data, meta } = await aiChatJsonObject({
+    task,
+    system: SYSTEM_PROMPT,
+    user: userPrompt,
+    temperature: 0.35,
+    json: true,
   });
-
-  const body = (await res.json()) as {
-    error?: { message?: string };
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  if (!res.ok) {
-    throw new Error(body.error?.message || `OpenAI HTTP ${res.status}`);
-  }
-  const content = body.choices?.[0]?.message?.content;
-  if (!content) throw new Error("OpenAI returned empty content.");
-  return parseEventPicture(extractJson(content), model);
+  return parseEventPicture(data, meta.model);
 }

@@ -1,4 +1,12 @@
 import { baselineConfidence, LAYER_CONFIDENCE_PENALTIES } from "@/app/lib/match-report/confidence";
+import { isMatchPreview } from "@/app/lib/match-report/content-type";
+import {
+  PREVIEW_SKIP_PENALTIES,
+  nextPreviewGenerationStep,
+  nextPreviewImportStep,
+  prevPreviewGenerationStep,
+  prevPreviewImportStep,
+} from "@/app/lib/match-report/preview-workflow";
 import type { MatchReportProject, MatchReportWorkflowStep, SkippedLayer } from "@/app/lib/match-report/types";
 import { nextGenerationStep, nextImportLayerStep, prevGenerationStep, prevImportLayerStep } from "@/app/lib/match-report/workflow";
 
@@ -16,13 +24,30 @@ export const OPTIONAL_LAYER_PENALTIES: Record<string, number> = {
   manual_sources: LAYER_CONFIDENCE_PENALTIES.manualSources,
   manualSources: LAYER_CONFIDENCE_PENALTIES.manualSources,
   transcripts: LAYER_CONFIDENCE_PENALTIES.transcripts,
+  ...PREVIEW_SKIP_PENALTIES,
 };
 
-export function nextImportStep(current: MatchReportWorkflowStep): MatchReportWorkflowStep {
+export function nextImportStep(
+  current: MatchReportWorkflowStep,
+  project?: Pick<MatchReportProject, "contentType">,
+): MatchReportWorkflowStep {
+  if (project && isMatchPreview(project)) return nextPreviewImportStep(current);
   return nextImportLayerStep(current);
 }
 
-export function nextGenStep(current: MatchReportWorkflowStep): MatchReportWorkflowStep {
+export function prevImportStepForProject(
+  current: MatchReportWorkflowStep,
+  project?: Pick<MatchReportProject, "contentType">,
+): MatchReportWorkflowStep | null {
+  if (project && isMatchPreview(project)) return prevPreviewImportStep(current);
+  return prevImportLayerStep(current);
+}
+
+export function nextGenStep(
+  current: MatchReportWorkflowStep,
+  project?: Pick<MatchReportProject, "contentType">,
+): MatchReportWorkflowStep {
+  if (project && isMatchPreview(project)) return nextPreviewGenerationStep(current);
   return nextGenerationStep(current);
 }
 
@@ -30,7 +55,11 @@ export function prevImportStep(current: MatchReportWorkflowStep): MatchReportWor
   return prevImportLayerStep(current);
 }
 
-export function prevGenStep(current: MatchReportWorkflowStep): MatchReportWorkflowStep | null {
+export function prevGenStep(
+  current: MatchReportWorkflowStep,
+  project?: Pick<MatchReportProject, "contentType">,
+): MatchReportWorkflowStep | null {
+  if (project && isMatchPreview(project)) return prevPreviewGenerationStep(current);
   return prevGenerationStep(current);
 }
 

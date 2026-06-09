@@ -108,6 +108,25 @@ export function DataStudioClient() {
           </Link>
         </div>
 
+        {workflow === "preview" && vertical === "football" ? (
+          <div className="mt-5 rounded-xl border border-amber-500/35 bg-amber-500/10 p-4 text-sm leading-6 text-[color:var(--text-secondary)]">
+            <p className="font-bold text-[color:var(--text-primary)]">Use Match Report Builder for football previews</p>
+            <p className="mt-2">
+              The builder now supports <strong className="text-[color:var(--text-primary)]">match previews</strong> with
+              the Preview Intelligence Object (PIO) — structured form, H2H, team news, and fact-checking instead of raw
+              fixture JSON. This Data Studio path remains for legacy workflows during migration.
+            </p>
+            <div className="mt-3">
+              <Link
+                href="/match-report-builder?content_type=match_preview"
+                className="inline-flex rounded-full border border-sky-500/40 bg-sky-500/15 px-4 py-2 text-xs font-bold uppercase tracking-wide text-sky-200 hover:bg-sky-500/20"
+              >
+                Open Match Report Builder (preview)
+              </Link>
+            </div>
+          </div>
+        ) : null}
+
         {workflow === "preview" ? (
           <div className="mt-5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm leading-6 text-[color:var(--text-secondary)]">
             {vertical === "horse_racing" ? (

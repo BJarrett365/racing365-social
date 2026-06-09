@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Panel } from "@/app/components/Panel";
 import { R365Button } from "@/app/components/R365Button";
+import { EditorialLearningQueuePanel } from "@/app/knowledge-base/EditorialLearningQueuePanel";
 import { KnowledgeAssistantPanel } from "@/app/knowledge-base/KnowledgeAssistantPanel";
 import { BRAND_SUITE } from "@/app/lib/brand";
 import { readLanguageStudioData } from "@/app/lib/language-studio/store";
@@ -233,7 +234,10 @@ export default async function KnowledgeBasePage() {
       </Panel>
 
       <Panel title="AI Governance Review">
-        <KnowledgeAssistantPanel />
+        <div className="space-y-4">
+          <KnowledgeAssistantPanel />
+          <EditorialLearningQueuePanel />
+        </div>
       </Panel>
 
       <Panel title="Configure">

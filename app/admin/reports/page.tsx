@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Panel } from "@/app/components/Panel";
 import { BRAND_SUITE } from "@/app/lib/brand";
+import { readDevGatewayStore } from "@/app/lib/dev-gateway/store";
 
 export const metadata = {
   title: `R&D Reports · Admin · ${BRAND_SUITE}`,
@@ -21,7 +22,9 @@ const reports = [
   },
 ];
 
-export default function AdminReportsPage() {
+export default async function AdminReportsPage() {
+  const store = await readDevGatewayStore();
+  const rdEvidence = store.rdEvidence.slice(0, 12);
   return (
     <div className="space-y-6">
       <div>
@@ -53,6 +56,30 @@ export default function AdminReportsPage() {
           errors, model/prompt experiments, rejected workflows, API limitations, latency issues, rights/provenance
           trade-offs and manual barriers that the platform is trying to remove.
         </p>
+      </Panel>
+
+      <Panel title="Gateway R&D evidence">
+        {rdEvidence.length ? (
+          <div className="space-y-3">
+            {rdEvidence.map((item) => (
+              <article key={item.id} className="rounded-lg border border-[#1f2d26] bg-[#0a0e0c] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-bold text-white">{item.title}</p>
+                  <p className="text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()}</p>
+                </div>
+                <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm text-slate-300">{item.content}</p>
+                {item.linkedFiles.length ? (
+                  <p className="mt-2 text-xs text-slate-500">Files: {item.linkedFiles.join(", ")}</p>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-300">
+            No Gateway R&D evidence has been saved yet. Use the R&D action in Plexa Gateway to capture product
+            experiments, blockers, prompt tests and technical uncertainty.
+          </p>
+        )}
       </Panel>
 
       <Link href="/admin" className="inline-flex text-sm font-semibold text-[#22c55e] hover:underline">

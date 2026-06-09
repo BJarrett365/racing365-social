@@ -153,6 +153,16 @@ export const PRIMARY_STUDIO_CARDS: StudioDashboardCard[] = [
     navGroup: "configure",
   },
   {
+    title: "Plexa Dev Gateway",
+    href: "/dev-gateway",
+    heading: "Release checks and QA review",
+    description:
+      "Review release notes, diffs, changed files and Cursor plans before testing or deployment with advisory OpenAI QA.",
+    cta: "Open Dev Gateway",
+    accent: "green",
+    navGroup: "utilities",
+  },
+  {
     title: "Library",
     href: "/library",
     heading: "Assets and generated outputs",

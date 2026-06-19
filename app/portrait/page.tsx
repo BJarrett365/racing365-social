@@ -3,56 +3,37 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import fs from "fs/promises";
 import { Panel } from "@/app/components/Panel";
-import { CreateTemplateButton } from "@/app/components/TemplateActions";
-import { RacecardTemplateNewButton } from "@/app/features/racecards/RacecardTemplateNewButton";
+import { HubPipelineActions } from "@/app/components/HubPipelineActions";
+import type { TemplateFormatKey } from "@/app/components/TemplateNewButton";
 import { BRAND_SUITE } from "@/app/lib/brand";
 import type { ManifestEntry } from "@/app/lib/asset-manifest";
 import { assetsManifestPath } from "@/app/lib/paths";
 import { NEWS_SHORTS_BRAND_TEMPLATES } from "@/app/features/news-shorts/news-shorts-brand-templates";
+import { sport365HubPipelines, type HubPipeline } from "@/app/lib/templates-hub/sport365-pipelines";
 
 export const metadata: Metadata = {
   title: `Landscape Studio · ${BRAND_SUITE}`,
   description: "Create and open Landscape templates (tpl-…) by vertical and brand.",
 };
 
-type TemplateFormat =
-  | "next-off"
-  | "fast-results"
-  | "racecard"
-  | "teamtalk-news"
-  | "f1-grid"
-  | "f1-results"
-  | "planet-football-table"
-  | "planet-rugby-table";
-
-type Pipeline = {
-  title: string;
-  description: string;
-  listPath: string;
-  exampleSlug: string;
-  previewFormat?: string;
-  format?: TemplateFormat;
-};
+type Pipeline = HubPipeline;
 
 const horseRacing: Pipeline[] = [
-  {
-    title: "Next off Template",
+  { id: "next-off", title: "Next off Template",
     description: "Tips intro, three selections, outro. tpl-* cards plus dummy races in data/dummy.",
     listPath: "/next-off?mode=landscape",
     exampleSlug: "next-off",
     previewFormat: "next-off",
     format: "next-off",
   },
-  {
-    title: "Fast results Template",
+  { id: "fast-results", title: "Fast results Template",
     description: "Winner, full-frame placings, branded outro. New tpl-* templates from here.",
     listPath: "/results?mode=landscape",
     exampleSlug: "fast-results",
     previewFormat: "fast-results",
     format: "fast-results",
   },
-  {
-    title: "Racecards Template",
+  { id: "racecard", title: "Racecards Template",
     description: "Odds ladder, movers, board pages. New tpl-* racecards from here.",
     listPath: "/racecards?mode=landscape",
     exampleSlug: "racecard",
@@ -62,16 +43,14 @@ const horseRacing: Pipeline[] = [
 ];
 
 const f1: Pipeline[] = [
-  {
-    title: "F1 Grid Template",
+  { id: "f1-grid", title: "F1 Grid Template",
     description: "Landscape 1920×1080 starting grid: intro, two grid pages, outro. PNG + Landscape MP4.",
     listPath: "/f1-grid?mode=landscape",
     exampleSlug: "f1-grid",
     previewFormat: "f1-grid",
     format: "f1-grid",
   },
-  {
-    title: "F1 Results Template",
+  { id: "f1-results", title: "F1 Results Template",
     description: "Race classification with stops; fastest lap on outro. Same landscape format.",
     listPath: "/f1-results?mode=landscape",
     exampleSlug: "f1-results",
@@ -81,8 +60,7 @@ const f1: Pipeline[] = [
 ];
 
 const teamtalk: Pipeline[] = [
-  {
-    title: "TEAMtalk News Template",
+  { id: "teamtalk-news", title: "TEAMtalk News Template",
     description: "Transfer-style neon bars, player + club logos, footer CTA. tpl-* in data/local.",
     listPath: "/teamtalk-news?mode=landscape",
     exampleSlug: "teamtalk-news",
@@ -92,32 +70,35 @@ const teamtalk: Pipeline[] = [
 ];
 
 const planetRugby: Pipeline[] = [
-  {
-    title: "League Tables Template",
+  { id: "planet-rugby-table", title: "League Tables Template",
     description: "Import PlanetRugby tournament table URLs and build landscape table scenes.",
     listPath: "/planet-rugby-table?mode=landscape",
     exampleSlug: "planet-rugby-table",
     previewFormat: "planet-rugby-table",
+    format: "planet-rugby-table",
   },
 ];
 
 const planetFootball: Pipeline[] = [
-  {
-    title: "League Tables Template",
+  { id: "planet-football-table", title: "League Tables Template",
     description: "Import Sport365 football standings URLs and build landscape table scenes.",
     listPath: "/planet-football-table?mode=landscape",
     exampleSlug: "planet-football-table",
     previewFormat: "planet-football-table",
+    format: "planet-football-table",
   },
 ];
 
+const sport365 = sport365HubPipelines("landscape");
+
 const football365: Pipeline[] = [
-  {
-    title: "Football line-ups Template",
-    description: "Pitch formation, bench, injuries — portrait boards. Open a fixture in the editor.",
+  { id: "football-lineups", title: "Football line-ups Template",
+    description:
+      "Import Sport365 Match Centre line-ups — pitch formation, bench, injuries. Portrait boards with editable CMS fields.",
     listPath: "/football-lineups",
     exampleSlug: "football-lineups",
     previewFormat: "football-lineups",
+    format: "football-lineups",
   },
 ];
 
@@ -139,7 +120,7 @@ const socialBrands: BrandRow[] = [
   { name: "Love Rugby League" },
   { name: "Grassroot Goals" },
   { name: "Racing365", href: "/landscape", linkLabel: "Landscape hub" },
-  { name: "Sport365" },
+  { name: "Sport365", href: "/landscape#sport365", linkLabel: "Line-Up & Team Sheet templates" },
 ];
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
@@ -163,25 +144,30 @@ function PipelineGrid({
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {items.map((p) => (
-        <Panel key={p.listPath} title={p.title}>
+        <Panel key={p.id} title={p.title}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
             <LandscapeLibraryVideoThumbnail
               libraryRel={p.previewFormat ? libraryVideoByFormat[p.previewFormat] : undefined}
               label={p.title}
+              placeholderLabel={p.previewPlaceholder?.label}
+              placeholderHint={p.previewPlaceholder?.hint}
             />
             <div className="min-w-0 flex-1 space-y-2">
               <p className="text-sm text-[color:var(--text-secondary)]">{p.description}</p>
               <p className="font-mono text-xs text-[color:var(--text-muted)]">{p.listPath}</p>
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                <Link href={p.listPath} className="ds-link-accent inline-flex text-sm">
+              {p.format ? (
+                <HubPipelineActions
+                  format={p.format}
+                  listPath={p.listPath}
+                  editorBasePath={editorBasePath}
+                  teamLineUpDefaults={p.teamLineUpDefaults}
+                  teamSheetDefaults={p.teamSheetDefaults}
+                />
+              ) : (
+                <Link href={p.listPath} className="ds-link-accent inline-flex pt-2 text-sm">
                   Open list →
                 </Link>
-                {p.format === "racecard" ? (
-                  <RacecardTemplateNewButton editorBasePath={editorBasePath} />
-                ) : p.format ? (
-                  <CreateTemplateButton format={p.format} editorBasePath={editorBasePath} />
-                ) : null}
-              </div>
+              )}
             </div>
           </div>
         </Panel>
@@ -193,9 +179,13 @@ function PipelineGrid({
 function LandscapeLibraryVideoThumbnail({
   libraryRel,
   label,
+  placeholderLabel,
+  placeholderHint,
 }: {
   libraryRel?: string;
   label: string;
+  placeholderLabel?: string;
+  placeholderHint?: string;
 }) {
   if (!libraryRel) {
     return (
@@ -208,8 +198,12 @@ function LandscapeLibraryVideoThumbnail({
         }}
         title="No landscape preview yet. Build a video from this template to show a preview."
       >
-        <span className="text-[9px] font-semibold uppercase tracking-wide">Landscape preview</span>
-        <span className="mt-1 text-[9px] leading-tight opacity-90">Appears after you create one</span>
+        <span className="text-[9px] font-semibold uppercase tracking-wide">
+          {placeholderLabel ?? "Landscape preview"}
+        </span>
+        <span className="mt-1 text-[9px] leading-tight opacity-90">
+          {placeholderHint ?? "Appears after you create one"}
+        </span>
       </div>
     );
   }
@@ -299,6 +293,29 @@ export default async function LandscapePage() {
           libraryVideoByFormat={libraryVideoByFormat}
           editorBasePath="/landscape/editor"
         />
+      </Section>
+
+      <Section id="sport365" title="Sport365">
+        <p className="max-w-3xl text-sm text-[color:var(--text-secondary)]">
+          Import line-ups from Sport365.{" "}
+          <strong className="font-semibold text-[color:var(--text-primary)]">Split Team Sheet</strong> is the
+          Barcelona-style layout (player left, XI right). Formation graphics at{" "}
+          <Link href="/team-line-up?mode=landscape" className="ds-link-accent font-semibold">
+            /team-line-up
+          </Link>
+          , team sheets at{" "}
+          <Link href="/team-sheet?mode=landscape" className="ds-link-accent font-semibold">
+            /team-sheet
+          </Link>
+          .
+        </p>
+        <div className="mt-4">
+          <PipelineGrid
+            items={sport365}
+            libraryVideoByFormat={libraryVideoByFormat}
+            editorBasePath="/landscape/editor"
+          />
+        </div>
       </Section>
 
       <Section id="news-shorts" title="News Shorts (Planet Sport)">

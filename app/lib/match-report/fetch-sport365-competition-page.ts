@@ -16,10 +16,40 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function normalizeSport365CompetitionUrl(sourceUrl: string): string {
   const parsed = new URL(sourceUrl.trim());
   if (!/(^|\.)sport365\.com$/i.test(parsed.hostname)) {
-    throw new Error("Use a Sport365 competition URL (e.g. premier-league#/top-scorers).");
+    throw new Error("Use a Sport365 URL (competition, standings, or match page).");
   }
   parsed.hash = "";
   return parsed.toString().replace(/\/$/, "");
+}
+
+function stageRefFromPageProps(pageProps: Record<string, unknown>, sourceUrl: string): Sport365StageRef | null {
+  const stageObj = isRecord(pageProps.stageObj) ? pageProps.stageObj : null;
+  const stageIdFromObj = typeof stageObj?.st_id === "string" ? stageObj.st_id : "";
+  if (stageIdFromObj) {
+    return {
+      stageId: stageIdFromObj,
+      competition: typeof stageObj?.st_name === "string" ? stageObj.st_name : "Competition",
+      stageCode: typeof stageObj?.st_code === "string" ? stageObj.st_code : undefined,
+      sourceUrl,
+    };
+  }
+  const match = isRecord(pageProps.match) ? pageProps.match : null;
+  const stageIdFromMatch = typeof match?.st_id === "string" ? match.st_id : "";
+  if (stageIdFromMatch) {
+    const competition =
+      typeof match?.st_name === "string"
+        ? match.st_name
+        : typeof match?.c_name === "string"
+          ? match.c_name
+          : "Competition";
+    return {
+      stageId: stageIdFromMatch,
+      competition,
+      stageCode: typeof match?.st_code === "string" ? match.st_code : undefined,
+      sourceUrl,
+    };
+  }
+  return null;
 }
 
 export async function resolveSport365StageRef(sourceUrl: string): Promise<Sport365StageRef> {
@@ -42,15 +72,10 @@ export async function resolveSport365StageRef(sourceUrl: string): Promise<Sport3
       isRecord(nextData) && isRecord(nextData.props) && isRecord(nextData.props.pageProps)
         ? nextData.props.pageProps
         : null;
-    const stageObj = pageProps && isRecord(pageProps.stageObj) ? pageProps.stageObj : null;
-    const stageId = typeof stageObj?.st_id === "string" ? stageObj.st_id : "";
-    if (!stageId) throw new Error("Could not resolve Sport365 stage ID from competition URL.");
-    return {
-      stageId,
-      competition: typeof stageObj?.st_name === "string" ? stageObj.st_name : "Competition",
-      stageCode: typeof stageObj?.st_code === "string" ? stageObj.st_code : undefined,
-      sourceUrl: source,
-    };
+    if (!pageProps) throw new Error("Could not read Sport365 page data.");
+    const stage = stageRefFromPageProps(pageProps, source);
+    if (!stage?.stageId) throw new Error("Could not resolve Sport365 stage ID from URL.");
+    return stage;
   } finally {
     clearTimeout(timer);
   }

@@ -2,6 +2,12 @@ import {
   formatLoopFeedManualSourcesSummary,
   groupLoopFeedManualSourcesByTeam,
 } from "@/app/lib/match-report/extract-manual-sources-from-loop-feed";
+import {
+  formatImportLinesBulletList,
+  fotMobPreviewImportLines,
+  sixLogicFixtureImportLines,
+  whoScoredPreviewImportLines,
+} from "@/app/lib/match-report/preview-import-summaries";
 import { buildMatchFoundationSummary } from "@/app/lib/match-report/normalise-sixlogics";
 import type {
   EventPictureLayerSummary,
@@ -21,6 +27,8 @@ const SKIPPED_LAYER_TITLES: Record<string, string> = {
   optaPlayerData: "WhoScored",
   manualSources: "Manual sources",
   interviews: "Post-match interviews",
+  whoScoredPreview: "WhoScored preview",
+  fotMobPreview: "FotMob preview",
 };
 
 function digestExcerpt(text: string | undefined, max = 480): string | undefined {
@@ -93,6 +101,12 @@ export function fixtureContextSummary(ctx: FixtureContextIntelligence): string {
   if (ctx.seasonDouble?.completed) parts.push("Season double complete");
   else if (ctx.seasonDouble?.homeMeeting || ctx.seasonDouble?.awayMeeting) parts.push("Return fixture pending");
   if (ctx.headToHead.length > 0) parts.push(`${ctx.headToHead.length} H2H meetings`);
+  if (ctx.homeRecentResults.length > 0 || ctx.awayRecentResults.length > 0) {
+    parts.push(
+      `Form: ${ctx.homeRecentResults.length} home / ${ctx.awayRecentResults.length} away results`,
+    );
+  }
+  if (ctx.matchFacts && ctx.matchFacts.length > 0) parts.push(`${ctx.matchFacts.length} match facts`);
   if (ctx.homeNextFixture?.sixLogicMatchId || ctx.awayNextFixture?.sixLogicMatchId) {
     parts.push("Next fixtures with match IDs");
   }
@@ -151,9 +165,34 @@ export function buildImportLayerSummaries(project: MatchReportProject): EventPic
     const ctx = project.layers.fixtureContext;
     summaries.push({
       layer: "fixtureContext",
-      title: "Fixtures & H2H",
+      title: "Six Logic form & H2H",
       summary: fixtureContextSummary(ctx),
-      digestExcerpt: digestExcerpt(ctx.digest),
+      digestExcerpt: digestExcerpt(
+        formatImportLinesBulletList(sixLogicFixtureImportLines(ctx)),
+      ),
+    });
+  }
+
+  if (project.layers.whoScoredPreview) {
+    const ws = project.layers.whoScoredPreview;
+    summaries.push({
+      layer: "whoScoredPreview",
+      title: "WhoScored preview",
+      summary: fixtureContextSummary(ws),
+      digestExcerpt: digestExcerpt(
+        formatImportLinesBulletList(whoScoredPreviewImportLines(ws)),
+      ),
+    });
+  }
+
+  if (project.layers.fotMobPreview) {
+    const fotmob = project.layers.fotMobPreview;
+    const importLines = fotMobPreviewImportLines(fotmob);
+    summaries.push({
+      layer: "fotMobPreview",
+      title: "FotMob preview",
+      summary: importLines.slice(0, 3).join(" · ") || "FotMob preview imported",
+      digestExcerpt: digestExcerpt(formatImportLinesBulletList(importLines)),
     });
   }
 

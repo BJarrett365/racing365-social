@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { R365Button } from "@/app/components/R365Button";
 import { studioApiPath } from "@/app/lib/app-base-path";
+import type { EditorOverrideReason } from "@/app/lib/match-report/mio/types";
 import type { MatchReportProject } from "@/app/lib/match-report/types";
 import type { MatchReportPushAction } from "@/app/lib/match-report/match-report-distribution";
+import { PublishEditorOverrideModal } from "@/app/match-report-builder/components/PublishEditorOverrideModal";
 
 type PushResults = {
   calendar?: { eventId: string; url: string };
@@ -47,19 +49,29 @@ export function MatchReportDistributionPanel({
   const [busyAction, setBusyAction] = useState<MatchReportPushAction | null>(null);
   const [results, setResults] = useState<PushResults | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingPublishAction, setPendingPublishAction] = useState<MatchReportPushAction | null>(null);
 
   const hasMedia = Boolean(project.mediaOutputs);
   const hasHero = Boolean(project.imageIntelligence?.hero?.url);
   const articleId = project.archive?.languageStudioArticleId;
+  const publishGate = project.editorialPublishGate;
+  const editorialScore = project.previewEditorialScore ?? project.reportEditorialScore;
 
-  const runAction = async (action: MatchReportPushAction) => {
+  const runAction = async (
+    action: MatchReportPushAction,
+    editorOverride?: { reason: EditorOverrideReason; detail?: string },
+  ) => {
     setBusyAction(action);
     setError(null);
     try {
       const res = await fetch(studioApiPath("/api/match-report/push-actions"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: project.id, action }),
+        body: JSON.stringify({
+          projectId: project.id,
+          action,
+          editorOverride,
+        }),
       });
       const data = (await res.json()) as {
         ok?: boolean;
@@ -74,7 +86,20 @@ export function MatchReportDistributionPanel({
       setError(e instanceof Error ? e.message : "Action failed");
     } finally {
       setBusyAction(null);
+      setPendingPublishAction(null);
     }
+  };
+
+  const requestAction = (action: MatchReportPushAction) => {
+    const needsPublishGate =
+      (action === "publish" || action === "all") &&
+      publishGate?.requiresEditorOverride &&
+      !publishGate.canPublishWithoutOverride;
+    if (needsPublishGate && editorialScore) {
+      setPendingPublishAction(action);
+      return;
+    }
+    void runAction(action);
   };
 
   const actions: MatchReportPushAction[] = ["calendar", "rewrite", "language", "publish", "all"];
@@ -88,6 +113,19 @@ export function MatchReportDistributionPanel({
       <p className="mt-2 text-sm text-[color:var(--text-secondary)]">
         Push this match report to Schedule Studio, Language Studio, or publish — individually or all at once.
       </p>
+
+      {publishGate ? (
+        <p className="mt-3 text-xs text-[color:var(--text-muted)]">
+          Publish gate:{" "}
+          <span className="font-semibold text-[color:var(--text-secondary)]">
+            {publishGate.status.replaceAll("_", " ")}
+          </span>
+          {editorialScore ? ` · score ${editorialScore.overall.toFixed(1)}` : ""}
+          {publishGate.requiresEditorOverride && !publishGate.canPublishWithoutOverride
+            ? " · override required"
+            : ""}
+        </p>
+      ) : null}
 
       {!hasMedia ? (
         <p className="mt-3 text-sm text-amber-300">Generate media outputs before using distribution actions.</p>
@@ -113,7 +151,7 @@ export function MatchReportDistributionPanel({
                   className="mt-3 w-full"
                   variant={action === "all" ? "primary" : "ghost"}
                   disabled={disabled || busyAction !== null || !hasMedia}
-                  onClick={() => void runAction(action)}
+                  onClick={() => requestAction(action)}
                 >
                   {busyAction === action ? "Working…" : ACTION_LABELS[action]}
                 </R365Button>
@@ -195,6 +233,17 @@ export function MatchReportDistributionPanel({
       ) : null}
 
       {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
+
+      <PublishEditorOverrideModal
+        open={pendingPublishAction !== null && Boolean(editorialScore && publishGate)}
+        overallScore={editorialScore?.overall ?? 0}
+        gateSummary={publishGate?.summary ?? ""}
+        onCancel={() => setPendingPublishAction(null)}
+        onConfirm={(override) => {
+          if (!pendingPublishAction) return;
+          void runAction(pendingPublishAction, override);
+        }}
+      />
     </section>
   );
 }

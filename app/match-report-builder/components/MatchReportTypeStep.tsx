@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { R365Button } from "@/app/components/R365Button";
 import type { MatchReportContentType } from "@/app/lib/match-report/types";
 import {
@@ -20,6 +21,128 @@ type Props = {
   onContinue: () => void;
 };
 
+type ContentTypeCardConfig = {
+  id: MatchReportContentType;
+  label: string;
+  timing: string;
+  tagline: string;
+  highlights: string[];
+  icon: ReactNode;
+};
+
+const CONTENT_TYPE_OPTIONS: ContentTypeCardConfig[] = [
+  {
+    id: MATCH_PREVIEW_CONTENT_TYPE,
+    label: "Match preview",
+    timing: "Before kick-off",
+    tagline: "Build anticipation — why this game matters and what could decide it.",
+    highlights: ["Form, table stakes & head-to-head", "Team news & predicted line-ups", "11-section preview with verdict"],
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    id: MATCH_REPORT_CONTENT_TYPE,
+    label: "Match report",
+    timing: "After full-time",
+    tagline: "Tell the story of the match — moments, ratings and what it means.",
+    highlights: ["Report 2.0 narrative sections", "Player ratings & 16 conclusions", "Fact-check vs final score"],
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+        <path d="M5 5h14v14H5z" strokeLinejoin="round" />
+        <path d="M8 9h8M8 12h8M8 15h5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+];
+
+function SelectionMark({ selected }: { selected: boolean }) {
+  return (
+    <span
+      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 text-[10px] font-black transition-colors"
+      style={{
+        borderColor: selected ? "var(--accent)" : "var(--border-strong)",
+        background: selected ? "var(--accent)" : "transparent",
+        color: selected ? "var(--accent-foreground)" : "transparent",
+      }}
+      aria-hidden
+    >
+      {selected ? "✓" : ""}
+    </span>
+  );
+}
+
+function ContentTypeCard({
+  option,
+  selected,
+  onSelect,
+}: {
+  option: ContentTypeCardConfig;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onSelect}
+      className={`group rounded-2xl border p-5 text-left transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--accent)] ${
+        selected ? "ring-2 ring-[color:var(--accent)] shadow-[var(--shadow)]" : "hover:border-[color:var(--border-strong)] hover:bg-[var(--surface-hover)]"
+      }`}
+      style={{
+        borderColor: selected ? "color-mix(in srgb, var(--accent) 55%, var(--border))" : "var(--border)",
+        background: selected ? "var(--accent-soft)" : "var(--surface-muted)",
+      }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors"
+          style={{
+            background: selected ? "color-mix(in srgb, var(--accent) 22%, transparent)" : "var(--surface)",
+            color: selected ? "var(--accent)" : "var(--text-muted)",
+          }}
+        >
+          {option.icon}
+        </div>
+        <SelectionMark selected={selected} />
+      </div>
+
+      <div className="mt-4 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-base font-black text-[color:var(--text-primary)]">{option.label}</p>
+          <span
+            className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+            style={{
+              background: selected ? "color-mix(in srgb, var(--accent) 18%, transparent)" : "var(--surface)",
+              color: selected ? "var(--accent)" : "var(--text-muted)",
+            }}
+          >
+            {option.timing}
+          </span>
+        </div>
+        <p className="text-sm leading-6 text-[color:var(--text-secondary)]">{option.tagline}</p>
+      </div>
+
+      <ul className="mt-4 space-y-1.5">
+        {option.highlights.map((item) => (
+          <li key={item} className="flex items-start gap-2 text-sm text-[color:var(--text-secondary)]">
+            <span
+              className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ background: selected ? "var(--accent)" : "var(--text-muted)" }}
+              aria-hidden
+            />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </button>
+  );
+}
+
 function FormatCard({
   option,
   selected,
@@ -34,10 +157,12 @@ function FormatCard({
   return (
     <button
       type="button"
+      role="radio"
+      aria-checked={selected}
       onClick={onSelect}
       disabled={disabled}
-      className={`rounded-2xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-        selected ? "ring-2 ring-[color:var(--accent)]" : "hover:bg-[var(--surface-hover)]"
+      className={`rounded-2xl border p-4 text-left transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 ${
+        selected ? "ring-2 ring-[color:var(--accent)]" : "hover:border-[color:var(--border-strong)] hover:bg-[var(--surface-hover)]"
       }`}
       style={{
         borderColor: selected ? "color-mix(in srgb, var(--accent) 55%, var(--border))" : "var(--border)",
@@ -49,17 +174,7 @@ function FormatCard({
           <p className="text-sm font-black text-[color:var(--text-primary)]">{option.label}</p>
           <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">{option.description}</p>
         </div>
-        <span
-          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 text-[10px] font-black"
-          style={{
-            borderColor: selected ? "var(--accent)" : "var(--border-strong)",
-            background: selected ? "var(--accent)" : "transparent",
-            color: selected ? "var(--accent-foreground)" : "transparent",
-          }}
-          aria-hidden
-        >
-          {selected ? "✓" : ""}
-        </span>
+        <SelectionMark selected={selected} />
       </div>
       {option.createsDualReports ? (
         <p className="mt-3 text-xs font-bold uppercase tracking-wide text-sky-300">Creates 2 linked reports</p>
@@ -81,87 +196,59 @@ export function MatchReportTypeStep({
     : MATCH_REPORT_FORMAT_OPTIONS;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-sky-400">Step 1</p>
         <h2 className="mt-2 text-2xl font-black text-[color:var(--text-primary)]">What are you building?</h2>
-        <p className="mt-2 max-w-2xl text-sm text-[color:var(--text-secondary)]">
-          Choose <strong className="font-semibold text-[color:var(--text-primary)]">Match preview</strong> for
-          pre-match content (form, H2H, team news, prediction) or{" "}
-          <strong className="font-semibold text-[color:var(--text-primary)]">Match report</strong> for post-match
-          journalism.
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--text-secondary)]">
+          Pick the workflow that matches where the fixture is in its lifecycle. You can always come back and start a
+          different type for the same match later.
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => onContentTypeChange(MATCH_PREVIEW_CONTENT_TYPE)}
-          className={`rounded-2xl border p-4 text-left transition-colors ${
-            isPreview ? "ring-2 ring-[color:var(--accent)]" : "hover:bg-[var(--surface-hover)]"
-          }`}
-          style={{
-            borderColor: isPreview ? "color-mix(in srgb, var(--accent) 55%, var(--border))" : "var(--border)",
-            background: isPreview ? "var(--accent-soft)" : "var(--surface-muted)",
-          }}
-        >
-          <p className="text-sm font-black text-[color:var(--text-primary)]">Match preview</p>
-          <p className="mt-2 text-sm text-[color:var(--text-secondary)]">
-            Pre-match: form, head-to-head, stakes, team news, prediction. Uses the Preview Intelligence Object (PIO).
-          </p>
-        </button>
-        <button
-          type="button"
-          onClick={() => onContentTypeChange(MATCH_REPORT_CONTENT_TYPE)}
-          className={`rounded-2xl border p-4 text-left transition-colors ${
-            !isPreview ? "ring-2 ring-[color:var(--accent)]" : "hover:bg-[var(--surface-hover)]"
-          }`}
-          style={{
-            borderColor: !isPreview ? "color-mix(in srgb, var(--accent) 55%, var(--border))" : "var(--border)",
-            background: !isPreview ? "var(--accent-soft)" : "var(--surface-muted)",
-          }}
-        >
-          <p className="text-sm font-black text-[color:var(--text-primary)]">Match report</p>
-          <p className="mt-2 text-sm text-[color:var(--text-secondary)]">
-            Post-match: commentary, ratings, 16 conclusions, fact-check against the final score.
-          </p>
-        </button>
+      <div
+        className="grid gap-4 sm:grid-cols-2"
+        role="radiogroup"
+        aria-label="Content type"
+      >
+        {CONTENT_TYPE_OPTIONS.map((option) => (
+          <ContentTypeCard
+            key={option.id}
+            option={option}
+            selected={contentType === option.id}
+            onSelect={() => onContentTypeChange(option.id)}
+          />
+        ))}
       </div>
 
-      {!isPreview ? (
-        <div>
-          <p className="text-sm font-bold text-[color:var(--text-primary)]">Report perspective</p>
-          <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-            Neutral for one balanced report, or Dual for separate home and away projects.
-          </p>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            {formatOptions.map((option) => (
-              <FormatCard
-                key={option.id}
-                option={option}
-                selected={value === option.id}
-                onSelect={() => onChange(option.id)}
-              />
-            ))}
-          </div>
+      <div
+        className="rounded-2xl border p-4 sm:p-5"
+        style={{ borderColor: "var(--border)", background: "var(--surface-muted)" }}
+      >
+        <p className="text-sm font-bold text-[color:var(--text-primary)]">
+          {isPreview ? "Preview perspective" : "Report perspective"}
+        </p>
+        <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+          {isPreview
+            ? "Neutral gives one balanced preview for the whole fixture."
+            : "Neutral for one balanced report, or Dual for separate home and away projects."}
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2" role="radiogroup" aria-label="Perspective">
+          {formatOptions.map((option) => (
+            <FormatCard
+              key={option.id}
+              option={option}
+              selected={value === option.id}
+              onSelect={() => onChange(option.id)}
+            />
+          ))}
         </div>
-      ) : (
-        <div>
-          <p className="text-sm font-bold text-[color:var(--text-primary)]">Preview perspective</p>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            {formatOptions.map((option) => (
-              <FormatCard
-                key={option.id}
-                option={option}
-                selected={value === option.id}
-                onSelect={() => onChange(option.id)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      </div>
 
-      <R365Button onClick={onContinue}>Continue</R365Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <R365Button onClick={onContinue}>Continue</R365Button>
+        <p className="text-xs text-[color:var(--text-muted)]">Next: editorial brief → match ID → import data</p>
+      </div>
     </div>
   );
 }

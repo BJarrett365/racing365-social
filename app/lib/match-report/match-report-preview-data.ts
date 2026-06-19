@@ -105,12 +105,24 @@ export function stripReportHtmlForNarrative(html: string): string {
   return truncateBeforeSection(withoutRatings, [/<h2[^>]*>\s*16 Conclusions/i]);
 }
 
+function extractReportSectionsCombined(html: string, titles: string[]): string {
+  return titles.map((title) => extractHtmlSectionByH2(html, title)).filter(Boolean).join("\n");
+}
+
 export function parseReportSections(reportHtml: string, eventPicture: EventPicture | null): PreviewReportSections {
   const narrativeHtml = stripReportHtmlForNarrative(reportHtml);
-  const matchAnalysisHtml = extractHtmlSectionByH2(narrativeHtml, "Match Analysis");
-  const extendedReportHtml = extractHtmlSectionByH2(narrativeHtml, "Extended Report");
+  const storyHtml = extractReportSectionsCombined(narrativeHtml, ["The Story", "Turning Point"]);
+  const legacyAnalysisHtml = extractHtmlSectionByH2(narrativeHtml, "Match Analysis");
+  const legacyExtendedHtml = extractHtmlSectionByH2(narrativeHtml, "Extended Report");
+  const report20ExtendedHtml = extractReportSectionsCombined(narrativeHtml, [
+    "What It Means",
+    "What Happens Next",
+    "Football365 Verdict",
+  ]);
+  const analysisHtml = storyHtml || legacyAnalysisHtml;
+  const extendedReportHtml = report20ExtendedHtml || legacyExtendedHtml;
   const extendedParagraphs = parseParagraphsFromHtml(extendedReportHtml);
-  const mainParagraphs = parseParagraphsFromHtml(matchAnalysisHtml || narrativeHtml).filter(
+  const mainParagraphs = parseParagraphsFromHtml(analysisHtml || narrativeHtml).filter(
     (paragraph) => !extendedReportHtml || !extendedParagraphs.includes(paragraph),
   );
   const extendedFromHtml = extendedParagraphs.join("\n\n");
@@ -366,6 +378,27 @@ export function buildPreviewContextRows(
       label: "Away Form",
       value: formatFormRecord(fixtureContext.awayRecentResults, project.awayTeam),
     });
+    if (fixtureContext.matchFacts && fixtureContext.matchFacts.length > 0) {
+      rows.push({
+        label: "Match Facts",
+        value: fixtureContext.matchFacts.slice(0, 3).join(" · "),
+      });
+    }
+    const fotmob = project.layers.fotMobPreview;
+    if (fotmob?.winProbability.summary) {
+      rows.push({ label: "Win probability", value: fotmob.winProbability.summary });
+    }
+    if (fotmob?.homeLineup?.formation || fotmob?.awayLineup?.formation) {
+      rows.push({
+        label: "Formations",
+        value: [
+          fotmob.homeLineup?.formation ? `${fotmob.homeLineup.team} ${fotmob.homeLineup.formation}` : null,
+          fotmob.awayLineup?.formation ? `${fotmob.awayLineup.team} ${fotmob.awayLineup.formation}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      });
+    }
     return rows;
   }
 

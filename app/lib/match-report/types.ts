@@ -1,3 +1,13 @@
+import type {
+  DeepSeekEditorialReview,
+  EditorialPublishGate,
+  EditorialPublishOverride,
+  EditorialScoreResult,
+  EditorialSectionLintResult,
+  PreviewPicture,
+  SignificanceIntelligence,
+  TeamIntelligence,
+} from "@/app/lib/match-report/mio/types";
 import type { OptaPlayerIntelligence } from "@/app/lib/match-report/opta-player-types";
 
 export type MatchReportSport = "football";
@@ -20,6 +30,8 @@ export type MatchReportWorkflowStep =
   | "sixlogic_core"
   | "competition_rules"
   | "preview_fixture_context"
+  | "preview_whoscored"
+  | "preview_fotmob"
   | "sport365"
   | "league_table"
   | "league_stats"
@@ -310,6 +322,62 @@ export type FixtureContextIntelligence = {
     homeMeeting?: FixtureMeetingSnapshot;
     awayMeeting?: FixtureMeetingSnapshot;
   };
+  /** Editorial facts from WhoScored / FotMob preview feeds. */
+  matchFacts?: string[];
+  digest: string;
+  importedAt: string;
+};
+
+export type FotMobPreviewLineupPlayer = {
+  name: string;
+  shirtNumber?: string;
+  positionId?: number;
+  usualPlayingPositionId?: number;
+  isCaptain?: boolean;
+  marketValue?: number;
+  primaryTeamName?: string;
+};
+
+export type FotMobPreviewTeamLineup = {
+  team: string;
+  formation?: string;
+  lineupLabel: string;
+  starters: FotMobPreviewLineupPlayer[];
+  bench: FotMobPreviewLineupPlayer[];
+  averageStarterAge?: number;
+  totalStarterMarketValue?: number;
+};
+
+export type FotMobStatComparisonRow = {
+  label: string;
+  home?: string | number;
+  away?: string | number;
+};
+
+export type FotMobPreviewIntelligence = {
+  sourceUrl: string;
+  matchId: string;
+  slugId?: string;
+  aboutTheMatch?: string;
+  headToHead: FixtureMeetingSnapshot[];
+  homeRecentResults: FixtureMeetingSnapshot[];
+  awayRecentResults: FixtureMeetingSnapshot[];
+  homeLineup?: FotMobPreviewTeamLineup;
+  awayLineup?: FotMobPreviewTeamLineup;
+  winProbability: {
+    summary?: string;
+    h2hRecord?: { homeWins: number; draws: number; awayWins: number };
+    pollInsights: string[];
+  };
+  teamInsights: string[];
+  playerInsights: string[];
+  statsComparison: {
+    available: boolean;
+    rows: FotMobStatComparisonRow[];
+    note?: string;
+  };
+  venue?: { name?: string; city?: string; capacity?: number; surface?: string };
+  referee?: string;
   digest: string;
   importedAt: string;
 };
@@ -392,6 +460,8 @@ export type EventPicture = {
   narrativeThreads: string[];
   factualAnchors: string[];
   toneNotes: string;
+  /** Post-match stakes — feeds What It Means and editorial Insight scoring. */
+  significance?: SignificanceIntelligence;
   /** One-line summary per imported data layer — persisted for downstream AI and review. */
   layerSummaries?: EventPictureLayerSummary[];
   generatedAt: string;
@@ -605,6 +675,8 @@ export type MatchReportLayers = {
   leagueTable: LeagueTableIntelligence | null;
   leagueSeasonStats: LeagueSeasonStatsIntelligence | null;
   fixtureContext: FixtureContextIntelligence | null;
+  whoScoredPreview: FixtureContextIntelligence | null;
+  fotMobPreview: FotMobPreviewIntelligence | null;
   loopFeed: LoopFeedIntelligence | null;
   optaPlayerData: OptaPlayerIntelligence | null;
   interviews: InterviewIntelligence[];
@@ -636,6 +708,17 @@ export type MatchReportProject = {
   health: MatchReportHealth;
   confidence: number;
   eventPicture: EventPicture | null;
+  /** Pre-match editorial brief (match_preview only). */
+  previewPicture?: PreviewPicture | null;
+  /** Structured injuries, suspensions, predicted XI — no social rumours. */
+  teamIntelligence?: TeamIntelligence | null;
+  significance?: SignificanceIntelligence | null;
+  previewEditorialScore?: EditorialScoreResult | null;
+  reportEditorialScore?: EditorialScoreResult | null;
+  editorialSectionLint?: EditorialSectionLintResult | null;
+  editorialPublishGate?: EditorialPublishGate | null;
+  editorialPublishOverride?: EditorialPublishOverride | null;
+  deepseekReview?: DeepSeekEditorialReview | null;
   playerIntelligence: PlayerIntelligence | null;
   imageIntelligence: ImageIntelligence | null;
   mediaOutputs: MediaOutputs | null;

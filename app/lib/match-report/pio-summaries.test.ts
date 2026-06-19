@@ -97,6 +97,8 @@ function previewProject(overrides: Partial<MatchReportProject> = {}): MatchRepor
         homeNextFixture: { team: "Arsenal", opponent: "Liverpool", date: "2026-06-06" },
         awayNextFixture: null,
       },
+      fotMobPreview: null,
+      whoScoredPreview: null,
       leagueTable: null,
       leagueSeasonStats: null,
       loopFeed: null,

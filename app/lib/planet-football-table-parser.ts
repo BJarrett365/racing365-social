@@ -53,7 +53,11 @@ function premierLeagueBadgeFromTeamObject(value: unknown): string | undefined {
 export function isValidPlanetFootballTableUrl(raw: string): boolean {
   try {
     const u = new URL(raw || DEFAULT_URL);
-    if (SPORT365_HOST_RE.test(u.hostname)) return /^\/football\/[^/]+\/[^/]+\/?$/i.test(u.pathname);
+    if (SPORT365_HOST_RE.test(u.hostname)) {
+      if (/^\/football\/[^/]+\/[^/]+\/?$/i.test(u.pathname)) return true;
+      if (/^\/football\/[^/]+\/group-stage(?:\/|$)/i.test(u.pathname)) return true;
+      return /^\/football\//i.test(u.pathname);
+    }
     if (FOOTBALL365_HOST_RE.test(u.hostname)) return /^\/premier-league\/table(?:\/[^/]+)?\/?$/i.test(u.pathname);
     return false;
   } catch {

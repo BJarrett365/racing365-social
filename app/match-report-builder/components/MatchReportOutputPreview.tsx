@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { BRAND_LABEL_BY_TARGET } from "@/app/lib/match-report/editorial-governance";
+import { getMergedPreviewFixtureContext } from "@/app/lib/match-report/preview-fixture-context-merge";
 import {
   buildPreviewContextRows,
   buildPreviewEvents,
@@ -301,7 +302,7 @@ export function MatchReportOutputPreview({
 
   const events = useMemo(() => (project ? buildPreviewEvents(project) : []), [project]);
   const contextRows = useMemo(
-    () => (project ? buildPreviewContextRows(project, project.layers.fixtureContext) : []),
+    () => (project ? buildPreviewContextRows(project, getMergedPreviewFixtureContext(project)) : []),
     [project],
   );
 

@@ -14,11 +14,15 @@ import type {
   ContentFormat,
   F1GridBundle,
   F1ResultsBundle,
+  FootballLineupBundle,
   GeneratedContent,
   PlanetFootballTableBundle,
   RunnerSilks,
   SceneSpec,
   TeamtalkNewsBundle,
+  TeamLineUpBundle,
+  TeamSheetBundle,
+  ScoreLineBundle,
   PlanetRugbyTableBundle,
   TemplateSource,
   VoiceGender,
@@ -26,13 +30,22 @@ import type {
 import {
   applyTemplateWithPreferences,
   buildRacecardScript,
+  footballLineupBundleFromContent,
   materializeFromTemplate,
 } from "@/app/features/content/content-generator";
-import { EDITOR_VOICEOVER_WRITER_PROMPT } from "@/app/lib/prompts-catalog";
+import { formatLeagueTableAiContext } from "@/app/lib/league-table-ai-context";
+import {
+  normalizePlanetFootballDisplayBrand,
+  planetFootballBrandDefaults,
+} from "@/app/lib/planet-football-table-brands";
+import { EDITOR_VOICEOVER_WRITER_PROMPT, LEAGUE_TABLE_EDITOR_VOICEOVER_PROMPT } from "@/app/lib/prompts-catalog";
 import { Panel } from "@/app/components/Panel";
 import { EditorCollapsible } from "@/app/features/editor/EditorCollapsible";
 import { R365Button } from "@/app/components/R365Button";
 import { FootballLineupsEditor } from "@/app/features/editor/FootballLineupsEditor";
+import { TeamLineUpEditor } from "@/app/features/editor/TeamLineUpEditor";
+import { TeamSheetEditor } from "@/app/features/editor/TeamSheetEditor";
+import { ScoreLineEditor } from "@/app/features/editor/ScoreLineEditor";
 import { RacingTemplateEditor } from "@/app/features/editor/RacingTemplateEditor";
 import { SceneImageEditor } from "@/app/features/editor/SceneImageEditor";
 import { EditorBackgroundVideoPanel } from "@/app/features/editor/EditorBackgroundVideoPanel";
@@ -96,7 +109,10 @@ type EditorType =
   | "f1-grid"
   | "f1-results"
   | "planet-football-table"
-  | "planet-rugby-table";
+  | "planet-rugby-table"
+  | "team-line-up"
+  | "team-sheet"
+  | "score-line";
 
 const formatMap: Record<EditorType, ContentFormat> = {
   "next-off": "next-off",
@@ -108,6 +124,9 @@ const formatMap: Record<EditorType, ContentFormat> = {
   "f1-results": "f1-results",
   "planet-football-table": "planet-football-table",
   "planet-rugby-table": "planet-rugby-table",
+  "team-line-up": "team-line-up",
+  "team-sheet": "team-sheet",
+  "score-line": "score-line",
 };
 
 function defaultVoicePresetForEditorType(t: EditorType): VoicePreset {
@@ -185,6 +204,12 @@ function templateDataTabLabel(fmt: ContentFormat): string {
       return "Template data — Planet Football Table";
     case "planet-rugby-table":
       return "Template data — Planet Rugby Table";
+    case "team-line-up":
+      return "Template data — Team Line-Up";
+    case "team-sheet":
+      return "Template data — Team Sheet";
+    case "score-line":
+      return "Template data — Score Line";
     case "football-lineups":
       return "Template data";
     default:
@@ -207,7 +232,18 @@ type RunwayTaskJson = {
   output?: unknown;
 };
 type PreviewImageFormat = "png" | "jpg";
+
+/** Retina-class export when saving preview (matches sharp screen grabs). */
+const PREVIEW_EXPORT_PIXEL_RATIO = 2;
+const PREVIEW_JPG_QUALITY = 0.98;
 const AI_DEFAULT_PROMPT = EDITOR_VOICEOVER_WRITER_PROMPT;
+
+function aiDefaultPromptForFormat(format: ContentFormat): string {
+  if (format === "planet-football-table" || format === "planet-rugby-table") {
+    return LEAGUE_TABLE_EDITOR_VOICEOVER_PROMPT;
+  }
+  return EDITOR_VOICEOVER_WRITER_PROMPT;
+}
 
 function isHorseRacingFormat(fmt: ContentFormat): fmt is "next-off" | "fast-results" | "racecard" {
   return fmt === "next-off" || fmt === "fast-results" || fmt === "racecard";
@@ -314,9 +350,13 @@ function aiFieldFromScenes(content: GeneratedContent) {
     content.scenes.find((s) => s.id === id)?.captionLine?.trim() ?? "";
   const teamtalkDetail =
     content.format === "teamtalk-news" ? teamtalkDetailParagraphFromContent(content) : "";
+  const leagueTableStandings =
+    content.format === "planet-football-table" || content.format === "planet-rugby-table"
+      ? formatLeagueTableAiContext(content, content.templateSource)
+      : "";
   return {
     intro: byId("intro"),
-    "tip-1": byId("tip-1") || byId("winner"),
+    "tip-1": byId("tip-1") || byId("winner") || byId("table-1"),
     /** Middle-scene subtitle on card (TEAMtalk detail slide may be truncated — full copy is `detail_paragraph`). */
     "tip-2": byId("tip-2") || byId("placings"),
     "tip-3": byId("tip-3") || byId("results2"),
@@ -326,6 +366,7 @@ function aiFieldFromScenes(content: GeneratedContent) {
     ...(content.format === "teamtalk-news" && teamtalkDetail
       ? { detail_paragraph: teamtalkDetail }
       : {}),
+    ...(leagueTableStandings ? { league_table_standings: leagueTableStandings } : {}),
   };
 }
 
@@ -385,6 +426,14 @@ function aiProfileFromTemplate(source: TemplateSource | undefined): {
       voiceStyle: source.snapshot.aiVoiceStyle,
       deliveryStyle: source.snapshot.aiDeliveryStyle,
       tone: source.snapshot.aiTone,
+    };
+  }
+  if (source.format === "planet-football-table" || source.format === "planet-rugby-table") {
+    return {
+      prompt: source.bundle.aiPrompt,
+      voiceStyle: source.bundle.aiVoiceStyle,
+      deliveryStyle: source.bundle.aiDeliveryStyle,
+      tone: source.bundle.aiTone,
     };
   }
   return {};
@@ -884,6 +933,7 @@ export function EditorWorkspace({
       setContent(next);
       const profile = aiProfileFromTemplate(next.templateSource);
       if (profile.prompt?.trim()) setAiPrompt(profile.prompt);
+      else setAiPrompt(aiDefaultPromptForFormat(next.format));
       if (next.format === "teamtalk-news" && next.templateSource?.format === "teamtalk-news") {
         const ai = teamtalkNewsAiStyleFromBundle(next.templateSource.bundle);
         setVoiceStyle(ai.voiceStyle);
@@ -933,6 +983,12 @@ export function EditorWorkspace({
         setBackgroundVideoRel(b.backgroundVideoRel?.trim() ? b.backgroundVideoRel : null);
         setBackgroundVideoFrameRel(null);
         setBurnSubtitles(false);
+      } else if (ts?.format === "planet-football-table") {
+        setBackgroundImageRel(null);
+        setBackgroundImageRelBySceneId({});
+        setBackgroundVideoRel(null);
+        setBackgroundVideoFrameRel(null);
+        setBurnSubtitles(ts.bundle.burnSubtitles !== false);
       } else {
         setBackgroundImageRel(null);
         setBackgroundImageRelBySceneId({});
@@ -1235,23 +1291,35 @@ export function EditorWorkspace({
       setAiError(null);
       setAiSuccess(null);
       try {
-        const fields = aiFieldFromScenes(content);
-        const prompt =
-          mode === "regenerate"
-            ? `${aiPrompt.trim()}\n\nRegenerate a fresh variant with a different structure while preserving all facts.`
-            : aiPrompt.trim();
+        let sourceContent = content;
+        if (
+          content.templateSource?.format === "planet-football-table" ||
+          content.templateSource?.format === "planet-rugby-table"
+        ) {
+          const rematerialized = materializeFromTemplate(content.templateSource);
+          sourceContent = {
+            ...rematerialized,
+            script: content.script,
+            caption: content.caption,
+            templateSource: content.templateSource,
+            voiceGender: content.voiceGender,
+            voiceSpeed: content.voiceSpeed,
+          };
+        }
+        const fields = aiFieldFromScenes(sourceContent);
         const res = await fetch(studioApiPath("/api/ai/improve-racing-voiceover"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             format: content.format,
-            customPrompt: prompt,
+            customPrompt: aiPrompt.trim(),
             voiceStyle,
             deliveryStyle,
             tone,
             optimiseForVoiceover: aiOptimiseRhythm,
             addEmphasis: aiAddEmphasis,
             generateThreeVersions: mode === "versions",
+            mode,
             journalistProfile: selectedCreatorProfile
               ? {
                   id: selectedCreatorProfile.id,
@@ -1787,7 +1855,7 @@ export function EditorWorkspace({
     setError(null);
     try {
       let scenesForRender = content.scenes;
-      if (content.templateSource?.format === "planet-rugby-table" || content.templateSource?.format === "planet-football-table") {
+      if (content.templateSource?.format === "planet-rugby-table" || content.templateSource?.format === "planet-football-table" || content.templateSource?.format === "team-line-up" || content.templateSource?.format === "team-sheet" || content.templateSource?.format === "score-line") {
         const rematerialized = materializeFromTemplate(content.templateSource);
         const currentById = new Map(content.scenes.map((s) => [s.id, s]));
         scenesForRender = rematerialized.scenes.map((s) => {
@@ -1971,7 +2039,7 @@ export function EditorWorkspace({
   useEffect(() => () => stopVoicePreview(), [stopVoicePreview]);
 
   const saveUserTemplateToDisk = async () => {
-    if (!content?.templateSource || content.templateSource.format === "football-lineups") return;
+    if (!content?.templateSource) return;
     if (!contentId.startsWith("tpl-")) {
       setError(
         'Use “New template” on Templates (Next off, Fast results, Racecards, TEAMtalk News, Planet Rugby Tables, F1 Grid, F1 Results, …) to get a tpl-… id — then edits can be saved to disk.',
@@ -2160,6 +2228,10 @@ export function EditorWorkspace({
           ...ts.bundle,
           id: contentId,
           script: content.script,
+          aiPrompt,
+          aiVoiceStyle: voiceStyle,
+          aiDeliveryStyle: deliveryStyle,
+          aiTone: tone,
           voiceGender: content.voiceGender,
           voiceSpeed: content.voiceSpeed ?? 1,
           sceneEdits,
@@ -2174,11 +2246,51 @@ export function EditorWorkspace({
           ...ts.bundle,
           id: contentId,
           script: content.script,
+          aiPrompt,
+          aiVoiceStyle: voiceStyle,
+          aiDeliveryStyle: deliveryStyle,
+          aiTone: tone,
+          matchContext: ts.bundle.matchContext,
+          cardContentMode: ts.bundle.cardContentMode,
+          showMatchScore: ts.bundle.showMatchScore,
+          showMatchScorers: ts.bundle.showMatchScorers,
+          showStandingsTable: ts.bundle.showStandingsTable,
+          includeCommentaryInAi: ts.bundle.includeCommentaryInAi,
+          brandLogoScale: ts.bundle.brandLogoScale,
+          displayBrand: ts.bundle.displayBrand,
+          burnSubtitles,
           voiceGender: content.voiceGender,
           voiceSpeed: content.voiceSpeed ?? 1,
           sceneEdits,
         };
         body = { format: "planet-football-table", planetFootballTable: latest };
+      } else if (ts.format === "team-line-up") {
+        const latest: TeamLineUpBundle = {
+          ...ts.bundle,
+          id: contentId,
+          aiCaption: content.caption,
+        };
+        body = { format: "team-line-up", teamLineUp: latest };
+      } else if (ts.format === "team-sheet") {
+        const latest: TeamSheetBundle = {
+          ...ts.bundle,
+          id: contentId,
+          aiCaption: content.caption,
+        };
+        body = { format: "team-sheet", teamSheet: latest };
+      } else if (ts.format === "score-line") {
+        const latest: ScoreLineBundle = {
+          ...ts.bundle,
+          id: contentId,
+          aiCaption: content.caption,
+        };
+        body = { format: "score-line", scoreLine: latest };
+      } else if (ts.format === "football-lineups") {
+        const latest: FootballLineupBundle = footballLineupBundleFromContent(content, {
+          ...ts.bundle,
+          id: contentId,
+        });
+        body = { format: "football-lineups", footballLineup: latest };
       } else {
         body = {
           format: "racecard",
@@ -2223,7 +2335,7 @@ export function EditorWorkspace({
     if (!content) return;
     saveAiPrompt();
     saveVoiceSettings();
-    if (contentId.startsWith("tpl-") && content.templateSource && content.templateSource.format !== "football-lineups") {
+    if (contentId.startsWith("tpl-") && content.templateSource) {
       await saveUserTemplateToDisk();
       setAiScriptSavedAt(Date.now());
       setAiSuccess("Saved script, AI style settings, and voice settings to template.");
@@ -2317,6 +2429,12 @@ export function EditorWorkspace({
       if (scenes.some((s) => !s.imagePath)) {
         throw new Error("Missing image for a scene — re-render.");
       }
+      const pfAccent =
+        content.templateSource?.format === "planet-football-table"
+          ? planetFootballBrandDefaults(
+              normalizePlanetFootballDisplayBrand(content.templateSource.bundle.displayBrand),
+            ).subtitleAccentColor
+          : undefined;
       const res = await fetch(studioApiPath("/api/build-short"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2327,6 +2445,7 @@ export function EditorWorkspace({
           script: content.script,
           scenes,
           burnSubtitles,
+          subtitleAccentColor: pfAccent,
           voiceGender: content.voiceGender ?? "female",
           voiceSpeed: content.voiceSpeed ?? 1,
           elevenlabsVoiceId: elevenlabsVoiceId || undefined,
@@ -2528,18 +2647,86 @@ export function EditorWorkspace({
     return images[0]?.rel;
   }, [images, previewSceneId]);
 
-  const planetRugbyLivePreviewScene = useMemo(() => {
+  const editorLivePreviewScene = useMemo(() => {
+    if (content?.format === "team-sheet" && content.templateSource?.format === "team-sheet") {
+      const scenes = materializeFromTemplate(content.templateSource).scenes;
+      return (
+        (previewSceneId ? scenes.find((s) => s.id === previewSceneId) : undefined) ??
+        scenes.find((s) => s.id === "sheet-home") ??
+        scenes.find((s) => s.id === "sheet-combined") ??
+        scenes.find((s) => s.templateId?.startsWith("team-sheet-")) ??
+        scenes[0] ??
+        null
+      );
+    }
+    if (content?.format === "score-line" && content.templateSource?.format === "score-line") {
+      const scenes = materializeFromTemplate(content.templateSource).scenes;
+      return (
+        (previewSceneId ? scenes.find((s) => s.id === previewSceneId) : undefined) ??
+        scenes.find((s) => s.id === "score-main") ??
+        scenes.find((s) => s.templateId === "score-line-full") ??
+        scenes[0] ??
+        null
+      );
+    }
+    if (content?.format === "team-line-up" && content.templateSource?.format === "team-line-up") {
+      const scenes = materializeFromTemplate(content.templateSource).scenes;
+      return (
+        (previewSceneId ? scenes.find((s) => s.id === previewSceneId) : undefined) ??
+        scenes.find((s) => s.id === "lineup-home") ??
+        scenes.find((s) => s.templateId === "team-line-up-card") ??
+        scenes[0] ??
+        null
+      );
+    }
     if (content?.format !== "planet-rugby-table" && content?.format !== "planet-football-table") return null;
+    const ts = content.templateSource;
+    const scenes =
+      ts?.format === "planet-rugby-table" || ts?.format === "planet-football-table"
+        ? materializeFromTemplate(ts).scenes
+        : content.scenes;
     return (
-      (previewSceneId ? content.scenes.find((s) => s.id === previewSceneId) : undefined) ??
-      content.scenes.find((s) => s.templateId === "planet-rugby-table" || s.templateId === "planet-football-table") ??
-      content.scenes[0] ??
+      (previewSceneId ? scenes.find((s) => s.id === previewSceneId) : undefined) ??
+      scenes.find((s) => s.templateId === "planet-rugby-table" || s.templateId === "planet-football-table") ??
+      scenes[0] ??
       null
     );
-  }, [content?.format, content?.scenes, previewSceneId]);
+  }, [content?.format, content?.scenes, content?.templateSource, previewSceneId]);
+
+  const livePreviewDims = useMemo(() => {
+    const fallback = VIDEO_BUILD_DIMENSIONS[effectiveVideoBuildMode];
+    if (
+      (content?.format === "team-line-up" || content?.format === "team-sheet" || content?.format === "score-line") &&
+      editorLivePreviewScene?.data
+    ) {
+      const width = Number(editorLivePreviewScene.data.width);
+      const height = Number(editorLivePreviewScene.data.height);
+      if (width > 0 && height > 0) return { width, height };
+    }
+    return { width: fallback.width, height: fallback.height };
+  }, [content?.format, editorLivePreviewScene, effectiveVideoBuildMode]);
+
+  const livePreviewFrameClass = useMemo(() => {
+    if (content?.format === "team-line-up" || content?.format === "team-sheet" || content?.format === "score-line") {
+      const ratio = livePreviewDims.width / livePreviewDims.height;
+      if (ratio > 1.2) return "mx-auto aspect-[16/9] w-full max-w-xl max-h-[min(72vh,720px)]";
+      if (livePreviewDims.height > 1600) return EDITOR_PREVIEW_FRAME;
+      return "mx-auto aspect-[4/5] w-full max-w-md max-h-[min(82vh,900px)]";
+    }
+    return previewFrameClass;
+  }, [content?.format, livePreviewDims, previewFrameClass]);
+
+  const livePreviewScaleValue = useMemo(() => {
+    if (content?.format === "team-line-up" || content?.format === "team-sheet" || content?.format === "score-line") {
+      if (livePreviewDims.width > livePreviewDims.height) return 1 / 3;
+      if (livePreviewDims.height <= 1400) return 0.37;
+      return 0.375;
+    }
+    return livePreviewScale;
+  }, [content?.format, livePreviewDims, livePreviewScale]);
 
   useEffect(() => {
-    if (!planetRugbyLivePreviewScene) {
+    if (!editorLivePreviewScene) {
       setPlanetRugbyLivePreviewHtml(null);
       return;
     }
@@ -2547,14 +2734,18 @@ export function EditorWorkspace({
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       const dims = VIDEO_BUILD_DIMENSIONS[effectiveVideoBuildMode];
+      const sceneDims =
+        content?.format === "team-line-up" || content?.format === "team-sheet" || content?.format === "score-line"
+          ? livePreviewDims
+          : { width: dims.width, height: dims.height };
       fetch(studioApiPath("/api/preview-scene-html"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
-          scene: planetRugbyLivePreviewScene,
-          width: dims.width,
-          height: dims.height,
+          scene: editorLivePreviewScene,
+          width: sceneDims.width,
+          height: sceneDims.height,
           backgroundImageRel,
           backgroundImageRelBySceneId,
           backgroundVideoFrameRel,
@@ -2578,8 +2769,10 @@ export function EditorWorkspace({
     backgroundImageRelBySceneId,
     backgroundVideoFrameRel,
     backgroundVideoRel,
+    content?.format,
     effectiveVideoBuildMode,
-    planetRugbyLivePreviewScene,
+    editorLivePreviewScene,
+    livePreviewDims,
   ]);
 
   const planetRugbyActiveControlsSummary = useMemo(() => {
@@ -2624,34 +2817,36 @@ export function EditorWorkspace({
   }, [backgroundImageRel, content?.templateSource]);
 
   const downloadPreviewImage = useCallback(async () => {
-    if (!previewRel && !planetRugbyLivePreviewScene) return;
+    if (!previewRel && !editorLivePreviewScene) return;
     setPreviewSaveBusy(true);
     setPreviewSaveMsg(null);
     setError(null);
     try {
       let relForDownload = previewRel;
       let savedFromLivePreview = false;
-      if (!relForDownload && planetRugbyLivePreviewScene) {
+      const exportScene = editorLivePreviewScene;
+      if (exportScene) {
         const res = await fetch(studioApiPath("/api/render-scenes"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contentId: `${contentId}-live-preview`,
-            scenes: [planetRugbyLivePreviewScene],
+            scenes: [exportScene],
             width: VIDEO_BUILD_DIMENSIONS[effectiveVideoBuildMode].width,
             height: VIDEO_BUILD_DIMENSIONS[effectiveVideoBuildMode].height,
+            pixelRatio: PREVIEW_EXPORT_PIXEL_RATIO,
             backgroundImageRel: backgroundImageRel ?? (backgroundVideoRel ? backgroundVideoFrameRel : null),
             backgroundImageRelBySceneId,
           }),
         });
         const data = await parseApiJson<{
           error?: string;
-          images?: { sceneId: string; path: string; underlayPath?: string }[];
+          images?: { sceneId: string; path: string; rel?: string; underlayPath?: string }[];
         }>(res);
         if (!res.ok) throw new Error(data.error || "Could not render live preview image.");
         const first = data.images?.[0];
-        if (!first?.path) throw new Error("Could not render live preview image.");
-        relForDownload = toOutputRel(first.path);
+        relForDownload = first?.rel ?? (first?.path ? toOutputRel(first.path) : undefined);
+        if (!relForDownload) throw new Error("Could not render live preview image.");
         savedFromLivePreview = true;
         setPreviewNonce((n) => n + 1);
       }
@@ -2677,11 +2872,17 @@ export function EditorWorkspace({
           canvas.height = img.naturalHeight || 1920;
           const ctx = canvas.getContext("2d");
           if (!ctx) throw new Error("Canvas export unavailable.");
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
           ctx.fillStyle = "#000";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0);
           outBlob = await new Promise<Blob>((resolve, reject) => {
-            canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not encode JPG."))), "image/jpeg", 0.92);
+            canvas.toBlob(
+              (b) => (b ? resolve(b) : reject(new Error("Could not encode JPG."))),
+              "image/jpeg",
+              PREVIEW_JPG_QUALITY,
+            );
           });
           ext = "jpg";
           mime = "image/jpeg";
@@ -2713,7 +2914,7 @@ export function EditorWorkspace({
     contentId,
     effectiveVideoBuildMode,
     images,
-    planetRugbyLivePreviewScene,
+    editorLivePreviewScene,
     previewImageFormat,
     previewNonce,
     previewRel,
@@ -2721,34 +2922,35 @@ export function EditorWorkspace({
   ]);
 
   const savePreviewImageToLibrary = useCallback(async () => {
-    if (!previewRel && !planetRugbyLivePreviewScene) return;
+    if (!previewRel && !editorLivePreviewScene) return;
     setPreviewLibraryBusy(true);
     setPreviewSaveMsg(null);
     setError(null);
     try {
       let sourceRel = previewRel;
-      const sceneId = previewSceneId ?? planetRugbyLivePreviewScene?.id ?? images[0]?.sceneId ?? "scene";
-      if (planetRugbyLivePreviewScene) {
+      const sceneId = previewSceneId ?? editorLivePreviewScene?.id ?? images[0]?.sceneId ?? "scene";
+      if (editorLivePreviewScene) {
         const res = await fetch(studioApiPath("/api/render-scenes"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contentId: `${contentId}-library-preview`,
-            scenes: [planetRugbyLivePreviewScene],
+            scenes: [editorLivePreviewScene],
             width: VIDEO_BUILD_DIMENSIONS[effectiveVideoBuildMode].width,
             height: VIDEO_BUILD_DIMENSIONS[effectiveVideoBuildMode].height,
+            pixelRatio: PREVIEW_EXPORT_PIXEL_RATIO,
             backgroundImageRel: backgroundImageRel ?? (backgroundVideoRel ? backgroundVideoFrameRel : null),
             backgroundImageRelBySceneId,
           }),
         });
         const data = await parseApiJson<{
           error?: string;
-          images?: { sceneId: string; path: string }[];
+          images?: { sceneId: string; path: string; rel?: string }[];
         }>(res);
         if (!res.ok) throw new Error(data.error || "Could not render preview for library.");
         const first = data.images?.[0];
-        if (!first?.path) throw new Error("Could not render preview for library.");
-        sourceRel = toOutputRel(first.path);
+        sourceRel = first?.rel ?? (first?.path ? toOutputRel(first.path) : undefined);
+        if (!sourceRel) throw new Error("Could not render preview for library.");
       }
       if (!sourceRel) throw new Error("No preview image to save.");
 
@@ -2780,7 +2982,7 @@ export function EditorWorkspace({
     contentId,
     effectiveVideoBuildMode,
     images,
-    planetRugbyLivePreviewScene,
+    editorLivePreviewScene,
     previewRel,
     previewSceneId,
   ]);
@@ -2942,6 +3144,15 @@ export function EditorWorkspace({
             )}
             {content?.format === "football-lineups" && (
               <FootballLineupsEditor content={content} setContent={setContent} />
+            )}
+            {content?.format === "team-line-up" && (
+              <TeamLineUpEditor content={content} setContent={setContent} />
+            )}
+            {content?.format === "team-sheet" && (
+              <TeamSheetEditor content={content} setContent={setContent} />
+            )}
+            {content?.format === "score-line" && (
+              <ScoreLineEditor content={content} setContent={setContent} />
             )}
             <label className="block text-xs font-semibold uppercase text-slate-500">
               CTA
@@ -3591,6 +3802,13 @@ export function EditorWorkspace({
               />
               Burn subtitles into video (FFmpeg)
             </label>
+            {format === "planet-football-table" && burnSubtitles && (
+              <p className="text-[11px] leading-snug text-slate-500">
+                Brand style: voiceover is split into <strong className="text-slate-400">short sentences</strong> timed to
+                the read-out, each with a coloured outline (no background box) at the bottom of the frame — colour matches
+                your selected brand (Sport365, Football365, TEAMtalk, or Planet Football).
+              </p>
+            )}
             {content?.templateSource &&
               content.templateSource.format !== "football-lineups" &&
               !contentId.startsWith("tpl-") && (
@@ -3605,7 +3823,9 @@ export function EditorWorkspace({
               renderer with <code className="text-slate-400">social-*</code> templates.
             </p>
             <div className="mt-6 border-t border-[#1f2d26] pt-6">
-              <CreativeVideoGeneratorContent />
+              <CreativeVideoGeneratorContent
+                variant={format === "planet-football-table" ? "world-cup-football" : "default"}
+              />
             </div>
             </div>
           </EditorCollapsible>
@@ -3670,7 +3890,7 @@ export function EditorWorkspace({
           )}
             </EditorCollapsible>
 
-            {content?.templateSource && format !== "football-lineups" && (
+            {content?.templateSource && (
             <EditorCollapsible
               title={contentId.startsWith("tpl-") ? "Save template" : "Template draft (browser)"}
             >
@@ -3771,16 +3991,16 @@ export function EditorWorkspace({
                 Live table preview — updates before render
               </p>
               <div
-                className={`flex ${previewFrameClass} items-center justify-center overflow-hidden rounded-md border border-[#22c55e]/35 bg-black`}
+                className={`flex ${livePreviewFrameClass} items-center justify-center overflow-hidden rounded-md border border-[#22c55e]/35 bg-black`}
               >
                 <iframe
                   title="Live Planet Rugby table preview"
                   srcDoc={planetRugbyLivePreviewHtml}
                   className="origin-center border-0 bg-black"
                   style={{
-                    width: `${VIDEO_BUILD_DIMENSIONS[effectiveVideoBuildMode].width}px`,
-                    height: `${VIDEO_BUILD_DIMENSIONS[effectiveVideoBuildMode].height}px`,
-                    transform: `scale(${livePreviewScale})`,
+                    width: `${livePreviewDims.width}px`,
+                    height: `${livePreviewDims.height}px`,
+                    transform: `scale(${livePreviewScaleValue})`,
                     flex: "0 0 auto",
                   }}
                   sandbox="allow-same-origin"
@@ -3842,8 +4062,8 @@ export function EditorWorkspace({
                   onChange={(e) => setPreviewImageFormat(e.target.value as PreviewImageFormat)}
                   disabled={previewSaveBusy || previewLibraryBusy}
                 >
-                  <option value="png">PNG</option>
-                  <option value="jpg">JPG</option>
+                  <option value="png">PNG (best quality)</option>
+                  <option value="jpg">JPG (smaller file)</option>
                 </select>
               </label>
               <button
@@ -3880,7 +4100,7 @@ export function EditorWorkspace({
                     setCompositorSceneId(scene.id);
                   }}
                   className={`rounded-md px-2.5 py-1 text-xs font-mono transition ${
-                    (previewSceneId ?? images[0]?.sceneId ?? planetRugbyLivePreviewScene?.id) === scene.id
+                    (previewSceneId ?? images[0]?.sceneId ?? editorLivePreviewScene?.id) === scene.id
                       ? "bg-[#eab308] text-black"
                       : "border border-[#1f2d26] bg-[#0a0e0c] text-slate-400 hover:border-slate-600"
                   }`}

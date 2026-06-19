@@ -5,6 +5,7 @@ import { getMatchReportRepository, MatchReportStoreError } from "@/app/lib/match
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 180;
 
 type Body = {
   projectId?: string;

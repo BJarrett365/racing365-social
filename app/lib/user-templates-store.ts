@@ -2,13 +2,18 @@ import fs from "fs/promises";
 import path from "path";
 import { readJsonBlob, shouldUseNetlifyBlobStore, writeJsonBlob } from "@/app/lib/netlify-blob-json";
 import { defaultSilksForIndex } from "@/app/lib/silk-presets";
+import { sideColorsFromKit } from "@/app/lib/team-line-up/kit-database";
 import type {
   F1GridBundle,
   F1ResultsBundle,
   FastResultBundle,
+  FootballLineupBundle,
   NextOffBundle,
   PlanetFootballTableBundle,
   PlanetRugbyTableBundle,
+  TeamLineUpBundle,
+  TeamSheetBundle,
+  ScoreLineBundle,
   Placing,
   Race,
   RacecardSnapshot,
@@ -30,6 +35,10 @@ export type UserTemplatesFile = {
   f1Results: Record<string, F1ResultsBundle>;
   planetFootballTables: Record<string, PlanetFootballTableBundle>;
   planetRugbyTables: Record<string, PlanetRugbyTableBundle>;
+  teamLineUps: Record<string, TeamLineUpBundle>;
+  teamSheets: Record<string, TeamSheetBundle>;
+  scoreLines: Record<string, ScoreLineBundle>;
+  footballLineups: Record<string, FootballLineupBundle>;
 };
 
 const TEAMTALK_HEADLINE_LINES = 4;
@@ -187,6 +196,18 @@ function normalizeUserTemplatesFile(data: UserTemplatesFile): UserTemplatesFile 
     ),
     planetRugbyTables: Object.fromEntries(
       Object.entries((data as { planetRugbyTables?: Record<string, PlanetRugbyTableBundle> }).planetRugbyTables ?? {}),
+    ),
+    teamLineUps: Object.fromEntries(
+      Object.entries((data as { teamLineUps?: Record<string, TeamLineUpBundle> }).teamLineUps ?? {}),
+    ),
+    teamSheets: Object.fromEntries(
+      Object.entries((data as { teamSheets?: Record<string, TeamSheetBundle> }).teamSheets ?? {}),
+    ),
+    scoreLines: Object.fromEntries(
+      Object.entries((data as { scoreLines?: Record<string, ScoreLineBundle> }).scoreLines ?? {}),
+    ),
+    footballLineups: Object.fromEntries(
+      Object.entries((data as { footballLineups?: Record<string, FootballLineupBundle> }).footballLineups ?? {}),
     ),
   };
 }
@@ -373,8 +394,8 @@ export function createEmptyPlanetRugbyTableBundle(id: string): PlanetRugbyTableB
     tablePosition: "lower-left",
     tableWidthPercent: 94,
     tableHeightPercent: 72,
-    tableBackgroundStyle: "balanced",
-    tablePanelOpacity: 0.58,
+    tableBackgroundStyle: "solid",
+    tablePanelOpacity: 0.82,
     backgroundBlur: 0,
     overlayStrength: 0.55,
     introDurationSec: 2.2,
@@ -382,6 +403,125 @@ export function createEmptyPlanetRugbyTableBundle(id: string): PlanetRugbyTableB
     secondDurationSec: 4.6,
     outroDurationSec: 2.2,
     voiceoverEnabled: false,
+  };
+}
+
+export function createEmptyTeamLineUpBundle(id: string): TeamLineUpBundle {
+  const wc = { competition: "World Cup", season: "2026" };
+  const homeColors = sideColorsFromKit("Brazil", "home", wc);
+  const awayColors = sideColorsFromKit("Morocco", "home", wc);
+  return {
+    id,
+    league: "World Cup",
+    matchDate: "",
+    kickoff: "",
+    competition: "World Cup",
+    matchId: "",
+    sourceUrl: "",
+    brandStyle: "sport365",
+    teamView: "both",
+    lineupStatus: "predicted",
+    exportAspect: "portrait",
+    homeKitSlot: "home",
+    awayKitSlot: "home",
+    generateAiCaption: true,
+    introLine: "Line-ups",
+    outroLine: "For more coverage, head to SPORT365",
+    home: {
+      name: "Brazil",
+      shortName: "Brazil",
+      formation: "4-3-3",
+      shirtColor: homeColors.shirtColor,
+      numberColor: homeColors.numberColor,
+      sleeveColor: homeColors.sleeveColor,
+      trimColor: homeColors.trimColor,
+      gkShirtColor: homeColors.gkShirtColor,
+      starters: [],
+    },
+    away: {
+      name: "Morocco",
+      shortName: "Morocco",
+      formation: "4-3-3",
+      shirtColor: awayColors.shirtColor,
+      numberColor: awayColors.numberColor,
+      sleeveColor: awayColors.sleeveColor,
+      trimColor: awayColors.trimColor,
+      gkShirtColor: awayColors.gkShirtColor,
+      starters: [],
+    },
+    bench: { home: [], away: [] },
+    injuries: { home: [], away: [] },
+  };
+}
+
+export function createEmptyTeamSheetBundle(id: string): TeamSheetBundle {
+  const wc = { competition: "World Cup", season: "2026" };
+  const homeColors = sideColorsFromKit("Brazil", "home", wc);
+  const awayColors = sideColorsFromKit("Morocco", "home", wc);
+  return {
+    id,
+    league: "World Cup",
+    matchDate: "",
+    kickoff: "",
+    competition: "World Cup",
+    matchId: "",
+    sourceUrl: "",
+    brandStyle: "sport365",
+    sheetVariant: "split",
+    teamView: "home",
+    lineupStatus: "predicted",
+    exportAspect: "portrait",
+    homeKitSlot: "home",
+    awayKitSlot: "home",
+    generateAiCaption: true,
+    home: {
+      name: "Brazil",
+      shortName: "Brazil",
+      formation: "4-3-3",
+      shirtColor: homeColors.shirtColor,
+      numberColor: homeColors.numberColor,
+      sleeveColor: homeColors.sleeveColor,
+      trimColor: homeColors.trimColor,
+      gkShirtColor: homeColors.gkShirtColor,
+      starters: [],
+    },
+    away: {
+      name: "Morocco",
+      shortName: "Morocco",
+      formation: "4-3-3",
+      shirtColor: awayColors.shirtColor,
+      numberColor: awayColors.numberColor,
+      sleeveColor: awayColors.sleeveColor,
+      trimColor: awayColors.trimColor,
+      gkShirtColor: awayColors.gkShirtColor,
+      starters: [],
+    },
+    bench: { home: [], away: [] },
+    injuries: { home: [], away: [] },
+  };
+}
+
+export function createEmptyScoreLineBundle(id: string): ScoreLineBundle {
+  return {
+    id,
+    brandStyle: "sport365",
+    exportAspect: "portrait",
+    sourceUrl: "",
+    competition: "World Cup",
+    matchDate: "",
+    generateAiCaption: true,
+    matchContext: {
+      sourceUrl: "",
+      homeTeam: "Spain",
+      awayTeam: "Cape Verde",
+      homeScore: 0,
+      awayScore: 0,
+      statusLabel: "Finished",
+      homeLogoUrl: "https://flagcdn.com/w160/es.png",
+      awayLogoUrl: "https://flagcdn.com/w160/cv.png",
+      scorers: [],
+    },
+    aiCaption: "Spain 0-0 Cape Verde. Full time.",
   };
 }
 
@@ -401,9 +541,11 @@ export function createEmptyPlanetFootballTableBundle(id: string): PlanetFootball
     },
     introLine: "Premier League latest table",
     headline: "Latest Table",
-    outroLine: "For more football coverage, head to Sport365.com",
+    outroLine: "For more coverage, head to Sport365.com",
     showTeamLogos: false,
-    highlightColor: "#38bdf8",
+    highlightColor: "#BD33B5",
+    displayBrand: "sport365",
+    burnSubtitles: true,
   };
 }
 
@@ -419,6 +561,10 @@ export async function readUserTemplatesFile(): Promise<UserTemplatesFile> {
       f1Results: data?.f1Results ?? {},
       planetFootballTables: data?.planetFootballTables ?? {},
       planetRugbyTables: data?.planetRugbyTables ?? {},
+      teamLineUps: data?.teamLineUps ?? {},
+      teamSheets: data?.teamSheets ?? {},
+      scoreLines: data?.scoreLines ?? {},
+      footballLineups: data?.footballLineups ?? {},
     });
   }
 
@@ -437,6 +583,10 @@ export async function readUserTemplatesFile(): Promise<UserTemplatesFile> {
       f1Results: (o.f1Results as Record<string, F1ResultsBundle>) ?? {},
       planetFootballTables: (o.planetFootballTables as Record<string, PlanetFootballTableBundle>) ?? {},
       planetRugbyTables: (o.planetRugbyTables as Record<string, PlanetRugbyTableBundle>) ?? {},
+      teamLineUps: (o.teamLineUps as Record<string, TeamLineUpBundle>) ?? {},
+      teamSheets: (o.teamSheets as Record<string, TeamSheetBundle>) ?? {},
+      scoreLines: (o.scoreLines as Record<string, ScoreLineBundle>) ?? {},
+      footballLineups: (o.footballLineups as Record<string, FootballLineupBundle>) ?? {},
     };
     return normalizeUserTemplatesFile(parsed);
   } catch {
@@ -449,6 +599,10 @@ export async function readUserTemplatesFile(): Promise<UserTemplatesFile> {
       f1Results: {},
       planetFootballTables: {},
       planetRugbyTables: {},
+      teamLineUps: {},
+      teamSheets: {},
+      scoreLines: {},
+      footballLineups: {},
     };
   }
 }
@@ -512,6 +666,30 @@ export async function upsertUserPlanetFootballTable(bundle: PlanetFootballTableB
   await writeUserTemplatesFile(cur);
 }
 
+export async function upsertUserTeamLineUp(bundle: TeamLineUpBundle): Promise<void> {
+  const cur = await readUserTemplatesFile();
+  cur.teamLineUps[bundle.id] = bundle;
+  await writeUserTemplatesFile(cur);
+}
+
+export async function upsertUserTeamSheet(bundle: TeamSheetBundle): Promise<void> {
+  const cur = await readUserTemplatesFile();
+  cur.teamSheets[bundle.id] = bundle;
+  await writeUserTemplatesFile(cur);
+}
+
+export async function upsertUserScoreLine(bundle: ScoreLineBundle): Promise<void> {
+  const cur = await readUserTemplatesFile();
+  cur.scoreLines[bundle.id] = bundle;
+  await writeUserTemplatesFile(cur);
+}
+
+export async function upsertUserFootballLineup(bundle: FootballLineupBundle): Promise<void> {
+  const cur = await readUserTemplatesFile();
+  cur.footballLineups[bundle.id] = bundle;
+  await writeUserTemplatesFile(cur);
+}
+
 export async function deleteUserTemplate(
   format:
     | "next-off"
@@ -521,7 +699,11 @@ export async function deleteUserTemplate(
     | "f1-grid"
     | "f1-results"
     | "planet-football-table"
-    | "planet-rugby-table",
+    | "planet-rugby-table"
+    | "team-line-up"
+    | "team-sheet"
+    | "score-line"
+    | "football-lineups",
   id: string,
 ): Promise<boolean> {
   const cur = await readUserTemplatesFile();
@@ -556,6 +738,22 @@ export async function deleteUserTemplate(
   }
   if (format === "planet-football-table" && cur.planetFootballTables[id]) {
     delete cur.planetFootballTables[id];
+    hit = true;
+  }
+  if (format === "team-line-up" && cur.teamLineUps[id]) {
+    delete cur.teamLineUps[id];
+    hit = true;
+  }
+  if (format === "team-sheet" && cur.teamSheets[id]) {
+    delete cur.teamSheets[id];
+    hit = true;
+  }
+  if (format === "score-line" && cur.scoreLines[id]) {
+    delete cur.scoreLines[id];
+    hit = true;
+  }
+  if (format === "football-lineups" && cur.footballLineups[id]) {
+    delete cur.footballLineups[id];
     hit = true;
   }
   if (hit) await writeUserTemplatesFile(cur);

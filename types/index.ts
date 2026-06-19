@@ -118,6 +118,9 @@ export type ContentFormat =
   | "fast-results"
   | "racecard"
   | "football-lineups"
+  | "team-line-up"
+  | "team-sheet"
+  | "score-line"
   | "teamtalk-news"
   | "f1-grid"
   | "f1-results"
@@ -379,6 +382,10 @@ export interface PlanetRugbyTableBundle {
   voiceoverEnabled?: boolean;
   hiddenColumns?: PlanetRugbyTableColumnKey[];
   script?: string;
+  aiPrompt?: string;
+  aiVoiceStyle?: "Journalist" | "Punchy Tips" | "Calm / Studio" | "Fast Picks";
+  aiDeliveryStyle?: "Smooth" | "Balanced" | "Fast";
+  aiTone?: "Neutral" | "Confident" | "Urgent";
   voiceGender?: VoiceGender;
   voiceSpeed?: number;
   sceneEdits?: Record<string, { captionLine?: string; durationSec?: number }>;
@@ -401,7 +408,42 @@ export interface PlanetFootballTableData {
   updatedAt?: string;
   columns: PlanetRugbyTableData["columns"];
   rows: PlanetFootballTableRow[];
+  format?: "league" | "group_stage";
+  groupCode?: string;
 }
+
+export type PlanetFootballGroupTableSnapshot = {
+  groupCode: string;
+  groupName: string;
+  rows: PlanetFootballTableRow[];
+};
+
+export type Sport365MatchScorerSnapshot = {
+  minuteLabel: string;
+  player: string;
+  type: "goal" | "own_goal";
+  team: string;
+};
+
+export type Sport365MatchContext = {
+  sourceUrl: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  status?: string;
+  statusLabel?: string;
+  homeLogoUrl?: string;
+  awayLogoUrl?: string;
+  scorers: Sport365MatchScorerSnapshot[];
+  commentaryDigest?: string;
+};
+
+export type PlanetFootballDisplayBrand =
+  | "sport365"
+  | "football365"
+  | "teamtalk"
+  | "planet-football";
 
 export interface PlanetFootballTableBundle
   extends Omit<PlanetRugbyTableBundle, "table" | "tableStyle" | "tableMode" | "tablePosition" | "hiddenColumns"> {
@@ -410,6 +452,27 @@ export interface PlanetFootballTableBundle
   tableMode?: PlanetFootballTableDisplayMode;
   tablePosition?: PlanetFootballTablePosition;
   hiddenColumns?: PlanetFootballTableColumnKey[];
+  /** All imported group tables (World Cup / multi-group Sport365). */
+  groupTables?: PlanetFootballGroupTableSnapshot[];
+  selectedGroupCode?: string;
+  /** Visual brand for rendered shorts — Sport365 default; also Football365, TEAMtalk, Planet Football. */
+  displayBrand?: PlanetFootballDisplayBrand;
+  /** Burn voiceover subtitles into exported video (FFmpeg ASS). Defaults true for Sport365 imports. */
+  burnSubtitles?: boolean;
+  /** Imported match result from Sport365 match URL (score line + scorers + commentary). */
+  matchContext?: Sport365MatchContext;
+  /** Show final score above the table (default on when matchContext exists). */
+  showMatchScore?: boolean;
+  /** Show goal scorers above the table. */
+  showMatchScorers?: boolean;
+  /** Show standings table on the main scene. */
+  showStandingsTable?: boolean;
+  /** Feed match commentary digest into AI script improvement. */
+  includeCommentaryInAi?: boolean;
+  /** Scale Sport365 corner logo (1 = legacy 112px). */
+  brandLogoScale?: number;
+  /** What to show on the main card when match data is imported. */
+  cardContentMode?: "table-only" | "table-score" | "table-score-scorers";
 }
 
 /** Editable roots for template-driven formats — changing this re-materializes scenes & copy */
@@ -418,6 +481,9 @@ export type TemplateSource =
   | { format: "fast-results"; bundle: FastResultBundle }
   | { format: "racecard"; snapshot: RacecardSnapshot }
   | { format: "football-lineups"; bundle: FootballLineupBundle }
+  | { format: "team-line-up"; bundle: TeamLineUpBundle }
+  | { format: "team-sheet"; bundle: TeamSheetBundle }
+  | { format: "score-line"; bundle: ScoreLineBundle }
   | { format: "teamtalk-news"; bundle: TeamtalkNewsBundle }
   | { format: "f1-grid"; bundle: F1GridBundle }
   | { format: "f1-results"; bundle: F1ResultsBundle }
@@ -726,4 +792,70 @@ export interface FootballLineupBundle {
   away: FootballLineupSide;
   bench: { home: FootballBenchRow[]; away: FootballBenchRow[] };
   injuries: { home: FootballInjuryRow[]; away: FootballInjuryRow[] };
+  matchId?: string;
+  sourceUrl?: string;
+  competition?: string;
+  lineupStatus?: TeamLineUpLineupStatus;
+}
+
+export type TeamLineUpBrandStyle = "football365" | "teamtalk" | "planetfootball" | "sport365";
+export type TeamLineUpTeamView = "home" | "away" | "both";
+export type TeamLineUpLineupStatus = "predicted" | "confirmed";
+export type TeamLineUpExportAspect = "landscape" | "portrait" | "story" | "social";
+export type TeamLineUpKitSlot = "home" | "away" | "third";
+export type TeamSheetVariant = "standard" | "split" | "hero" | "combined";
+
+/** Formation pitch cards — Sport365 import + multi-brand styling. */
+export interface TeamLineUpBundle extends FootballLineupBundle {
+  matchId?: string;
+  sourceUrl?: string;
+  competition?: string;
+  brandStyle: TeamLineUpBrandStyle;
+  teamView: TeamLineUpTeamView;
+  lineupStatus: TeamLineUpLineupStatus;
+  exportAspect: TeamLineUpExportAspect;
+  homeKitSlot: TeamLineUpKitSlot;
+  awayKitSlot: TeamLineUpKitSlot;
+  generateAiCaption?: boolean;
+  aiCaption?: string;
+  introLine?: string;
+  outroLine?: string;
+  sceneEdits?: Record<string, { captionLine?: string; durationSec?: number }>;
+}
+
+/** Full-bleed hero + bottom score overlay — Sport365 match result graphics. */
+export interface ScoreLineBundle {
+  id: string;
+  brandStyle: TeamLineUpBrandStyle;
+  exportAspect: TeamLineUpExportAspect;
+  matchContext: Sport365MatchContext;
+  sourceUrl?: string;
+  competition?: string;
+  matchDate?: string;
+  /** Optional stored hero background (editor upload overrides at render). */
+  heroImageUrl?: string;
+  /** Override status ribbon e.g. FULL TIME, HALF TIME, LIVE */
+  statusDisplay?: string;
+  generateAiCaption?: boolean;
+  aiCaption?: string;
+  sceneEdits?: Record<string, { captionLine?: string; durationSec?: number }>;
+}
+
+/** Readable team sheet layouts — separate template from formation line-ups. */
+export interface TeamSheetBundle extends FootballLineupBundle {
+  matchId?: string;
+  sourceUrl?: string;
+  competition?: string;
+  brandStyle: TeamLineUpBrandStyle;
+  sheetVariant: TeamSheetVariant;
+  teamView: TeamLineUpTeamView;
+  lineupStatus: TeamLineUpLineupStatus;
+  exportAspect: TeamLineUpExportAspect;
+  homeKitSlot: TeamLineUpKitSlot;
+  awayKitSlot: TeamLineUpKitSlot;
+  /** Featured player for hero / standard / split image area. */
+  heroPlayerName?: string;
+  generateAiCaption?: boolean;
+  aiCaption?: string;
+  sceneEdits?: Record<string, { captionLine?: string; durationSec?: number }>;
 }

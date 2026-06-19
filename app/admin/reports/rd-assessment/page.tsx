@@ -56,6 +56,28 @@ const risks = [
   ["Rights risk", "Turn licensed data, owned content and permissioned feeds into a first-class advantage with audit trails."],
   ["Quality risk", "Move AI fixes into reviewable diffs with knowledge-file learning."],
   ["Operational risk", "Add queue states, retry logic, import diagnostics and export logs."],
+  ["SME cost risk", "Enterprise tools (e.g. Adobe per-seat suites) do not scale; R&D must prove composable API + owned orchestration is viable."],
+  ["Productionisation risk", "Cursor/Lovable demos multiply across UK and SA teams; without hardening, governance and security fail."],
+  ["AI security risk", "Credential exposure and unauthorised cloud provisioning already occurred; human factor is the weakest control."],
+  ["Trust / hallucination risk", "Raw AI not publish-ready; Plexa must anchor on licensed data and review gates."],
+  ["Adoption risk", "Staff fear role loss; resistance blocks ROI from Cursor/Lovable investment."],
+  ["Legal / GDPR risk", "Motion-from-image, voice clone, manipulation — lawful basis unclear without explicit R&D and legal review."],
+];
+
+const platformEvaluation = [
+  ["Cursor", "MIO, parsers, fact-check, template studios — achieves streams that previously needed dedicated technicians.", "Active"],
+  ["Lovable", "App projects around editorial/workflow UIs; validate UX before SA dev productionises in Plexa.", "Active"],
+  ["OpenAI / model APIs", "Generation, classification, fact-check, editorial repair — selected per task with cost/quality logs.", "Active"],
+  ["Runway / ElevenLabs / Apify", "Video, voice, ingestion — modular media capability layers.", "Active"],
+  ["Adobe Creative Cloud", "Trialled for conventional video/motion production — rejected: per-seat cost prohibitive for Planet Sport SME scale; no native rights/review/export orchestration.", "Rejected"],
+];
+
+const securityProgramme = [
+  ["2FA (two-factor authentication)", "Mandatory across admin, cloud, repository and AI platform accounts.", "Paramount"],
+  ["Transfon", "Technical security partner — infrastructure lockdown and monitoring with internal technical team.", "Active"],
+  ["Venture DK", "Technical security partner — cloud and access management with internal technical team.", "Active"],
+  ["Mimecast", "Human-factor programme — phishing simulation and staff security training.", "Active"],
+  ["AI secrets policy", "No production keys in Cursor/Lovable/chat; incident-driven after credential exposure and unauthorised AWS provisioning.", "Active"],
 ];
 
 const roadmap = [
@@ -207,6 +229,138 @@ export default function RdAssessmentPage() {
         </Panel>
       </div>
 
+      <Panel title="Why Plexa — trust over raw AI">
+        <p className="text-sm text-slate-300">
+          Generative AI <strong className="font-semibold text-white">hallucinates</strong> and is not trusted by editors
+          or readers. Planet Sport builds Plexa to control output:{" "}
+          <strong className="font-semibold text-white">licensed data</strong>,{" "}
+          <strong className="font-semibold text-white">owned content</strong>, fact-check, provenance and human
+          approval — not another chatbot wrapper.
+        </p>
+        <p className="mt-3 text-sm text-slate-400">
+          Humans also <strong className="font-semibold text-slate-300">fear role erosion</strong>. Adoption is an R&D
+          problem: workflows must keep creators as the accountable voice while removing repetitive production mechanics.
+        </p>
+      </Panel>
+
+      <Panel title="R&D acceleration vs previous claim cycle">
+        <p className="text-sm text-slate-300">
+          Technology is moving faster than ever. The last R&D claim relied more on{" "}
+          <strong className="font-semibold text-white">technicians</strong> to build prototypes, manage feeds, security
+          and designs. This cycle tests whether <strong className="font-semibold text-white">Cursor</strong>,{" "}
+          <strong className="font-semibold text-white">Lovable app projects</strong> and AI APIs let a smaller
+          distributed team (UK + SA) deliver the same ambitions{" "}
+          <strong className="font-semibold text-white">despite reduced headcount</strong> — with case studies evidencing
+          productionised outcomes, not demos alone.
+        </p>
+      </Panel>
+
+      <Panel title="Security incident register">
+        <p className="text-sm text-slate-300">
+          Log every security incident and material vulnerability on{" "}
+          <Link href="/admin/reports" className="font-semibold text-[#22c55e] hover:underline">
+            /admin/reports
+          </Link>{" "}
+          using <strong className="font-semibold text-white">Security incident & vulnerability log</strong>. Record
+          what failed, what was not known beforehand, and what remediation followed. Not a substitute for formal ICO
+          notification where GDPR requires it.
+        </p>
+      </Panel>
+
+      <Panel title="Legal, ethical and GDPR">
+        <p className="text-sm text-slate-300">
+          AI can turn a still into motion video or synthesise voice. It is uncertain which uses are lawful and ethical
+          for a UK/EU publisher — personality rights, misleading manipulation, betting integrity, and{" "}
+          <strong className="font-semibold text-white">GDPR</strong> for personal data in squads, logs and voice
+          pipelines. Blocked and approved paths are both R&D evidence.
+        </p>
+      </Panel>
+
+      <Panel title="Productionisation (UK + SA teams)">
+        <p className="text-sm text-slate-300">
+          Nik Keene, David Jarrett and the South Africa development team now use Cursor, Lovable and Plexa-connected AI
+          tooling alongside UK engineering. The R&D bottleneck is not building demos — it is{" "}
+          <strong className="font-semibold text-white">productionising</strong> them: review gates, tests, secrets
+          management, export reliability and shared standards across distributed teams.
+        </p>
+      </Panel>
+
+      <Panel title="AI-era security programme">
+        <p className="mb-4 text-sm text-slate-300">
+          AI amplifies speed and risk. Planet Sport has experienced a security incident involving AI-platform-related
+          credential exposure and unauthorised AWS environment creation. Security must intensify on{" "}
+          <strong className="font-semibold text-white">technical and human</strong> axes — 2FA is paramount.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[32rem] text-left text-sm">
+            <thead>
+              <tr className="border-b border-[#1f2d26] text-xs font-bold uppercase tracking-wide text-slate-500">
+                <th className="pb-2 pr-4">Control</th>
+                <th className="pb-2 pr-4">Role</th>
+                <th className="pb-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {securityProgramme.map(([name, role, status]) => (
+                <tr key={name} className="border-b border-[#1f2d26]/60">
+                  <td className="py-3 pr-4 font-semibold text-white">{name}</td>
+                  <td className="py-3 pr-4 text-slate-400">{role}</td>
+                  <td className="py-3">
+                    <span
+                      className={
+                        status === "Paramount"
+                          ? "rounded-full bg-amber-950/50 px-2 py-0.5 text-xs font-semibold text-amber-400"
+                          : "rounded-full bg-emerald-950/50 px-2 py-0.5 text-xs font-semibold text-emerald-400"
+                      }
+                    >
+                      {status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
+      <Panel title="Platform evaluation (SME toolchain)">
+        <p className="mb-4 text-sm text-slate-300">
+          Planet Sport cannot assume enterprise creative software is the answer. R&D includes evaluating new AI
+          platforms — Cursor, Lovable, model APIs — and documenting why some routes (including Adobe) were abandoned on
+          cost and integration grounds.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[32rem] text-left text-sm">
+            <thead>
+              <tr className="border-b border-[#1f2d26] text-xs font-bold uppercase tracking-wide text-slate-500">
+                <th className="pb-2 pr-4">Platform</th>
+                <th className="pb-2 pr-4">R&D role</th>
+                <th className="pb-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {platformEvaluation.map(([name, role, status]) => (
+                <tr key={name} className="border-b border-[#1f2d26]/60">
+                  <td className="py-3 pr-4 font-semibold text-white">{name}</td>
+                  <td className="py-3 pr-4 text-slate-400">{role}</td>
+                  <td className="py-3">
+                    <span
+                      className={
+                        status === "Rejected"
+                          ? "rounded-full bg-red-950/50 px-2 py-0.5 text-xs font-semibold text-red-400"
+                          : "rounded-full bg-emerald-950/50 px-2 py-0.5 text-xs font-semibold text-emerald-400"
+                      }
+                    >
+                      {status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
       <Panel title="Suggested R&D roadmap">
         <div className="space-y-3">
           {roadmap.map(([horizon, focus]) => (
@@ -227,8 +381,9 @@ export default function RdAssessmentPage() {
         </p>
         <p className="mt-3 text-sm text-slate-400">
           R&D should also record the failures and barriers: malformed feeds, transcript gaps, prompt failures,
-          model hallucinations, API limits, missing rights metadata, slow workflows, export errors and manual
-          production steps that block content creators from being creative.
+          model hallucinations, API limits, missing rights metadata, slow workflows, export errors,{" "}
+          <strong className="font-semibold text-slate-300">abandoned platform trials (e.g. Adobe on cost grounds)</strong>
+          , and manual production steps that block content creators from being creative.
         </p>
       </Panel>
 

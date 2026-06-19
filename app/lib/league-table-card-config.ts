@@ -4,7 +4,8 @@ export type LeagueTableBrand =
   | "football365"
   | "teamtalk"
   | "planetf1"
-  | "loverugbyleague";
+  | "loverugbyleague"
+  | "sport365";
 
 export type LeagueTableMode = "full" | "top-half" | "bottom-half" | "head-to-head" | "custom";
 export type LeagueTableHighlightMode = "leader" | "brand";
@@ -40,12 +41,13 @@ export type LeagueTableBrandToken = {
 };
 
 export const LEAGUE_TABLE_BRANDS: Record<LeagueTableBrand, LeagueTableBrandToken> = {
-  planetfootball: { primary: "#B7FF00", secondary: "#111111", text: "#FFFFFF", mark: "PF" },
+  planetfootball: { primary: "#B6F657", secondary: "#111111", text: "#FFFFFF", mark: "PF" },
   planetrugby: { primary: "#00B140", secondary: "#111111", text: "#FFFFFF", mark: "PR" },
-  football365: { primary: "#FF6A00", secondary: "#111111", text: "#FFFFFF", mark: "365" },
-  teamtalk: { primary: "#0066FF", secondary: "#111111", text: "#FFFFFF", mark: "TT" },
+  football365: { primary: "#1FFFFF", secondary: "#161E26", text: "#FFFFFF", mark: "365" },
+  teamtalk: { primary: "#70E1A1", secondary: "#2D313E", text: "#FFFFFF", mark: "TT" },
   planetf1: { primary: "#E10600", secondary: "#111111", text: "#FFFFFF", mark: "F1" },
   loverugbyleague: { primary: "#E4002B", secondary: "#111111", text: "#FFFFFF", mark: "LRL" },
+  sport365: { primary: "#BD33B5", secondary: "#141414", text: "#FFFFFF", mark: "365" },
 };
 
 export const LEAGUE_TABLE_CARD_TOKENS = {
@@ -55,8 +57,8 @@ export const LEAGUE_TABLE_CARD_TOKENS = {
   targetTableCenterY: 950,
   baseTableBackground: "rgba(12,12,12,0.84)",
   backgroundOverlay: "rgba(0,0,0,0.55)",
-  standardBorder: "rgba(255,255,255,0.10)",
-  headerText: "rgba(255,255,255,0.75)",
+  standardBorder: "rgba(255,255,255,0.22)",
+  headerText: "rgba(255,255,255,0.92)",
   headerDivider: "rgba(255,255,255,0.16)",
   mainText: "#FFFFFF",
   statsText: "#EDEDED",

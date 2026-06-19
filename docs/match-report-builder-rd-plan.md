@@ -1,6 +1,6 @@
 # Match Report Builder V1 — R&D Plan
 
-> **PDF (R&D folder):** [`docs/R&D/Match-Report-Builder-V1-RD-Plan.pdf`](R&D/Match-Report-Builder-V1-RD-Plan.pdf)
+> **Full R&D index:** [`docs/R&D/README.md`](R&D/README.md) · **Master report:** [`PLEXA_STUDIO_RD_REPORT.md`](../PLEXA_STUDIO_RD_REPORT.md) · **API:** `/api/docs/match-report-builder-rd`
 
 **Product:** Planet Sport Studio (Plexa)  
 **Repo:** `racing365-social` · Live: planetsport.studio  

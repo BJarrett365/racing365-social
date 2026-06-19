@@ -14,6 +14,9 @@ const allowed = new Set([
   "f1-results",
   "planet-football-table",
   "planet-rugby-table",
+  "team-line-up",
+  "team-sheet",
+  "score-line",
 ]);
 
 export async function generateMetadata({
@@ -47,7 +50,7 @@ export default async function EditorPage({
       <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-6 text-red-200">
         Unknown editor type. Use <code>next-off</code>, <code>fast-results</code>,{" "}
         <code>racecard</code>, <code>football-lineups</code>, <code>teamtalk-news</code>,{" "}
-        <code>f1-grid</code>, <code>f1-results</code>, <code>planet-football-table</code>, or <code>planet-rugby-table</code>.
+        <code>f1-grid</code>, <code>f1-results</code>, <code>planet-football-table</code>, <code>planet-rugby-table</code>, <code>team-line-up</code>, <code>team-sheet</code>, or <code>score-line</code>.
         <div className="mt-4">
           <Link href="/" className="text-[#22c55e] hover:underline">
             Back home
@@ -87,7 +90,13 @@ export default async function EditorPage({
                           ? "/planet-football-table"
                           : type === "planet-rugby-table"
                             ? "/planet-rugby-table"
-                            : "/racecards"
+                            : type === "team-line-up"
+                              ? "/team-line-up"
+                              : type === "team-sheet"
+                                ? "/team-sheet"
+                                : type === "score-line"
+                                  ? "/score-line"
+                                  : "/racecards"
           }
           className="text-sm text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]"
         >
@@ -106,6 +115,9 @@ export default async function EditorPage({
             | "f1-results"
             | "planet-football-table"
             | "planet-rugby-table"
+            | "team-line-up"
+            | "team-sheet"
+            | "score-line"
         }
         id={id}
       />

@@ -4,6 +4,11 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, type ChangeEvent } from "react";
 import { R365Button } from "@/app/components/R365Button";
 import { RacecardUrlImportForm } from "@/app/features/racecards/RacecardUrlImportForm";
+import { FootballLineupsNewButton } from "@/app/features/football-lineups/FootballLineupsNewButton";
+import { PlanetFootballTableNewButton } from "@/app/features/planet-football/PlanetFootballTableNewButton";
+import { PlanetRugbyTableNewButton } from "@/app/features/planet-rugby/PlanetRugbyTableNewButton";
+import { TeamLineUpNewButton } from "@/app/features/team-line-up/TeamLineUpNewButton";
+import { TeamSheetNewButton } from "@/app/features/team-sheet/TeamSheetNewButton";
 import { parseDataFeedKeyValueCsv } from "@/app/lib/data-feed-csv";
 import { PENDING_TEMPLATE_FEED_STORAGE_KEY, parseDataFeedJsonDocument } from "@/app/lib/data-feed-json";
 import { parseApiJson } from "@/app/lib/parse-api-json";
@@ -17,7 +22,11 @@ type FormatKey =
   | "f1-grid"
   | "f1-results"
   | "planet-football-table"
-  | "planet-rugby-table";
+  | "planet-rugby-table"
+  | "team-line-up"
+  | "team-sheet"
+  | "score-line"
+  | "football-lineups";
 
 type RacingUrlDraft =
   | { format: "next-off"; draft: Omit<NextOffBundle, "id"> }
@@ -46,6 +55,49 @@ function parseFeedFileToPending(text: string): {
 }
 
 export function CreateTemplateButton({
+  format,
+  editorBasePath = "/editor",
+}: {
+  format: FormatKey;
+  editorBasePath?: "/editor" | "/landscape/editor";
+}) {
+  if (format === "team-line-up") {
+    return (
+      <TeamLineUpNewButton
+        editorBasePath={editorBasePath}
+        buttonLabel="New template"
+        modalTitle="New template"
+      />
+    );
+  }
+  if (format === "team-sheet") {
+    return (
+      <TeamSheetNewButton
+        editorBasePath={editorBasePath}
+        buttonLabel="New template"
+        modalTitle="New template"
+      />
+    );
+  }
+  if (format === "football-lineups") {
+    return (
+      <FootballLineupsNewButton
+        editorBasePath={editorBasePath}
+        buttonLabel="New template"
+        modalTitle="New template"
+      />
+    );
+  }
+  if (format === "planet-football-table") {
+    return <PlanetFootballTableNewButton editorBasePath={editorBasePath} />;
+  }
+  if (format === "planet-rugby-table") {
+    return <PlanetRugbyTableNewButton editorBasePath={editorBasePath} />;
+  }
+  return <CreateTemplateButtonInner format={format} editorBasePath={editorBasePath} />;
+}
+
+function CreateTemplateButtonInner({
   format,
   editorBasePath = "/editor",
 }: {

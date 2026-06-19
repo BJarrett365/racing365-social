@@ -44,6 +44,12 @@ import {
   sport365CommentarySummary,
 } from "@/app/lib/match-report/import-layer-summaries";
 import {
+  formatImportLinesBulletList,
+  fotMobPreviewImportLines,
+  sixLogicFixtureImportLines,
+  whoScoredPreviewImportLines,
+} from "@/app/lib/match-report/preview-import-summaries";
+import {
   formatLoopFeedManualSourcesSummary,
   groupLoopFeedManualSourcesByTeam,
   loopFeedSatisfiesManualSources,
@@ -69,6 +75,8 @@ const STEP_META: Record<
   Extract<
     MatchReportWorkflowStep,
     | "preview_fixture_context"
+    | "preview_whoscored"
+    | "preview_fotmob"
     | "sport365"
     | "league_table"
     | "league_stats"
@@ -79,9 +87,19 @@ const STEP_META: Record<
   { title: string; help: string; skipPenalty?: number }
 > = {
   preview_fixture_context: {
-    title: "Form & head-to-head",
-    help: "Pull recent form, head-to-head meetings, and upcoming fixtures from the Six Logic foundation feed.",
+    title: "Six Logic form & H2H",
+    help: "Import head-to-head meetings, recent form, and next fixtures from the Six Logic match foundation.",
     skipPenalty: 8,
+  },
+  preview_whoscored: {
+    title: "WhoScored preview",
+    help: "Paste a WhoScored show or preview tab URL to enrich H2H, form, and match facts. Import may take up to a minute via browser/Apify.",
+    skipPenalty: 6,
+  },
+  preview_fotmob: {
+    title: "FotMob preview",
+    help: "Paste a FotMob match URL for form, last starting XI, bench, win-probability insights, and FIFA ranking comparison.",
+    skipPenalty: 6,
   },
   sport365: {
     title: "Six Logic commentary",
@@ -124,6 +142,8 @@ function CompletedImports({ project, hideStep }: { project: MatchReportProject; 
   const HIDE_BY_LAYER: Partial<Record<string, MatchReportWorkflowStep>> = {
     sport365Commentary: "sport365",
     fixtureContext: fixtureContextStep,
+    whoScoredPreview: "preview_whoscored",
+    fotMobPreview: "preview_fotmob",
     leagueTable: "league_table",
     leagueSeasonStats: "league_stats",
     loopFeed: "loop_feed",
@@ -178,6 +198,10 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
     project.layers.leagueSeasonStats?.sourceUrl ?? defaultSport365CompetitionUrl(project.competition),
   );
   const [whoscoredUrl, setWhoscoredUrl] = useState(project.layers.optaPlayerData?.sourceUrl ?? "");
+  const [whoScoredPreviewUrl, setWhoScoredPreviewUrl] = useState(
+    project.layers.whoScoredPreview?.sourceUrl ?? "",
+  );
+  const [fotMobUrl, setFotMobUrl] = useState(project.layers.fotMobPreview?.sourceUrl ?? "");
   const [loopHomeUrl, setLoopHomeUrl] = useState("");
   const [loopAwayUrl, setLoopAwayUrl] = useState("");
   const [loopHomeLabel, setLoopHomeLabel] = useState(project.homeTeam);
@@ -381,10 +405,77 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
       const data = (await res.json()) as {
         project?: MatchReportProject;
         fixtureContext?: FixtureContextIntelligence | null;
+        importedItems?: string[];
+        importSummary?: string;
         error?: string;
       };
       if (!res.ok || !data.project) throw new Error(data.error || "Fixture context import failed");
-      if (data.fixtureContext) setImportFeedback(fixtureContextSummary(data.fixtureContext));
+      if (data.importSummary) {
+        setImportFeedback(data.importSummary);
+      } else if (data.fixtureContext) {
+        setImportFeedback(formatImportLinesBulletList(sixLogicFixtureImportLines(data.fixtureContext)));
+      }
+      onProjectChange(data.project);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const importPreviewWhoScored = async () => {
+    setLocalError(null);
+    setImportFeedback(null);
+    const url = whoScoredPreviewUrl.trim();
+    if (!url) throw new Error("Paste a WhoScored show or preview URL, or skip this layer.");
+    setImporting(true);
+    try {
+      const res = await fetch(studioApiPath("/api/match-report/import/preview-whoscored"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: project.id, whoScoredUrl: url }),
+      });
+      const data = (await res.json()) as {
+        project?: MatchReportProject;
+        whoScoredPreview?: FixtureContextIntelligence | null;
+        importedItems?: string[];
+        importSummary?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.project) throw new Error(data.error || "WhoScored preview import failed");
+      if (data.importSummary) {
+        setImportFeedback(data.importSummary);
+      } else if (data.whoScoredPreview) {
+        setImportFeedback(formatImportLinesBulletList(whoScoredPreviewImportLines(data.whoScoredPreview)));
+      }
+      onProjectChange(data.project);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const importPreviewFotMob = async () => {
+    setLocalError(null);
+    setImportFeedback(null);
+    const url = fotMobUrl.trim();
+    if (!url) throw new Error("Paste a FotMob match URL, or skip this layer.");
+    setImporting(true);
+    try {
+      const res = await fetch(studioApiPath("/api/match-report/import/preview-fotmob"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: project.id, fotMobUrl: url }),
+      });
+      const data = (await res.json()) as {
+        project?: MatchReportProject;
+        importedItems?: string[];
+        importSummary?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.project) throw new Error(data.error || "FotMob preview import failed");
+      if (data.importSummary) {
+        setImportFeedback(data.importSummary);
+      } else if (data.importedItems?.length) {
+        setImportFeedback(formatImportLinesBulletList(data.importedItems));
+      }
       onProjectChange(data.project);
     } finally {
       setImporting(false);
@@ -634,6 +725,8 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
 
   if (
     step === "preview_fixture_context" ||
+    step === "preview_whoscored" ||
+    step === "preview_fotmob" ||
     step === "sport365" ||
     step === "league_table" ||
     step === "league_stats" ||
@@ -658,8 +751,8 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
         <CompletedImports project={project} hideStep={step} />
 
         {importFeedback ? (
-          <ImportStatusCard variant="success" title="Just imported">
-            {importFeedback}
+          <ImportStatusCard variant="success" title="Imported">
+            <p className="whitespace-pre-wrap text-sm">{importFeedback}</p>
           </ImportStatusCard>
         ) : null}
 
@@ -679,7 +772,64 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
               <ImportStatusCard variant="success" title="Already on file">
                 <p className="text-sm">{fixtureContextSummary(project.layers.fixtureContext)}</p>
                 <p className="mt-2 whitespace-pre-wrap text-xs text-[color:var(--text-muted)]">
-                  {project.layers.fixtureContext.digest}
+                  {formatImportLinesBulletList(sixLogicFixtureImportLines(project.layers.fixtureContext))}
+                </p>
+              </ImportStatusCard>
+            ) : null}
+          </div>
+        ) : null}
+
+        {step === "preview_whoscored" ? (
+          <div className="space-y-4">
+            <ImportStatusCard variant="info" title="Show / preview tab required">
+              Open the match on WhoScored and use the <strong>show</strong> or <strong>preview</strong> tab — not Live
+              Statistics. Import may take up to a minute via browser/Apify.
+            </ImportStatusCard>
+            <label className="block space-y-2">
+              <span className={importLabelClass}>WhoScored show / preview URL</span>
+              <input
+                type="url"
+                className={importFieldClass}
+                style={importFieldStyle}
+                value={whoScoredPreviewUrl}
+                onChange={(e) => setWhoScoredPreviewUrl(e.target.value)}
+                placeholder="https://www.whoscored.com/matches/1953853/show/international-fifa-world-cup-2026-mexico-south-africa"
+                disabled={importing}
+              />
+            </label>
+            {project.layers.whoScoredPreview ? (
+              <ImportStatusCard variant="success" title="Already on file">
+                <p className="text-sm">{fixtureContextSummary(project.layers.whoScoredPreview)}</p>
+                <p className="mt-2 whitespace-pre-wrap text-xs text-[color:var(--text-muted)]">
+                  {formatImportLinesBulletList(whoScoredPreviewImportLines(project.layers.whoScoredPreview))}
+                </p>
+              </ImportStatusCard>
+            ) : null}
+          </div>
+        ) : null}
+
+        {step === "preview_fotmob" ? (
+          <div className="space-y-4">
+            <ImportStatusCard variant="info" title="FotMob match page">
+              Pulls form, H2H, last starting XI, bench, win-probability insights, and FIFA ranking comparison from the
+              match page.
+            </ImportStatusCard>
+            <label className="block space-y-2">
+              <span className={importLabelClass}>FotMob match URL</span>
+              <input
+                type="url"
+                className={importFieldClass}
+                style={importFieldStyle}
+                value={fotMobUrl}
+                onChange={(e) => setFotMobUrl(e.target.value)}
+                placeholder="https://www.fotmob.com/en-GB/matches/south-africa-vs-mexico/1einvt"
+                disabled={importing}
+              />
+            </label>
+            {project.layers.fotMobPreview ? (
+              <ImportStatusCard variant="success" title="Already on file">
+                <p className="whitespace-pre-wrap text-xs text-[color:var(--text-muted)]">
+                  {formatImportLinesBulletList(fotMobPreviewImportLines(project.layers.fotMobPreview))}
                 </p>
               </ImportStatusCard>
             ) : null}
@@ -981,10 +1131,32 @@ export function DataImportSteps({ project, onProjectChange, onBuildPicture, busy
                 disabled={busy || importing || !project.layers.sixLogic}
               >
                 {importing
-                  ? "Loading fixture context…"
+                  ? "Loading Six Logic form & H2H…"
                   : project.layers.fixtureContext
                     ? "Re-import & continue"
-                    : "Import form & H2H & continue"}
+                    : "Import Six Logic & continue"}
+              </R365Button>
+            ) : step === "preview_whoscored" ? (
+              <R365Button
+                onClick={() => runAction(importPreviewWhoScored)}
+                disabled={busy || importing || !whoScoredPreviewUrl.trim()}
+              >
+                {importing
+                  ? "Loading WhoScored preview in browser…"
+                  : project.layers.whoScoredPreview
+                    ? "Re-import & continue"
+                    : "Import WhoScored & continue"}
+              </R365Button>
+            ) : step === "preview_fotmob" ? (
+              <R365Button
+                onClick={() => runAction(importPreviewFotMob)}
+                disabled={busy || importing || !fotMobUrl.trim()}
+              >
+                {importing
+                  ? "Loading FotMob match data…"
+                  : project.layers.fotMobPreview
+                    ? "Re-import & continue"
+                    : "Import FotMob & continue"}
               </R365Button>
             ) : step === "sport365" ? (
               <R365Button

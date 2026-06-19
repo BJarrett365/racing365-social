@@ -3,6 +3,7 @@ import {
   runMatchReportPushActions,
 } from "@/app/lib/match-report/push-match-report-actions";
 import type { MatchReportPushAction } from "@/app/lib/match-report/match-report-distribution";
+import type { EditorialPublishOverride, EditorOverrideReason } from "@/app/lib/match-report/mio/types";
 import { getMatchReportRepository, MatchReportStoreError } from "@/app/lib/match-report/store";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,10 @@ type Body = {
   projectId?: string;
   action?: MatchReportPushAction;
   actions?: MatchReportPushAction[];
+  editorOverride?: {
+    reason?: EditorOverrideReason;
+    detail?: string;
+  };
 };
 
 export async function POST(req: Request) {
@@ -35,7 +40,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid action." }, { status: 400 });
     }
 
-    const { project, results } = await runMatchReportPushActions(getMatchReportRepository(), projectId, actions);
+    const overrideInput = body.editorOverride;
+    let editorOverride: EditorialPublishOverride | undefined;
+
+    const repo = getMatchReportRepository();
+    const existing = await repo.getProject(projectId);
+    if (overrideInput?.reason && existing) {
+      const score =
+        existing.previewEditorialScore?.overall ?? existing.reportEditorialScore?.overall ?? 0;
+      editorOverride = {
+        reason: overrideInput.reason,
+        detail: overrideInput.detail?.trim() || undefined,
+        scoreAtOverride: score,
+        gateStatusAtOverride: existing.editorialPublishGate?.status ?? "blocked",
+        overriddenAt: new Date().toISOString(),
+      };
+    }
+
+    const { project, results } = await runMatchReportPushActions(repo, projectId, actions, {
+      editorOverride,
+    });
     return NextResponse.json({ ok: true, project, results });
   } catch (e) {
     if (e instanceof MatchReportStoreError) {

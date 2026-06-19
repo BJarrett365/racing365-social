@@ -13,7 +13,10 @@ import { PlayerRatingsTable } from "@/app/match-report-builder/components/Player
 import { MatchReportDistributionPanel } from "@/app/match-report-builder/components/MatchReportDistributionPanel";
 import { SkippedLayersReport } from "@/app/match-report-builder/components/SkippedLayersReport";
 import { WorldCupStandingsRefresh } from "@/app/match-report-builder/components/WorldCupStandingsRefresh";
+import { EditableMatchReportOutput } from "@/app/match-report-builder/components/EditableMatchReportOutput";
+import { FactCheckActionBar } from "@/app/match-report-builder/components/FactCheckActionBar";
 import { FactCheckPanel } from "@/app/match-report-builder/components/FactCheckPanel";
+import { ReviewEditorialScorePanel } from "@/app/match-report-builder/components/ReviewEditorialScorePanel";
 
 const inputClass =
   "w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus)]";
@@ -137,7 +140,43 @@ export function ReviewScreen({ project, onProjectChange, onBack, busy, error }: 
           disabled={busy}
         />
 
+        <ReviewEditorialScorePanel project={project} onProjectChange={onProjectChange} disabled={busy} />
         <FactCheckPanel factCheck={project.factCheck} />
+        <FactCheckActionBar
+          project={project}
+          busy={busy}
+          onProjectChange={onProjectChange}
+          onError={setLocalError}
+          onSyncLanguageStudio={async (next) => {
+            if (!next.archive?.languageStudioArticleId) return;
+            const syncRes = await fetch(studioApiPath("/api/match-report/sync-language-studio"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId: project.id }),
+            });
+            const syncData = (await syncRes.json()) as {
+              rewriteUrl?: string;
+              project?: MatchReportProject;
+              error?: string;
+            };
+            if (syncRes.ok) {
+              if (syncData.rewriteUrl) setRewriteUrl(syncData.rewriteUrl);
+              if (syncData.project) onProjectChange(syncData.project);
+            }
+          }}
+        />
+        <EditableMatchReportOutput
+          project={project}
+          busy={busy}
+          onProjectChange={(next) => {
+            onProjectChange(next);
+            setHeadline(next.mediaOutputs?.headline ?? "");
+            setStandfirst(next.mediaOutputs?.standfirst ?? "");
+            setReportHtml(next.mediaOutputs?.reportHtml ?? "");
+          }}
+          run={run}
+          showAiFix={false}
+        />
 
         <div className="flex flex-wrap gap-2">
           {(["preview", "edit"] as const).map((panel) => (

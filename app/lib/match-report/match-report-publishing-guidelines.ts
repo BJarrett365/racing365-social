@@ -1,5 +1,5 @@
 /** Shared publishing + E-E-A-T guidance for Football365 / TEAMtalk match reports. */
-export const MATCH_REPORT_PUBLISHING_EEAT_GUIDELINES = `Publishing length (match reports): Football365 full-match body copy should target 1,200–1,500 words across Match Analysis and Extended Report; TEAMtalk can be tighter at 800–1,400 words. Comprehensive, never padded. Answer the result and headline story in the first 1–2 sentences; cover likely follow-up questions (key moments, table impact, standout performers, what next).
+export const MATCH_REPORT_PUBLISHING_EEAT_GUIDELINES = `Publishing length (match reports): Football365 full-match body copy should target 1,200–1,500 words across Report 2.0 sections (The Story through Football365 Verdict); TEAMtalk can be tighter at 800–1,400 words. Comprehensive, never padded. Answer the result and headline story in the first 1–2 sentences; cover likely follow-up questions (key moments, table impact, standout performers, what next).
 
 E-E-A-T priorities: original synthesis from supplied sources; preserve direct quotes when provided; journalist opinion only when the editorial brief allows it and it is grounded in match facts; cite stats and table context from the feed; no invented incidents or quotes.
 

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Panel } from "@/app/components/Panel";
 import { DeleteTemplateButton } from "@/app/components/TemplateActions";
+import { TemplateNewButton } from "@/app/components/TemplateNewButton";
 import { getRacingDataProvider } from "@/app/features/data/providers";
-import { PlanetFootballTableNewButton } from "@/app/features/planet-football/PlanetFootballTableNewButton";
 
 export default async function PlanetFootballTablePage({
   searchParams,
@@ -23,7 +23,7 @@ export default async function PlanetFootballTablePage({
             Import a Sport365 football standings URL, preview parsed rows, then create editable table Shorts templates.
           </p>
         </div>
-        <PlanetFootballTableNewButton editorBasePath={editorBasePath} />
+        <TemplateNewButton format="planet-football-table" editorBasePath={editorBasePath} />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {items.map((b) => (

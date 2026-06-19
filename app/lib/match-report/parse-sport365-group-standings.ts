@@ -105,6 +105,19 @@ function defaultGroupQualification(position: number, teamCount = 4): string {
   return "";
 }
 
+function filterPrimaryStandingsTables(tables: RawTable[]): RawTable[] {
+  const byName = new Map<string, RawTable>();
+  for (const table of tables) {
+    const name = (table.name?.trim() || "Group").toLowerCase();
+    const code = typeof table.code === "number" ? table.code : 99;
+    const existing = byName.get(name);
+    if (!existing || (typeof existing.code === "number" ? existing.code : 99) > code) {
+      byName.set(name, table);
+    }
+  }
+  return [...byName.values()];
+}
+
 function extractGroupCode(tableName: string, tableCode?: number): string {
   const match = tableName.match(/group\s*([A-Z])/i);
   if (match?.[1]) return match[1].toUpperCase();
@@ -221,7 +234,7 @@ export async function parseSport365GroupStandings(input: {
 }): Promise<LeagueTableIntelligence> {
   const stage = await resolveSport365StageRef(input.sourceUrl);
   const payload = await fetchSport365Json<StageStandingsPayload>(`/v1/en/stage/soccer/${stage.stageId}`);
-  const groupTables = (payload.L?.tables ?? [])
+  const groupTables = filterPrimaryStandingsTables(payload.L?.tables ?? [])
     .map((table) => mapGroupTable(table, input.homeTeam, input.awayTeam))
     .filter((table): table is GroupTableSnapshot => Boolean(table))
     .sort((a, b) => a.groupCode.localeCompare(b.groupCode));

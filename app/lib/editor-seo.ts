@@ -11,7 +11,10 @@ export type EditorType =
   | "f1-grid"
   | "f1-results"
   | "planet-football-table"
-  | "planet-rugby-table";
+  | "planet-rugby-table"
+  | "team-line-up"
+  | "team-sheet"
+  | "score-line";
 
 export type EditorSeo = {
   /** Visible page heading */
@@ -113,6 +116,37 @@ async function loadEditorSeo(type: EditorType, id: string): Promise<EditorSeo> {
         headline,
         pageTitle: `${headline} | Planet Football Shorts`,
         description: `Edit Planet Football table Shorts for ${b.table.competition}: layout, rows, and display mode.`,
+      };
+    }
+    if (type === "team-line-up") {
+      const b = await p.getTeamLineUpById(id);
+      if (!b) return fallback(id, type);
+      const headline = `${b.home.name} vs ${b.away.name} — Team Line-Up`;
+      return {
+        headline,
+        pageTitle: `${headline} | Team Line-Up`,
+        description: `Edit branded formation cards for ${b.home.name} vs ${b.away.name}.`,
+      };
+    }
+    if (type === "team-sheet") {
+      const b = await p.getTeamSheetById(id);
+      if (!b) return fallback(id, type);
+      const headline = `${b.home.name} vs ${b.away.name} — Team Sheet`;
+      return {
+        headline,
+        pageTitle: `${headline} | Team Sheet`,
+        description: `Edit readable team sheet graphics for ${b.home.name} vs ${b.away.name}.`,
+      };
+    }
+    if (type === "score-line") {
+      const b = await p.getScoreLineById(id);
+      if (!b) return fallback(id, type);
+      const ctx = b.matchContext;
+      const headline = `${ctx.homeTeam} ${ctx.homeScore}–${ctx.awayScore} ${ctx.awayTeam} — Score Line`;
+      return {
+        headline,
+        pageTitle: `${headline} | Score Line`,
+        description: `Edit score line graphic for ${ctx.homeTeam} vs ${ctx.awayTeam}.`,
       };
     }
     const snap = await p.getRacecardById(id);

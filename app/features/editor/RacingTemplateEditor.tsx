@@ -537,7 +537,7 @@ export function RacingTemplateEditor({
   templateSectionUnstyled = false,
 }: Props) {
   const src = content.templateSource;
-  if (!src || src.format === "football-lineups") {
+  if (!src || src.format === "football-lineups" || src.format === "team-line-up" || src.format === "team-sheet" || src.format === "score-line") {
     return null;
   }
 

@@ -46,7 +46,9 @@ export function prevGenerationStep(current: MatchReportWorkflowStep): MatchRepor
 
 export function stepLabel(step: MatchReportWorkflowStep): string {
   const labels: Partial<Record<MatchReportWorkflowStep, string>> = {
-    preview_fixture_context: "Form & head-to-head",
+    preview_fixture_context: "Six Logic form & H2H",
+    preview_whoscored: "WhoScored preview",
+    preview_fotmob: "FotMob preview",
     sport365: "Six Logic commentary",
     league_table: "League table",
     league_stats: "Top scorers & team stats",

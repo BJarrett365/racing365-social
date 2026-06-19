@@ -10,6 +10,12 @@ import {
 import { ffmpegBinary, probeHasAudioStream, probeMediaDurationSec, ffmpegMp4VideoEncodeArgs, runFfmpeg } from "./ffmpeg-utils";
 import { buildNewsShortAss, type NewsShortAssStyle } from "@/app/features/content/news-short-ass";
 import { buildSrt, type SubtitleCue } from "@/app/features/content/subtitle-generator";
+import {
+  buildLeagueTableAss,
+  buildSport365Ass,
+  buildSport365SentenceCues,
+  SPORT365_SUBTITLE_PINK,
+} from "@/app/lib/sport365-subtitle-burn";
 import type { ManifestEntry } from "@/app/lib/asset-manifest";
 import { assertAudioAssetRel, assertCrossContentBackdropRel } from "@/app/lib/editor-upload";
 import { readLibraryBlobAsset } from "@/app/lib/library-blob-assets";
@@ -44,6 +50,8 @@ export interface BuildShortInput {
   /** Voice/TTS file — omit when `useVideoAudio` is true with a backdrop video. */
   audioPath?: string;
   burnSubtitles?: boolean;
+  /** Accent colour for planet-football-table ASS subtitle outline (hex). */
+  subtitleAccentColor?: string;
   /** Shown in library, FFmpeg metadata, and download naming context */
   seoTitle: string;
   /** Filename stem (ASCII slug, no `-short` suffix) */
@@ -88,6 +96,8 @@ export interface BuildShortInput {
   subtitleStyle?: NewsShortAssStyle;
   /** Build intent used by hub filters (does not change render logic directly). */
   buildMode?: "shorts" | "portrait" | "landscape";
+  /** Voiceover script — used for Sport365 sentence-by-sentence subtitle burn on football tables. */
+  script?: string;
 }
 
 function normalizeVideoRecordLayout(raw: VideoRecordLayout | string | undefined | null): VideoRecordLayout {
@@ -279,6 +289,13 @@ async function materializeSceneImagePath(imagePath: string, contentId: string, i
     await fs.writeFile(out, blob.bytes);
     return out;
   }
+  const underOutput = path.join(outputDir(), ...normalized.split("/"));
+  try {
+    await fs.access(underOutput);
+    return underOutput;
+  } catch {
+    /* fall through */
+  }
   return path.resolve(projectRoot(), imagePath);
 }
 
@@ -437,15 +454,29 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
   const concatPath = path.join(outputDir(), `concat-${input.contentId}.txt`);
   await writeConcatFile(scenes, concatPath);
 
+  const sceneSum = Math.max(0.1, scenes.reduce((a, s) => a + s.durationSec, 0));
+  const sport365Script =
+    input.script?.trim() ||
+    scenes
+      .map((s) => s.caption.trim())
+      .filter(Boolean)
+      .join(" ");
+  const useSport365Ass =
+    input.format === "planet-football-table" &&
+    input.burnSubtitles !== false &&
+    Boolean(sport365Script);
+
   let t = 0;
-  const cues: SubtitleCue[] = scenes.map((s) => {
+  const sceneCues: SubtitleCue[] = scenes.map((s) => {
     const start = t;
     const end = t + s.durationSec;
     t = end;
     return { startSec: start, endSec: end, text: s.caption };
   });
+  const sentenceCues = useSport365Ass ? buildSport365SentenceCues(sport365Script, sceneSum) : [];
+  const srtCues = useSport365Ass && sentenceCues.length > 0 ? sentenceCues : sceneCues;
   const srtPath = path.join(outputSubtitlesDir(), `${input.contentId}.srt`);
-  await fs.writeFile(srtPath, buildSrt(cues), "utf-8");
+  await fs.writeFile(srtPath, buildSrt(srtCues), "utf-8");
 
   const useAss =
     input.styledSubtitleBurn === true &&
@@ -455,7 +486,21 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
 
   let assPath: string | undefined;
   let subtitleRelForBurn: string;
-  if (useAss) {
+  if (useSport365Ass && sentenceCues.length > 0) {
+    assPath = path.join(outputSubtitlesDir(), `${input.contentId}-sport365.ass`);
+    await fs.writeFile(
+      assPath,
+      buildLeagueTableAss(sentenceCues, {
+        playResX: ow,
+        playResY: oh,
+        busyMotionBackdrop: Boolean(input.backgroundVideoRel?.trim()),
+        accentColor: input.subtitleAccentColor ?? SPORT365_SUBTITLE_PINK,
+        styleName: "FootballTable",
+      }),
+      "utf-8",
+    );
+    subtitleRelForBurn = path.relative(projectRoot(), assPath).split(path.sep).join("/");
+  } else if (useAss) {
     t = 0;
     const assCues = scenes.map((s) => {
       const start = t;
@@ -492,8 +537,6 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
       ? path.join(projectRoot(), "assets", "fonts", "news-shorts")
       : undefined;
   const subtitleBurnFilter = subtitlesFilterWithOptionalFontsdir(srtRel, fontsDirForAss);
-
-  const sceneSum = Math.max(0.1, scenes.reduce((a, s) => a + s.durationSec, 0));
 
   /** Output length follows voiceover (and scene timeline), padded to match. */
   const ABS_MAX_SEC = 600;
@@ -663,6 +706,14 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
       return c;
     };
 
+    const appendSport365BackdropVividBoost = (chain: string, outLabel: { current: string }): string => {
+      if (input.format !== "planet-football-table" || !singleStreamBackdropIsFileNotCamera) return chain;
+      const next = "bgvivid";
+      const c = `${chain};[${outLabel.current}]eq=brightness=0.045:saturation=1.08[${next}]`;
+      outLabel.current = next;
+      return c;
+    };
+
     if (useVideoAudio) {
       const bgIdx = n;
       let bgChain: string;
@@ -714,6 +765,7 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
           ow,
           oh,
         );
+        bgChain = appendSport365BackdropVividBoost(bgChain, bgStreamLabel);
         bgChain = appendCameraFullReadabilityDim(bgChain, bgStreamLabel);
       }
       let vChain = `${fgChain};${bgChain};${overlayOnBgFor(bgStreamLabel.current)}`;
@@ -851,6 +903,7 @@ export async function buildShortVideo(input: BuildShortInput): Promise<{
           ow,
           oh,
         );
+        bgChain = appendSport365BackdropVividBoost(bgChain, bgStreamLabel);
         bgChain = appendCameraFullReadabilityDim(bgChain, bgStreamLabel);
       }
       let vChain = `${fgChain};${bgChain};${overlayOnBgFor(bgStreamLabel.current)}`;

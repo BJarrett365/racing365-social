@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import {
+  importSport365GroupTablesForTemplate,
+  isSport365GroupStageTableUrl,
+} from "@/app/lib/planet-football-table-sport365-import";
+import {
   extractPlanetFootballRowsFromUnknown,
   isValidPlanetFootballTableUrl,
   parsePlanetFootballTable,
@@ -9,7 +13,7 @@ import { withPlanetFootballTeamLogoUrls } from "@/app/lib/planet-football-team-l
 import { loadPuppeteer, resolvePuppeteerLaunchOptions } from "@/app/lib/puppeteer-launch";
 import type { PlanetFootballTableRow } from "@/types";
 
-type Body = { url?: string; tableView?: string };
+type Body = { url?: string; tableView?: string; selectedGroupCode?: string };
 
 export const runtime = "nodejs";
 
@@ -288,10 +292,37 @@ export async function POST(req: Request) {
   }
 
   const tableView = planetFootballTableView(body.tableView);
-  const requestedUrl = body.url?.trim() || "https://www.sport365.com/football/england/premier-league#/standings";
+  const requestedUrl = body.url?.trim() || "https://www.sport365.com/football/world-cup/group-stage#/standings";
+  if (!isValidPlanetFootballTableUrl(requestedUrl)) {
+    return NextResponse.json(
+      { success: false, error: "Use a Sport365 football URL (league standings, group stage, or match page)." },
+      { status: 400 },
+    );
+  }
+
+  if (isSport365GroupStageTableUrl(requestedUrl)) {
+    try {
+      const imported = await importSport365GroupTablesForTemplate(requestedUrl, body.selectedGroupCode);
+      return NextResponse.json({
+        success: true,
+        format: imported.format,
+        groupTables: imported.groupTables,
+        selectedGroupCode: imported.selectedGroupCode,
+        data: imported.data,
+        matchContext: imported.matchContext,
+        matchImportWarning: imported.matchImportWarning,
+      });
+    } catch (e) {
+      return NextResponse.json(
+        { success: false, error: e instanceof Error ? e.message : "Sport365 group import failed" },
+        { status: 500 },
+      );
+    }
+  }
+
   const url = withFootball365TableView(requestedUrl, tableView);
   if (!isValidPlanetFootballTableUrl(url)) {
-    return NextResponse.json({ success: false, error: "Use a Sport365 or Football365 Premier League table URL." }, { status: 400 });
+    return NextResponse.json({ success: false, error: "Use a Sport365 or Football365 table URL." }, { status: 400 });
   }
 
   try {
@@ -319,7 +350,7 @@ export async function POST(req: Request) {
       if (!fallback) throw new Error("Could not find Premier League table rows in the rendered page data.");
       data = fallback;
     }
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, format: "league", data });
   } catch (e) {
     return NextResponse.json(
       { success: false, error: e instanceof Error ? e.message : "Import failed" },

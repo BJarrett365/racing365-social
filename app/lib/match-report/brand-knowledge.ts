@@ -130,6 +130,7 @@ export function matchReportBrandStylePacketForTarget(target: MatchReportTargetBr
     "Brand identity: stats-focused, clear and analytical.",
     "Report promise: explain the match through data, xG, player ratings, tables and trend context.",
     "Voice: concise, evidence-led and useful.",
+    "Reference: Sport365 colour / UI theme tokens in /brand-manuals/sport365-themes.json (extracted from Sport365.app).",
   ].join("\n");
 }
 

@@ -161,6 +161,20 @@ Create a clean, engaging voiceover that:
 - works perfectly for short-form video
 - never hardcodes the wrong site`;
 
+/** Shorter default for league table Shorts — avoids drowning out voice/delivery/tone controls. */
+export const LEAGUE_TABLE_EDITOR_VOICEOVER_PROMPT =
+  `League table Short — voiceover writer
+
+Write a short British English standings script for a YouTube Short.
+
+Rules:
+- league_table_standings is authoritative for standings and any MATCH RESULT block (score + scorers)
+- When MATCH RESULT lists goal scorers, include the scoreline and name each scorer in the script
+- 2–4 sentences, ~10–20 seconds spoken (longer if naming several scorers)
+- Use the Sport365 sign-off when the template uses Sport365 branding
+- British English, no emojis, no invented facts
+- Voice style, delivery style and tone dropdowns override this block when they conflict`;
+
 /** Fallback when custom prompt is empty in improve-racing-voiceover API. */
 export const RACING_VOICEOVER_API_DEFAULT_PROMPT =
   `You are a Racing365 voiceover writer.
@@ -260,7 +274,7 @@ export const MATCH_REPORT_PLANET_SPORT_PROMPT = `Match report · Planet Sport ne
 You write post-match reports across Planet Sport verticals. The feed may include BOTH post-match facts AND earlier preview context — use each appropriately.
 
 LENGTH & E-E-A-T (Football365 / TEAMtalk publishing):
-- For **Football365 full-match reports**, target **1,200–1,500 words of body copy** in \`reportHtml\` before any separate player-ratings table or 16 Conclusions output. The visible editorial body must be split into \`<h2>Match Analysis</h2>\` and \`<h2>Extended Report</h2>\`. Do not return a short wire-style report
+- For **Football365 full-match reports**, target **1,200–1,500 words of body copy** in \`reportHtml\` before any separate player-ratings table or 16 Conclusions output. The visible editorial body uses **Report 2.0** sections: The Story, Turning Point, How The Match Was Won, Key Battles, Standout Players, What It Means, What Happens Next, Football365 Verdict. Do not return a short wire-style report
 - For **TEAMtalk**, target **800–1,400 words** unless the brief asks for shorter copy
 - Comprehensive, never padded with fluff: the extra length should come from match narrative, key moments, tactical shape, individual performances, table stakes, social/reaction colour when supplied, and what-next context
 - Lead with the **result and headline story** in the first 1–2 sentences; then cover key moments, performers, table context and what next
@@ -299,7 +313,7 @@ STRUCTURE (HTML — semantic headings for SEO):
 
 5) What next / context — \`<h2>\`; table impact, knockout progression, next fixture if supplied
 
-6) For Football365, add additional body depth where supported by the EIO so the report is not short: tactical pattern, standout performers, managers/reaction from imported interviews, table/relegation/title implications, and a what-next closer. Put this depth under \`<h2>Match Analysis</h2>\` and \`<h2>Extended Report</h2>\`; together these sections should be 1,200–1,500 words. These are part of \`reportHtml\`, not \`sixteenConclusionsHtml\`.
+6) For Football365, distribute depth across Report 2.0 sections — especially How The Match Was Won, Key Battles, Standout Players and What It Means — so the full \`reportHtml\` reaches 1,200–1,500 words. These are part of \`reportHtml\`, not \`sixteenConclusionsHtml\`.
 
 ODDS:
 Generally omit post-match unless explicitly editorial (e.g. title race implication). No new betting calls unless brief requires it.

@@ -60,6 +60,8 @@ function previewProject(overrides: Partial<MatchReportProject> = {}): MatchRepor
       },
       sport365Commentary: null,
       fixtureContext: null,
+      fotMobPreview: null,
+      whoScoredPreview: null,
       leagueTable: null,
       leagueSeasonStats: null,
       loopFeed: null,

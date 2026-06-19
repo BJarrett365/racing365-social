@@ -4,6 +4,8 @@ import { LAYER_CONFIDENCE_PENALTIES } from "@/app/lib/match-report/confidence";
 /** Import layers for match previews (pre-match). Commentary / WhoScored / interviews omitted. */
 export const PREVIEW_IMPORT_LAYER_STEPS: MatchReportWorkflowStep[] = [
   "preview_fixture_context",
+  "preview_whoscored",
+  "preview_fotmob",
   "league_table",
   "league_stats",
   "loop_feed",
@@ -21,7 +23,11 @@ export const PREVIEW_GENERATION_STEPS: MatchReportWorkflowStep[] = [
 
 export const PREVIEW_SKIP_PENALTIES: Partial<Record<string, number>> = {
   preview_fixture_context: 8,
+  preview_whoscored: 6,
+  preview_fotmob: 6,
   fixtureContext: 8,
+  whoScoredPreview: 6,
+  fotMobPreview: 6,
   leagueTable: LAYER_CONFIDENCE_PENALTIES.leagueTable,
   leagueSeasonStats: LAYER_CONFIDENCE_PENALTIES.leagueSeasonStats,
   loopFeed: LAYER_CONFIDENCE_PENALTIES.loopFeed,
@@ -43,7 +49,9 @@ export function prevPreviewImportStep(current: MatchReportWorkflowStep): MatchRe
 
 export function previewStepLabel(step: MatchReportWorkflowStep): string {
   const labels: Partial<Record<MatchReportWorkflowStep, string>> = {
-    preview_fixture_context: "Form & head-to-head",
+    preview_fixture_context: "Six Logic form & H2H",
+    preview_whoscored: "WhoScored preview",
+    preview_fotmob: "FotMob preview",
     league_table: "League table",
     league_stats: "Top scorers & team stats",
     loop_feed: "Loop Feed",

@@ -10,6 +10,7 @@ export type BuildShortRequestBody = {
   headline?: string;
   scenes: { imagePath: string; durationSec: number; caption: string }[];
   burnSubtitles?: boolean;
+  subtitleAccentColor?: string;
   backgroundVideoRel?: string | null;
   voiceGender?: VoiceGender;
   voiceSpeed?: number;
@@ -60,8 +61,10 @@ export async function buildShortPayload(
     contentId: body.contentId,
     format: body.format,
     scenes: body.scenes,
+    script: body.script,
     audioPath,
     burnSubtitles: body.burnSubtitles,
+    subtitleAccentColor: body.subtitleAccentColor,
     seoTitle,
     seoSlug,
     backgroundVideoRel: body.backgroundVideoRel?.trim() || undefined,

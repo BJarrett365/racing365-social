@@ -100,6 +100,8 @@ function screenForProject(project: MatchReportProject, eventPictureAcknowledged:
     project.workflowStep === "build_picture" ||
     [
       "preview_fixture_context",
+      "preview_whoscored",
+      "preview_fotmob",
       "sport365",
       "loop_feed",
       "whoscored",
@@ -208,7 +210,7 @@ export function MatchReportBuilderClient({ initialProjectId }: Props) {
   }, [project, eventPictureAcknowledged]);
 
   const panelTitle = useMemo(() => {
-    if (screen === "report_type") return contentType === MATCH_PREVIEW_CONTENT_TYPE ? "Content type" : "Report type";
+    if (screen === "report_type") return "Content type";
     if (screen === "editorial") return "Editorial brief";
     if (screen === "match_id") return "Match ID";
     if (screen === "foundation") return "SixLogics foundation";

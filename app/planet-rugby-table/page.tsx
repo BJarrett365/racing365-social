@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Panel } from "@/app/components/Panel";
 import { DeleteTemplateButton } from "@/app/components/TemplateActions";
+import { TemplateNewButton } from "@/app/components/TemplateNewButton";
 import { getRacingDataProvider } from "@/app/features/data/providers";
-import { PlanetRugbyTableNewButton } from "@/app/features/planet-rugby/PlanetRugbyTableNewButton";
 
 export default async function PlanetRugbyTablePage({
   searchParams,
@@ -23,7 +23,7 @@ export default async function PlanetRugbyTablePage({
             Import a PlanetRugby tournament table URL, preview parsed rows, then create editable table Shorts templates.
           </p>
         </div>
-        <PlanetRugbyTableNewButton editorBasePath={editorBasePath} />
+        <TemplateNewButton format="planet-rugby-table" editorBasePath={editorBasePath} />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {items.map((b) => (

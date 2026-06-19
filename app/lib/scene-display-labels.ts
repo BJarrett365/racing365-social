@@ -36,5 +36,8 @@ export function sceneDisplayLabel(format: ContentFormat, sceneId: string): strin
     const m = /^table-(\d+)$/.exec(sceneId);
     if (m) return `Table ${m[1]}`;
   }
+  if (format === "score-line") {
+    if (sceneId === "score-main") return "Score line";
+  }
   return sceneId;
 }

@@ -14,6 +14,8 @@ type Body = {
 
 const SKIPPABLE: MatchReportWorkflowStep[] = [
   "preview_fixture_context",
+  "preview_whoscored",
+  "preview_fotmob",
   "sport365",
   "league_table",
   "league_stats",

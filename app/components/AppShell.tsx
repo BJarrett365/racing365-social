@@ -23,6 +23,7 @@ const nav = [
   { href: "/library", label: "Library" },
   { href: "/editing-studio", label: "Schedule" },
   { href: "/tools", label: "Tools" },
+  { href: "/admin/reports", label: "R&D" },
   { href: "/admin", label: "Admin" },
 ];
 
@@ -119,6 +120,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 style={{ color: "var(--text-secondary)" }}
               >
                 Tools
+              </AppNavLink>
+              <AppNavLink
+                href="/admin/reports"
+                className="app-nav-link rounded-full px-3 py-2 transition"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                R&D
               </AppNavLink>
               <AppNavLink
                 href="/admin"

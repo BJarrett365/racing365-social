@@ -11,6 +11,9 @@ import type {
   F1ResultsBundle,
   PlanetFootballTableBundle,
   PlanetRugbyTableBundle,
+  TeamLineUpBundle,
+  TeamSheetBundle,
+  ScoreLineBundle,
 } from "@/types";
 import type { RacingDataProvider } from "./types";
 import { readUserTemplatesFile } from "@/app/lib/user-templates-store";
@@ -72,7 +75,11 @@ export class DummyRacingDataProvider implements RacingDataProvider {
   }
 
   async getFootballLineups(): Promise<FootballLineupBundle[]> {
-    return (await this.readJsonOptional<FootballLineupBundle[]>("data/dummy/football-lineups.json")) ?? [];
+    const u = await readUserTemplatesFile();
+    const user = Object.values(u.footballLineups);
+    const dummy =
+      (await this.readJsonOptional<FootballLineupBundle[]>("data/dummy/football-lineups.json")) ?? [];
+    return [...user, ...dummy];
   }
 
   async getTeamtalkNewsBundles(): Promise<TeamtalkNewsBundle[]> {
@@ -118,6 +125,21 @@ export class DummyRacingDataProvider implements RacingDataProvider {
     return Object.values(u.planetFootballTables);
   }
 
+  async getTeamLineUpBundles(): Promise<TeamLineUpBundle[]> {
+    const u = await readUserTemplatesFile();
+    return Object.values(u.teamLineUps);
+  }
+
+  async getTeamSheetBundles(): Promise<TeamSheetBundle[]> {
+    const u = await readUserTemplatesFile();
+    return Object.values(u.teamSheets);
+  }
+
+  async getScoreLineBundles(): Promise<ScoreLineBundle[]> {
+    const u = await readUserTemplatesFile();
+    return Object.values(u.scoreLines);
+  }
+
   async getNextOffById(id: string): Promise<NextOffBundle | null> {
     const u = await readUserTemplatesFile();
     const row = u.nextOff[id];
@@ -151,7 +173,9 @@ export class DummyRacingDataProvider implements RacingDataProvider {
   }
 
   async getFootballLineupById(id: string): Promise<FootballLineupBundle | null> {
-    const all = await this.getFootballLineups();
+    const u = await readUserTemplatesFile();
+    if (u.footballLineups[id]) return u.footballLineups[id];
+    const all = (await this.readJsonOptional<FootballLineupBundle[]>("data/dummy/football-lineups.json")) ?? [];
     return all.find((b) => b.id === id) ?? null;
   }
 
@@ -196,5 +220,20 @@ export class DummyRacingDataProvider implements RacingDataProvider {
   async getPlanetFootballTableById(id: string): Promise<PlanetFootballTableBundle | null> {
     const u = await readUserTemplatesFile();
     return u.planetFootballTables[id] ?? null;
+  }
+
+  async getTeamLineUpById(id: string): Promise<TeamLineUpBundle | null> {
+    const u = await readUserTemplatesFile();
+    return u.teamLineUps[id] ?? null;
+  }
+
+  async getTeamSheetById(id: string): Promise<TeamSheetBundle | null> {
+    const u = await readUserTemplatesFile();
+    return u.teamSheets[id] ?? null;
+  }
+
+  async getScoreLineById(id: string): Promise<ScoreLineBundle | null> {
+    const u = await readUserTemplatesFile();
+    return u.scoreLines[id] ?? null;
   }
 }

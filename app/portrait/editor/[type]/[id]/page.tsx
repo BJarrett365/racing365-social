@@ -14,6 +14,9 @@ const allowed = new Set([
   "f1-results",
   "planet-football-table",
   "planet-rugby-table",
+  "team-line-up",
+  "team-sheet",
+  "score-line",
 ]);
 
 export async function generateMetadata({
@@ -86,6 +89,9 @@ export default async function LandscapeEditorPage({
             | "f1-results"
             | "planet-football-table"
             | "planet-rugby-table"
+            | "team-line-up"
+            | "team-sheet"
+            | "score-line"
         }
         id={id}
         initialVideoBuildMode="landscape"

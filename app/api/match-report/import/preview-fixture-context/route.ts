@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { buildFixtureContextFromSixLogicFoundation } from "@/app/lib/match-report/build-sixlogics-commentary";
 import { isMatchPreview } from "@/app/lib/match-report/content-type";
+import {
+  formatImportLinesBulletList,
+  sixLogicFixtureImportLines,
+} from "@/app/lib/match-report/preview-import-summaries";
 import { nextPreviewImportStep } from "@/app/lib/match-report/preview-workflow";
 import { getMatchReportRepository, MatchReportStoreError } from "@/app/lib/match-report/store";
 
@@ -25,12 +29,24 @@ export async function POST(req: Request) {
     if (!foundation) {
       return NextResponse.json({ error: "Six Logic foundation missing." }, { status: 400 });
     }
+
     const fixtureContext = buildFixtureContextFromSixLogicFoundation(foundation);
+    if (!fixtureContext) {
+      return NextResponse.json(
+        {
+          error:
+            "No head-to-head or form data in the Six Logic feed for this fixture. Continue to WhoScored or FotMob to enrich.",
+        },
+        { status: 422 },
+      );
+    }
+
+    const importedItems = sixLogicFixtureImportLines(fixtureContext);
     const project = await repo.saveProject({
       ...existing,
       layers: {
         ...existing.layers,
-        fixtureContext: fixtureContext ?? existing.layers.fixtureContext,
+        fixtureContext,
       },
       workflowStep: nextPreviewImportStep("preview_fixture_context"),
       workflowPhase: "import_layers",
@@ -39,7 +55,12 @@ export async function POST(req: Request) {
         skippedLayers: existing.health.skippedLayers.filter((row) => row.layer !== "preview_fixture_context"),
       },
     });
-    return NextResponse.json({ project, fixtureContext });
+    return NextResponse.json({
+      project,
+      fixtureContext,
+      importedItems,
+      importSummary: formatImportLinesBulletList(importedItems),
+    });
   } catch (e) {
     if (e instanceof MatchReportStoreError) {
       return NextResponse.json({ error: e.message, code: e.code }, { status: e.code === "NOT_FOUND" ? 404 : 400 });

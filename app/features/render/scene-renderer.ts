@@ -21,6 +21,8 @@ export type RenderSceneToPngOptions = {
    * Each render still uses a fresh page and closes it when done.
    */
   browser?: Browser;
+  /** 2 = Retina-class PNG for editor exports (1080×1920 CSS → 2160×3840 pixels). Default 1 for video PNGs. */
+  deviceScaleFactor?: number;
 };
 
 /** Launch one browser, run `fn`, then close (shared pattern for multi-scene API routes). */
@@ -54,6 +56,11 @@ export async function renderSceneToPng(
   const baseName = input.fileSuffix ? `${input.sceneId}-${input.fileSuffix}` : input.sceneId;
   const outPath = path.join(dir, `${baseName}.png`);
 
+  const deviceScaleFactor =
+    typeof options?.deviceScaleFactor === "number" && options.deviceScaleFactor >= 1
+      ? Math.min(3, options.deviceScaleFactor)
+      : 1;
+
   const reuseBrowser = options?.browser;
   const puppeteer = await loadPuppeteer();
   const browser = reuseBrowser ?? (await puppeteer.launch(await resolvePuppeteerLaunchOptions()));
@@ -62,7 +69,7 @@ export async function renderSceneToPng(
     const page = await browser.newPage();
     try {
       page.setDefaultNavigationTimeout(45_000);
-      await page.setViewport({ width: w, height: h, deviceScaleFactor: 1 });
+      await page.setViewport({ width: w, height: h, deviceScaleFactor });
       const omitBackground = Boolean(input.data.editorTransparentBackground);
       const cdp = omitBackground ? await page.createCDPSession() : undefined;
       try {

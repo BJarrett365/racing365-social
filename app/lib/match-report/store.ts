@@ -246,6 +246,8 @@ export class MatchReportRepository {
       layers: {
         ...project.layers,
         fixtureContext: project.layers.fixtureContext ?? null,
+        whoScoredPreview: project.layers.whoScoredPreview ?? null,
+        fotMobPreview: project.layers.fotMobPreview ?? null,
         leagueSeasonStats: project.layers.leagueSeasonStats ?? null,
       },
     };
@@ -275,9 +277,14 @@ export class MatchReportRepository {
     });
     const { payload } = await fetchSportccFixture({ sportId, matchId });
     const foundation = normaliseSixLogicFoundation({ payload, matchId, sportId });
-    const health = assessSixLogicHealth(foundation);
+    const contentType = input.contentType ?? MATCH_REPORT_CONTENT_TYPE;
+    const health = assessSixLogicHealth(foundation, { contentType });
     if (!health.ok) {
-      throw new MatchReportStoreError("SixLogic core data is incomplete", "SIXLOGICS_STOP", {
+      const previewHint =
+        contentType === MATCH_PREVIEW_CONTENT_TYPE
+          ? " Pre-match previews need home team, away team and competition — scores are not required before kick-off."
+          : "";
+      throw new MatchReportStoreError(`SixLogic core data is incomplete.${previewHint}`, "SIXLOGICS_STOP", {
         missingCore: health.missingCore,
         health,
         foundation,
@@ -296,7 +303,6 @@ export class MatchReportRepository {
     foundation.facts.competitionCode = competition.competitionCode;
 
     const requestedFormat = input.reportFormat ?? DEFAULT_MATCH_REPORT_FORMAT;
-    const contentType = input.contentType ?? MATCH_REPORT_CONTENT_TYPE;
     if (contentType === MATCH_PREVIEW_CONTENT_TYPE && requestedFormat === "neutral_dual") {
       throw new MatchReportStoreError("Match preview does not support neutral dual format", "VALIDATION");
     }
@@ -407,6 +413,8 @@ export class MatchReportRepository {
         leagueTable: null,
         leagueSeasonStats: null,
         fixtureContext: null,
+        whoScoredPreview: null,
+        fotMobPreview: null,
         loopFeed: null,
         optaPlayerData: null,
         interviews: [],
@@ -415,6 +423,9 @@ export class MatchReportRepository {
       health: { ok: true, missingCore: [], skippedLayers: [] },
       confidence: baselineConfidence(),
       eventPicture: null,
+      previewPicture: null,
+      teamIntelligence: null,
+      significance: null,
       playerIntelligence: null,
       imageIntelligence: null,
       mediaOutputs: null,
@@ -702,7 +713,26 @@ export class MatchReportRepository {
     const next: MatchReportProject = {
       ...project,
       eventPicture,
+      significance: eventPicture.significance ?? project.significance ?? null,
       workflowStep: isMatchPreview(project) ? "image_intelligence" : "player_intelligence",
+      workflowPhase: "generation",
+      status: "in_progress",
+    };
+    return this.saveProject(next);
+  }
+
+  async setPreviewPicture(
+    id: string,
+    previewPicture: NonNullable<MatchReportProject["previewPicture"]>,
+    teamIntelligence?: MatchReportProject["teamIntelligence"],
+  ): Promise<MatchReportProject> {
+    const project = await this.requireProject(id);
+    const next: MatchReportProject = {
+      ...project,
+      previewPicture,
+      teamIntelligence: teamIntelligence ?? project.teamIntelligence ?? null,
+      significance: previewPicture.significance ?? project.significance ?? null,
+      workflowStep: "image_intelligence",
       workflowPhase: "generation",
       status: "in_progress",
     };
@@ -933,6 +963,39 @@ export class MatchReportRepository {
       status: "in_progress",
     };
     return this.saveProject(next);
+  }
+
+  async setEditorialReview(
+    id: string,
+    payload: {
+      editorialScore: NonNullable<MatchReportProject["previewEditorialScore"]>;
+      sectionLint: NonNullable<MatchReportProject["editorialSectionLint"]>;
+      publishGate: NonNullable<MatchReportProject["editorialPublishGate"]>;
+      deepseekReview?: MatchReportProject["deepseekReview"];
+    },
+  ): Promise<MatchReportProject> {
+    const project = await this.requireProject(id);
+    const isPreview = project.contentType === "match_preview";
+    const next: MatchReportProject = {
+      ...project,
+      previewEditorialScore: isPreview ? payload.editorialScore : project.previewEditorialScore ?? null,
+      reportEditorialScore: isPreview ? project.reportEditorialScore ?? null : payload.editorialScore,
+      editorialSectionLint: payload.sectionLint,
+      editorialPublishGate: payload.publishGate,
+      deepseekReview: payload.deepseekReview === undefined ? project.deepseekReview ?? null : payload.deepseekReview,
+      workflowStep: project.workflowStep === "published" ? "published" : "fact_check",
+      workflowPhase: project.workflowPhase === "published" ? "published" : "generation",
+      status: project.status === "published" ? "published" : "in_progress",
+    };
+    return this.saveProject(next);
+  }
+
+  async recordEditorialPublishOverride(
+    id: string,
+    override: NonNullable<MatchReportProject["editorialPublishOverride"]>,
+  ): Promise<MatchReportProject> {
+    const project = await this.requireProject(id);
+    return this.saveProject({ ...project, editorialPublishOverride: override });
   }
 
   async attachLanguageStudioArticle(

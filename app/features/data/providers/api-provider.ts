@@ -7,6 +7,7 @@ import type {
   NextOffBundle,
   PlanetFootballTableBundle,
   RacecardSnapshot,
+  TeamLineUpBundle,
   TeamtalkNewsBundle,
   PlanetRugbyTableBundle,
 } from "@/types";
@@ -48,6 +49,21 @@ export class ApiRacingDataProvider implements RacingDataProvider {
     throw new Error("ApiRacingDataProvider.getFootballLineups not implemented");
   }
 
+  async getTeamLineUpBundles(): Promise<TeamLineUpBundle[]> {
+    void this.client;
+    throw new Error("ApiRacingDataProvider.getTeamLineUpBundles not implemented");
+  }
+
+  async getTeamSheetBundles(): Promise<import("@/types").TeamSheetBundle[]> {
+    void this.client;
+    throw new Error("ApiRacingDataProvider.getTeamSheetBundles not implemented");
+  }
+
+  async getScoreLineBundles(): Promise<import("@/types").ScoreLineBundle[]> {
+    void this.client;
+    throw new Error("ApiRacingDataProvider.getScoreLineBundles not implemented");
+  }
+
   async getTeamtalkNewsBundles(): Promise<TeamtalkNewsBundle[]> {
     void this.client;
     throw new Error("ApiRacingDataProvider.getTeamtalkNewsBundles not implemented");
@@ -86,6 +102,18 @@ export class ApiRacingDataProvider implements RacingDataProvider {
   }
 
   async getFootballLineupById(): Promise<FootballLineupBundle | null> {
+    return null;
+  }
+
+  async getTeamLineUpById(): Promise<TeamLineUpBundle | null> {
+    return null;
+  }
+
+  async getTeamSheetById(): Promise<import("@/types").TeamSheetBundle | null> {
+    return null;
+  }
+
+  async getScoreLineById(): Promise<import("@/types").ScoreLineBundle | null> {
     return null;
   }
 

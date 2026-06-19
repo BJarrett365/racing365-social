@@ -7,10 +7,15 @@ import {
   resolveEditorBackdropDataUrl,
 } from "@/app/lib/editor-upload";
 import { outputDir } from "@/app/lib/paths";
+import { shouldUseNetlifyBlobStore } from "@/app/lib/netlify-blob-json";
 import type { SceneSpec } from "@/types";
 import fs from "fs/promises";
 import path from "path";
 import { writeLibraryBlobAsset } from "@/app/lib/library-blob-assets";
+import {
+  resolveF1TemplateDataForRender,
+  resolvePublicImageDataUrl,
+} from "@/app/lib/f1-driver-images";
 
 type Body = {
   contentId: string;
@@ -34,91 +39,11 @@ type Body = {
   editorCompositorImageUrl?: string | null;
   /** Per-scene compositor PNGs — overrides `editorCompositorImageUrl` for matching `sceneId` */
   editorCompositorBySceneId?: Record<string, string> | null;
+  /** Retina export for editor save (2 recommended). Default 1 for video pipeline. */
+  pixelRatio?: number;
   /** News Shorts: hide headline/subline on PNGs when burning styled ASS in FFmpeg. */
   editorSubtitleOverlayOnly?: boolean;
 };
-
-async function resolveRenderableImageUrl(raw: unknown): Promise<string | undefined> {
-  if (typeof raw !== "string") return undefined;
-  const v = raw.trim();
-  if (!v) return undefined;
-  if (v.startsWith("data:image/")) return v;
-  if (v.startsWith("http://") || v.startsWith("https://")) return v;
-  if (!v.startsWith("/")) return v;
-
-  // `/...` in template data points to Next `public/` files, but Puppeteer `setContent`
-  // has no site origin; convert local public assets to data URLs.
-  const rel = v.replace(/^\/+/, "");
-  const abs = path.join(process.cwd(), "public", rel);
-  try {
-    await fs.access(abs);
-  } catch {
-    return v;
-  }
-  const buf = await fs.readFile(abs);
-  const ext = path.extname(abs).toLowerCase();
-  const mime =
-    ext === ".png"
-      ? "image/png"
-      : ext === ".webp"
-        ? "image/webp"
-        : ext === ".gif"
-          ? "image/gif"
-          : ext === ".svg"
-            ? "image/svg+xml"
-            : "image/jpeg";
-  return `data:${mime};base64,${buf.toString("base64")}`;
-}
-
-const F1_PLACEHOLDER_PUBLIC = "/grid/drivers/placeholder.svg";
-
-async function resolveF1DriverRowImages(rows: unknown[]): Promise<unknown[]> {
-  return Promise.all(
-    rows.map(async (d) => {
-      if (!d || typeof d !== "object") return d;
-      const o = d as Record<string, unknown>;
-      const raw = typeof o.image === "string" ? o.image.trim() : "";
-      const path = raw || F1_PLACEHOLDER_PUBLIC;
-      let img = await resolveRenderableImageUrl(path);
-      if (typeof img !== "string" || !img.startsWith("data:")) {
-        img = (await resolveRenderableImageUrl(F1_PLACEHOLDER_PUBLIC)) ?? "";
-      }
-      return img ? { ...o, image: img } : o;
-    }),
-  );
-}
-
-/** F1 grid / results: `img src="/grid/drivers/…"` — Puppeteer `setContent` has no origin; inline as data URLs. */
-async function resolveF1TemplateDataForRender(data: Record<string, unknown>): Promise<Record<string, unknown>> {
-  let out: Record<string, unknown> = { ...data };
-  const logoRaw = out.logoUrl;
-  if (typeof logoRaw === "string" && logoRaw.trim().startsWith("/")) {
-    const logo = await resolveRenderableImageUrl(logoRaw);
-    if (typeof logo === "string" && logo.startsWith("data:")) {
-      out = { ...out, logoUrl: logo };
-    }
-  }
-  const gridDrivers = out.gridDrivers;
-  if (Array.isArray(gridDrivers)) {
-    out = { ...out, gridDrivers: await resolveF1DriverRowImages(gridDrivers) };
-  }
-  const resultDrivers = out.resultDrivers;
-  if (Array.isArray(resultDrivers)) {
-    out = { ...out, resultDrivers: await resolveF1DriverRowImages(resultDrivers) };
-  }
-  const fl = out.fastestLap;
-  if (fl && typeof fl === "object") {
-    const o = fl as Record<string, unknown>;
-    const raw = typeof o.image === "string" ? o.image.trim() : "";
-    const path = raw || F1_PLACEHOLDER_PUBLIC;
-    let img = await resolveRenderableImageUrl(path);
-    if (typeof img !== "string" || !img.startsWith("data:")) {
-      img = (await resolveRenderableImageUrl(F1_PLACEHOLDER_PUBLIC)) ?? "";
-    }
-    out = { ...out, fastestLap: img ? { ...o, image: img } : o };
-  }
-  return out;
-}
 
 export async function POST(req: Request) {
   try {
@@ -187,6 +112,9 @@ export async function POST(req: Request) {
       typeof byScene === "object" &&
       Object.keys(byScene).some((k) => typeof byScene[k] === "string" && byScene[k]!.startsWith("data:image/"));
 
+    const pixelRatio =
+      typeof body.pixelRatio === "number" && body.pixelRatio >= 1 ? Math.min(3, body.pixelRatio) : 1;
+
     return await withSharedPuppeteerBrowser(async (browser) => {
     const outDir = outputDir();
     const outputs: {
@@ -219,10 +147,10 @@ export async function POST(req: Request) {
       if (s.templateId.startsWith("f1-grid") || s.templateId.startsWith("f1-results")) {
         sceneData = await resolveF1TemplateDataForRender(sceneData);
       }
-      const resolvedPlayerImageUrl = await resolveRenderableImageUrl(sceneData.playerImageUrl);
-      const resolvedLeftClubLogoUrl = await resolveRenderableImageUrl(sceneData.leftClubLogoUrl);
-      const resolvedRightClubLogoUrl = await resolveRenderableImageUrl(sceneData.rightClubLogoUrl);
-      const resolvedHeroImageUrl = await resolveRenderableImageUrl(sceneData.heroImage);
+      const resolvedPlayerImageUrl = await resolvePublicImageDataUrl(sceneData.playerImageUrl);
+      const resolvedLeftClubLogoUrl = await resolvePublicImageDataUrl(sceneData.leftClubLogoUrl);
+      const resolvedRightClubLogoUrl = await resolvePublicImageDataUrl(sceneData.rightClubLogoUrl);
+      const resolvedHeroImageUrl = await resolvePublicImageDataUrl(sceneData.heroImage);
       const merged = {
         ...sceneData,
         ...(typeof body.width === "number" ? { width: body.width } : {}),
@@ -245,7 +173,7 @@ export async function POST(req: Request) {
             ...(body.editorSubtitleOverlayOnly ? { editorSubtitleOverlayOnly: true } : {}),
           },
         },
-        { browser },
+        { browser, deviceScaleFactor: pixelRatio },
       );
 
       let underlayPath: string;
@@ -262,7 +190,7 @@ export async function POST(req: Request) {
             },
             fileSuffix: "underlay",
           },
-          { browser },
+          { browser, deviceScaleFactor: pixelRatio },
         );
       } else {
         underlayPath = imagePath;
@@ -275,9 +203,19 @@ export async function POST(req: Request) {
       const underlayRel = sceneComp !== undefined
         ? `images/library/${canonicalContentId}/render-${safeSceneId}-underlay.png`
         : rel;
-      await writeLibraryBlobAsset(rel, await fs.readFile(imagePath), "image/png");
+
+      async function publishRenderedPng(sourceAbs: string, publishRel: string) {
+        const destAbs = path.join(outDir, ...publishRel.split("/"));
+        await fs.mkdir(path.dirname(destAbs), { recursive: true });
+        await fs.copyFile(sourceAbs, destAbs);
+        if (shouldUseNetlifyBlobStore()) {
+          await writeLibraryBlobAsset(publishRel, await fs.readFile(destAbs), "image/png");
+        }
+      }
+
+      await publishRenderedPng(imagePath, rel);
       if (underlayPath !== imagePath) {
-        await writeLibraryBlobAsset(underlayRel, await fs.readFile(underlayPath), "image/png");
+        await publishRenderedPng(underlayPath, underlayRel);
       }
 
       outputs.push({ sceneId: s.id, path: imagePath, rel, underlayPath, underlayRel, diskRel, diskUnderlayRel });

@@ -93,6 +93,17 @@ export function PlanetRugbyTableNewButton({
               Planet Rugby table URL
               <input className="mt-1 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] px-3 py-2 text-sm text-white" value={url} onChange={(e) => setUrl(e.target.value)} />
             </label>
+            <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Brand style
+              <select
+                className="mt-1 w-full rounded-lg border border-[#1f2d26] bg-[#0a0e0c] px-3 py-2 text-sm text-white"
+                value="planet-rugby"
+                disabled
+                aria-readonly="true"
+              >
+                <option value="planet-rugby">Planet Rugby</option>
+              </select>
+            </label>
             <div className="mt-3 flex flex-wrap gap-2">
               <R365Button type="button" variant="ghost" onClick={() => void parse()} disabled={busy}>
                 {busy ? "Parsing..." : "Import from URL"}

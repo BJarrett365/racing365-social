@@ -6,6 +6,9 @@ import {
   createEmptyNextOffBundle,
   createEmptyPlanetFootballTableBundle,
   createEmptyPlanetRugbyTableBundle,
+  createEmptyTeamLineUpBundle,
+  createEmptyTeamSheetBundle,
+  createEmptyScoreLineBundle,
   createEmptyRacecardSnapshot,
   createEmptyTeamtalkNewsBundle,
   deleteUserTemplate,
@@ -16,6 +19,10 @@ import {
   upsertUserNextOff,
   upsertUserPlanetFootballTable,
   upsertUserPlanetRugbyTable,
+  upsertUserTeamLineUp,
+  upsertUserTeamSheet,
+  upsertUserScoreLine,
+  upsertUserFootballLineup,
   upsertUserRacecard,
   upsertUserTeamtalkNews,
 } from "@/app/lib/user-templates-store";
@@ -27,6 +34,10 @@ import type {
   PlanetFootballTableBundle,
   PlanetRugbyTableBundle,
   RacecardSnapshot,
+  FootballLineupBundle,
+  TeamLineUpBundle,
+  TeamSheetBundle,
+  ScoreLineBundle,
   TeamtalkNewsBundle,
 } from "@/types";
 
@@ -38,7 +49,11 @@ type PutBody =
   | { format: "f1-grid"; f1Grid: F1GridBundle }
   | { format: "f1-results"; f1Results: F1ResultsBundle }
   | { format: "planet-football-table"; planetFootballTable: PlanetFootballTableBundle }
-  | { format: "planet-rugby-table"; planetRugbyTable: PlanetRugbyTableBundle };
+  | { format: "planet-rugby-table"; planetRugbyTable: PlanetRugbyTableBundle }
+  | { format: "team-line-up"; teamLineUp: TeamLineUpBundle }
+  | { format: "team-sheet"; teamSheet: TeamSheetBundle }
+  | { format: "score-line"; scoreLine: ScoreLineBundle }
+  | { format: "football-lineups"; footballLineup: FootballLineupBundle };
 
 function isUserTemplateId(id: string): boolean {
   return id.startsWith("tpl-");
@@ -61,7 +76,10 @@ export async function POST(req: Request) {
     format !== "f1-grid" &&
     format !== "f1-results" &&
     format !== "planet-football-table" &&
-    format !== "planet-rugby-table"
+    format !== "planet-rugby-table" &&
+    format !== "team-line-up" &&
+    format !== "team-sheet" &&
+    format !== "score-line"
   ) {
     return NextResponse.json({ error: "Invalid format" }, { status: 400 });
   }
@@ -102,6 +120,21 @@ export async function POST(req: Request) {
       const bundle = createEmptyPlanetFootballTableBundle(id);
       await upsertUserPlanetFootballTable(bundle);
       return NextResponse.json({ id, editorPath: `/editor/planet-football-table/${id}` });
+    }
+    if (format === "team-line-up") {
+      const bundle = createEmptyTeamLineUpBundle(id);
+      await upsertUserTeamLineUp(bundle);
+      return NextResponse.json({ id, editorPath: `/editor/team-line-up/${id}` });
+    }
+    if (format === "team-sheet") {
+      const bundle = createEmptyTeamSheetBundle(id);
+      await upsertUserTeamSheet(bundle);
+      return NextResponse.json({ id, editorPath: `/editor/team-sheet/${id}` });
+    }
+    if (format === "score-line") {
+      const bundle = createEmptyScoreLineBundle(id);
+      await upsertUserScoreLine(bundle);
+      return NextResponse.json({ id, editorPath: `/editor/score-line/${id}` });
     }
     const tt = createEmptyTeamtalkNewsBundle(id);
     await upsertUserTeamtalkNews(tt);
@@ -186,6 +219,38 @@ export async function PUT(req: Request) {
       await upsertUserPlanetFootballTable(b);
       return NextResponse.json({ ok: true, id: b.id });
     }
+    if (body.format === "team-line-up") {
+      const b = body.teamLineUp;
+      if (!b?.id || !isUserTemplateId(b.id)) {
+        return NextResponse.json({ error: "Invalid Team Line-Up bundle or id" }, { status: 400 });
+      }
+      await upsertUserTeamLineUp(b);
+      return NextResponse.json({ ok: true, id: b.id });
+    }
+    if (body.format === "team-sheet") {
+      const b = body.teamSheet;
+      if (!b?.id || !isUserTemplateId(b.id)) {
+        return NextResponse.json({ error: "Invalid Team Sheet bundle or id" }, { status: 400 });
+      }
+      await upsertUserTeamSheet(b);
+      return NextResponse.json({ ok: true, id: b.id });
+    }
+    if (body.format === "score-line") {
+      const b = body.scoreLine;
+      if (!b?.id || !isUserTemplateId(b.id)) {
+        return NextResponse.json({ error: "Invalid Score Line bundle or id" }, { status: 400 });
+      }
+      await upsertUserScoreLine(b);
+      return NextResponse.json({ ok: true, id: b.id });
+    }
+    if (body.format === "football-lineups") {
+      const b = body.footballLineup;
+      if (!b?.id || !isUserTemplateId(b.id)) {
+        return NextResponse.json({ error: "Invalid Football line-ups bundle or id" }, { status: 400 });
+      }
+      await upsertUserFootballLineup(b);
+      return NextResponse.json({ ok: true, id: b.id });
+    }
     return NextResponse.json({ error: "Invalid format" }, { status: 400 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Write failed";
@@ -209,7 +274,11 @@ export async function DELETE(req: Request) {
     format !== "f1-grid" &&
     format !== "f1-results" &&
     format !== "planet-football-table" &&
-    format !== "planet-rugby-table"
+    format !== "planet-rugby-table" &&
+    format !== "team-line-up" &&
+    format !== "team-sheet" &&
+    format !== "score-line" &&
+    format !== "football-lineups"
   ) {
     return NextResponse.json({ error: "Invalid format" }, { status: 400 });
   }

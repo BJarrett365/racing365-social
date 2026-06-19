@@ -119,6 +119,8 @@ function project(overrides: Partial<MatchReportProject> = {}): MatchReportProjec
       leagueTable: null,
       leagueSeasonStats: null,
       fixtureContext: null,
+      fotMobPreview: null,
+      whoScoredPreview: null,
       loopFeed: null,
       optaPlayerData: null,
       interviews: [],
@@ -151,6 +153,21 @@ describe("match report fact check", () => {
     expect(result.issues.some((issue) => issue.type === "team_player_mismatch")).toBe(true);
     expect(result.issues.some((issue) => issue.type === "stat_conflict")).toBe(true);
     expect(result.articleScore.overall).toBeLessThanOrEqual(65);
+  });
+
+  it("allows away-winner perspective scoreline when canonical home-away score is present", () => {
+    const result = runMatchReportFactCheck(
+      project({
+        mediaOutputs: {
+          headline: "Brighton 0-3 Manchester United: United cruise",
+          standfirst: "Manchester United delivered a powerful performance, defeating Brighton 3-0.",
+          reportHtml:
+            "<p>Brighton and Hove Albion 0-3 Manchester United. Dorgu, Mbeumo and Fernandes scored for United.</p>",
+          generatedAt: "2026-05-25T00:00:00.000Z",
+        },
+      }),
+    );
+    expect(result.issues.some((issue) => issue.title === "Possible reversed scoreline")).toBe(false);
   });
 
   it("builds story context from Tier 1 match data", () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { R365Button } from "@/app/components/R365Button";
+import { isMatchPreview } from "@/app/lib/match-report/content-type";
 import { editorialBriefChip } from "@/app/lib/match-report/editorial-governance";
 import {
   buildFoundationImportPreview,
@@ -20,6 +21,7 @@ export function FoundationSummary({ project, onContinue, onStartOver, onBack, lo
   const foundation = project.layers.sixLogic;
   const summary = foundation ? buildMatchFoundationSummary(foundation) : project.displayLabel;
   const preview = foundation ? buildFoundationImportPreview(foundation) : null;
+  const isPreviewProject = isMatchPreview(project);
 
   return (
     <div className="space-y-6">
@@ -98,6 +100,32 @@ export function FoundationSummary({ project, onContinue, onStartOver, onBack, lo
             </section>
           ) : null}
 
+          {preview.preMatch && preview.previewFeedHighlights.length > 0 ? (
+            <section
+              className="rounded-2xl border p-4"
+              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+            >
+              <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-[color:var(--text-muted)]">
+                Available for preview
+              </h3>
+              <p className="mt-2 text-sm text-[color:var(--text-secondary)]">
+                Pre-match feeds won&apos;t have scores, line-ups or live commentary yet. These sections are ready to
+                import:
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {preview.previewFeedHighlights.map((row) => (
+                  <span
+                    key={row.label}
+                    className="rounded-full border px-3 py-1 text-xs font-semibold text-sky-200"
+                    style={{ borderColor: "rgba(56,189,248,0.35)", background: "rgba(56,189,248,0.08)" }}
+                  >
+                    {row.label}: {row.count}
+                  </span>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           <section
             className="rounded-2xl border p-4"
             style={{ borderColor: "var(--border)", background: "var(--surface)" }}
@@ -107,7 +135,9 @@ export function FoundationSummary({ project, onContinue, onStartOver, onBack, lo
             </h3>
             <p className="mt-2 text-sm font-semibold text-emerald-300">Imported from SportCC fixture feed</p>
             <p className="mt-2 text-xs text-[color:var(--text-muted)]">
-              Lineups, events, and match metadata below will feed the Event Intelligence Object.
+              {isPreviewProject || preview.preMatch
+                ? "Fixture metadata and preview intelligence (form, H2H, odds, table) will feed the Preview Intelligence Object."
+                : "Lineups, events, and match metadata below will feed the Event Intelligence Object."}
             </p>
           </section>
 

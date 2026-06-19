@@ -43,6 +43,16 @@ describe("match-report-preview-data", () => {
     expect(sections.extendedText).not.toContain("Brighton 8th.");
   });
 
+  it("parses Report 2.0 sections", () => {
+    const sections = parseReportSections(
+      "<h1>Title</h1><h2>The Story</h2><p>Story one.</p><h2>Turning Point</h2><p>Pivot.</p><h2>What It Means</h2><p>Stakes.</p><h2>What Happens Next</h2><p>Next.</p><h2>Football365 Verdict</h2><p>Verdict.</p>",
+      null,
+    );
+    expect(sections.mainParagraphs).toEqual(["Story one.", "Pivot."]);
+    expect(sections.extendedText).toContain("Stakes.");
+    expect(sections.extendedText).toContain("Verdict.");
+  });
+
   it("parses explicit Match Analysis and Extended Report sections", () => {
     const sections = parseReportSections(
       "<h1>Title</h1><h2>Match Analysis</h2><p>Analysis one.</p><p>Analysis two.</p><h2>Extended Report</h2><p>Extended one.</p><p>Extended two.</p><h2>Player Ratings</h2><table></table>",

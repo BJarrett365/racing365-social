@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { renderHtmlTemplate } from "@/app/features/render/html-templates";
+import { resolveF1TemplateDataForRender } from "@/app/lib/f1-driver-images";
 import type { SceneSpec } from "@/types";
 
 type Body = {
@@ -27,8 +28,15 @@ export async function POST(req: Request) {
     const globalBgRel = body.backgroundImageRel?.trim();
     const videoPosterRel = body.backgroundVideoRel?.trim() ? body.backgroundVideoFrameRel?.trim() : "";
     const previewBgRel = sceneBgRel || globalBgRel || videoPosterRel;
+    let sceneData: Record<string, unknown> = { ...body.scene.data };
+    if (
+      body.scene.templateId.startsWith("f1-grid") ||
+      body.scene.templateId.startsWith("f1-results")
+    ) {
+      sceneData = await resolveF1TemplateDataForRender(sceneData);
+    }
     const html = renderHtmlTemplate(body.scene.templateId, {
-      ...body.scene.data,
+      ...sceneData,
       ...(typeof body.width === "number" ? { width: body.width } : {}),
       ...(typeof body.height === "number" ? { height: body.height } : {}),
       ...(previewBgRel ? { editorBackgroundImageUrl: fileUrl(previewBgRel) } : {}),

@@ -12,6 +12,7 @@ import {
   buildSkippedLayersBlock,
 } from "@/app/lib/match-report/eio-summaries";
 import { formatImportLayerSummariesBlock } from "@/app/lib/match-report/import-layer-summaries";
+import { getMergedPreviewFixtureContext } from "@/app/lib/match-report/preview-fixture-context-merge";
 import type { FixtureMeetingSnapshot, MatchReportProject } from "@/app/lib/match-report/types";
 
 function formatMeetings(rows: FixtureMeetingSnapshot[], limit = 6): string {
@@ -23,7 +24,7 @@ function formatMeetings(rows: FixtureMeetingSnapshot[], limit = 6): string {
 }
 
 export function buildFormDigestBlock(project: MatchReportProject): string {
-  const ctx = project.layers.fixtureContext;
+  const ctx = getMergedPreviewFixtureContext(project);
   if (!ctx) return "(skipped)";
   const home = formatMeetings(ctx.homeRecentResults, 5);
   const away = formatMeetings(ctx.awayRecentResults, 5);
@@ -31,13 +32,25 @@ export function buildFormDigestBlock(project: MatchReportProject): string {
 }
 
 export function buildH2HDigestBlock(project: MatchReportProject): string {
-  const ctx = project.layers.fixtureContext;
+  const ctx = getMergedPreviewFixtureContext(project);
   if (!ctx || ctx.headToHead.length === 0) return "(none)";
   return formatMeetings(ctx.headToHead, 8);
 }
 
+export function buildMatchFactsDigestBlock(project: MatchReportProject): string {
+  const facts = getMergedPreviewFixtureContext(project)?.matchFacts ?? [];
+  if (facts.length === 0) return "(none)";
+  return facts.slice(0, 12).map((fact) => `- ${fact}`).join("\n");
+}
+
+export function buildWhoScoredPreviewDigestBlock(project: MatchReportProject): string {
+  const digest = project.layers.whoScoredPreview?.digest;
+  if (!digest?.trim()) return "(skipped)";
+  return digest;
+}
+
 export function buildFixtureCongestionBlock(project: MatchReportProject): string {
-  const ctx = project.layers.fixtureContext;
+  const ctx = getMergedPreviewFixtureContext(project);
   if (!ctx) return "(skipped)";
   const parts: string[] = [];
   if (ctx.homeNextFixture) {
@@ -71,7 +84,38 @@ export function buildTeamNewsDigestBlock(project: MatchReportProject): string {
     .join("\n\n");
 }
 
+function formatFotMobLineupBlock(
+  side: "Home" | "Away",
+  lineup: NonNullable<MatchReportProject["layers"]["fotMobPreview"]>["homeLineup"],
+): string | null {
+  if (!lineup || lineup.starters.length === 0) return null;
+  const starters = lineup.starters.map((p) => (p.shirtNumber ? `${p.shirtNumber} ${p.name}` : p.name)).join(", ");
+  const bench =
+    lineup.bench.length > 0
+      ? ` Bench: ${lineup.bench
+          .slice(0, 7)
+          .map((p) => p.name)
+          .join(", ")}`
+      : "";
+  return `${side} (${lineup.team}) ${lineup.formation ?? ""} [${lineup.lineupLabel}]: ${starters}.${bench}`;
+}
+
+export function buildFotMobPreviewDigestBlock(project: MatchReportProject): string {
+  const fotmob = project.layers.fotMobPreview;
+  if (!fotmob) return "(skipped)";
+  return fotmob.digest;
+}
+
 export function buildLineupContextBlock(project: MatchReportProject): string {
+  const fotmob = project.layers.fotMobPreview;
+  const fotmobParts = [
+    formatFotMobLineupBlock("Home", fotmob?.homeLineup),
+    formatFotMobLineupBlock("Away", fotmob?.awayLineup),
+  ].filter(Boolean);
+  if (fotmobParts.length > 0) {
+    return fotmobParts.join("\n");
+  }
+
   const foundation = project.layers.sixLogic;
   if (!foundation) return "(foundation missing)";
   const homeStarters = foundation.lineups.home.starters.map((p) => p.name).filter(Boolean);
@@ -120,6 +164,15 @@ export function assemblePioPromptSections(project: MatchReportProject): string {
     "",
     "H2H_DIGEST",
     buildH2HDigestBlock(project),
+    "",
+    "MATCH_FACTS_DIGEST",
+    buildMatchFactsDigestBlock(project),
+    "",
+    "WHOSCORED_PREVIEW_DIGEST",
+    buildWhoScoredPreviewDigestBlock(project),
+    "",
+    "FOTMOB_PREVIEW_DIGEST",
+    buildFotMobPreviewDigestBlock(project),
     "",
     "FIXTURE_CONGESTION_DIGEST",
     buildFixtureCongestionBlock(project),

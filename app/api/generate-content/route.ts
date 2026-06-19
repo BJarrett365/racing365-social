@@ -8,6 +8,9 @@ import {
   generateFromNextOff,
   generateFromPlanetFootballTable,
   generateFromPlanetRugbyTable,
+  generateFromTeamLineUp,
+  generateFromTeamSheet,
+  generateFromScoreLine,
   generateFromRacecard,
   generateFromTeamtalkNews,
 } from "@/app/features/content/content-generator";
@@ -113,6 +116,27 @@ export async function POST(req: Request) {
       base = {
         ...generateFromPlanetRugbyTable(bundle),
         templateSource: { format: "planet-rugby-table", bundle },
+      };
+    } else if (body.format === "team-line-up") {
+      const bundle = await p.getTeamLineUpById(body.id);
+      if (!bundle) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      base = {
+        ...generateFromTeamLineUp(bundle),
+        templateSource: { format: "team-line-up", bundle },
+      };
+    } else if (body.format === "team-sheet") {
+      const bundle = await p.getTeamSheetById(body.id);
+      if (!bundle) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      base = {
+        ...generateFromTeamSheet(bundle),
+        templateSource: { format: "team-sheet", bundle },
+      };
+    } else if (body.format === "score-line") {
+      const bundle = await p.getScoreLineById(body.id);
+      if (!bundle) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      base = {
+        ...generateFromScoreLine(bundle),
+        templateSource: { format: "score-line", bundle },
       };
     } else {
       return NextResponse.json({ error: "Unsupported format" }, { status: 400 });

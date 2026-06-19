@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "teams": [
+    {
+      "teamId": "germany",
+      "teamName": "Germany",
+      "competition": "World Cup",
+      "season": "2026",
+      "aliases": ["deutschland"],
+      "homeKit": { "shirt": "#FFFFFF", "shorts": "#000000", "socks": "#FFFFFF" },
+      "awayKit": { "shirt": "#F472B6", "shorts": "#F472B6", "socks": "#F472B6" },
+      "thirdKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "goalkeeperKit": { "shirt": "#22C55E", "shorts": "#22C55E", "socks": "#22C55E" }
+    },
+    {
+      "teamId": "brazil",
+      "teamName": "Brazil",
+      "competition": "World Cup",
+      "season": "2026",
+      "aliases": ["brasil"],
+      "homeKit": { "shirt": "#FFDF00", "shorts": "#0033A0", "socks": "#FFFFFF" },
+      "awayKit": { "shirt": "#0033A0", "shorts": "#FFFFFF", "socks": "#0033A0" },
+      "thirdKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "goalkeeperKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" }
+    },
+    {
+      "teamId": "england",
+      "teamName": "England",
+      "competition": "World Cup",
+      "season": "2026",
+      "homeKit": { "shirt": "#FFFFFF", "shorts": "#1E3A8A", "socks": "#FFFFFF" },
+      "awayKit": { "shirt": "#DC2626", "shorts": "#DC2626", "socks": "#DC2626" },
+      "thirdKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "goalkeeperKit": { "shirt": "#22C55E", "shorts": "#22C55E", "socks": "#22C55E" }
+    },
+    {
+      "teamId": "france",
+      "teamName": "France",
+      "competition": "World Cup",
+      "season": "2026",
+      "aliases": ["les bleus"],
+      "homeKit": { "shirt": "#0055A4", "shorts": "#FFFFFF", "socks": "#EF4135" },
+      "awayKit": { "shirt": "#FFFFFF", "shorts": "#FFFFFF", "socks": "#FFFFFF" },
+      "thirdKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "goalkeeperKit": { "shirt": "#FACC15", "shorts": "#FACC15", "socks": "#FACC15" }
+    },
+    {
+      "teamId": "argentina",
+      "teamName": "Argentina",
+      "competition": "World Cup",
+      "season": "2026",
+      "homeKit": { "shirt": "#75AADB", "shorts": "#FFFFFF", "socks": "#FFFFFF" },
+      "awayKit": { "shirt": "#7C3AED", "shorts": "#7C3AED", "socks": "#7C3AED" },
+      "thirdKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "goalkeeperKit": { "shirt": "#22C55E", "shorts": "#22C55E", "socks": "#22C55E" }
+    },
+    {
+      "teamId": "netherlands",
+      "teamName": "Netherlands",
+      "competition": "World Cup",
+      "season": "2026",
+      "aliases": ["holland"],
+      "homeKit": { "shirt": "#F97316", "shorts": "#FFFFFF", "socks": "#F97316" },
+      "awayKit": { "shirt": "#1E3A8A", "shorts": "#1E3A8A", "socks": "#1E3A8A" },
+      "thirdKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "goalkeeperKit": { "shirt": "#22C55E", "shorts": "#22C55E", "socks": "#22C55E" }
+    },
+    {
+      "teamId": "portugal",
+      "teamName": "Portugal",
+      "competition": "World Cup",
+      "season": "2026",
+      "homeKit": { "shirt": "#DC2626", "shorts": "#15803D", "socks": "#DC2626" },
+      "awayKit": { "shirt": "#FFFFFF", "shorts": "#FFFFFF", "socks": "#FFFFFF" },
+      "thirdKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "goalkeeperKit": { "shirt": "#FACC15", "shorts": "#FACC15", "socks": "#FACC15" }
+    },
+    {
+      "teamId": "spain",
+      "teamName": "Spain",
+      "competition": "World Cup",
+      "season": "2026",
+      "aliases": ["españa", "espana"],
+      "homeKit": { "shirt": "#DC2626", "shorts": "#1E3A8A", "socks": "#DC2626" },
+      "awayKit": { "shirt": "#FFDF00", "shorts": "#FFDF00", "socks": "#FFDF00" },
+      "thirdKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "goalkeeperKit": { "shirt": "#22C55E", "shorts": "#22C55E", "socks": "#22C55E" }
+    },
+    {
+      "teamId": "morocco",
+      "teamName": "Morocco",
+      "competition": "World Cup",
+      "season": "2026",
+      "homeKit": { "shirt": "#C1272D", "shorts": "#006233", "socks": "#C1272D" },
+      "awayKit": { "shirt": "#FFFFFF", "shorts": "#FFFFFF", "socks": "#FFFFFF" },
+      "thirdKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "goalkeeperKit": { "shirt": "#FBBF24", "shorts": "#FBBF24", "socks": "#FBBF24" }
+    },
+    {
+      "teamId": "scotland",
+      "teamName": "Scotland",
+      "competition": "World Cup",
+      "season": "2026",
+      "homeKit": { "shirt": "#00247D", "shorts": "#FFFFFF", "socks": "#00247D" },
+      "awayKit": { "shirt": "#FFFFFF", "shorts": "#00247D", "socks": "#FFFFFF" },
+      "thirdKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "goalkeeperKit": { "shirt": "#FACC15", "shorts": "#FACC15", "socks": "#FACC15" }
+    },
+    {
+      "teamId": "haiti",
+      "teamName": "Haiti",
+      "competition": "World Cup",
+      "season": "2026",
+      "homeKit": { "shirt": "#00209F", "shorts": "#DC2626", "socks": "#00209F" },
+      "awayKit": { "shirt": "#FFFFFF", "shorts": "#00209F", "socks": "#FFFFFF" },
+      "thirdKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "goalkeeperKit": { "shirt": "#22C55E", "shorts": "#22C55E", "socks": "#22C55E" }
+    },
+    {
+      "teamId": "liverpool",
+      "teamName": "Liverpool",
+      "competition": "Premier League",
+      "season": "2025-26",
+      "aliases": ["liverpool fc"],
+      "homeKit": { "shirt": "#C8102E", "shorts": "#C8102E", "socks": "#FFFFFF" },
+      "awayKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "thirdKit": { "shirt": "#FFFFFF", "shorts": "#FFFFFF", "socks": "#FFFFFF" },
+      "goalkeeperKit": { "shirt": "#84CC16", "shorts": "#84CC16", "socks": "#84CC16" }
+    },
+    {
+      "teamId": "arsenal",
+      "teamName": "Arsenal",
+      "competition": "Premier League",
+      "season": "2025-26",
+      "aliases": ["arsenal fc"],
+      "homeKit": { "shirt": "#EF0107", "shorts": "#FFFFFF", "socks": "#FFFFFF" },
+      "awayKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "thirdKit": { "shirt": "#1E40AF", "shorts": "#1E40AF", "socks": "#1E40AF" },
+      "goalkeeperKit": { "shirt": "#22C55E", "shorts": "#22C55E", "socks": "#22C55E" }
+    },
+    {
+      "teamId": "manchester-city",
+      "teamName": "Manchester City",
+      "competition": "Premier League",
+      "season": "2025-26",
+      "aliases": ["man city", "manchester city fc"],
+      "homeKit": { "shirt": "#6CABDD", "shorts": "#FFFFFF", "socks": "#6CABDD" },
+      "awayKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "thirdKit": { "shirt": "#5B2C83", "shorts": "#5B2C83", "socks": "#5B2C83" },
+      "goalkeeperKit": { "shirt": "#F97316", "shorts": "#F97316", "socks": "#F97316" }
+    },
+    {
+      "teamId": "manchester-united",
+      "teamName": "Manchester United",
+      "competition": "Premier League",
+      "season": "2025-26",
+      "aliases": ["man united", "man utd", "manchester united fc"],
+      "homeKit": { "shirt": "#DA020E", "shorts": "#FFFFFF", "socks": "#FFFFFF" },
+      "awayKit": { "shirt": "#FFFFFF", "shorts": "#FFFFFF", "socks": "#FFFFFF" },
+      "thirdKit": { "shirt": "#1E40AF", "shorts": "#1E40AF", "socks": "#1E40AF" },
+      "goalkeeperKit": { "shirt": "#22C55E", "shorts": "#22C55E", "socks": "#22C55E" }
+    },
+    {
+      "teamId": "chelsea",
+      "teamName": "Chelsea",
+      "competition": "Premier League",
+      "season": "2025-26",
+      "aliases": ["chelsea fc"],
+      "homeKit": { "shirt": "#034694", "shorts": "#034694", "socks": "#FFFFFF" },
+      "awayKit": { "shirt": "#FFFFFF", "shorts": "#FFFFFF", "socks": "#FFFFFF" },
+      "thirdKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "goalkeeperKit": { "shirt": "#F97316", "shorts": "#F97316", "socks": "#F97316" }
+    },
+    {
+      "teamId": "tottenham",
+      "teamName": "Tottenham Hotspur",
+      "competition": "Premier League",
+      "season": "2025-26",
+      "aliases": ["tottenham", "spurs", "tottenham hotspur fc"],
+      "homeKit": { "shirt": "#FFFFFF", "shorts": "#132257", "socks": "#FFFFFF" },
+      "awayKit": { "shirt": "#5B2C83", "shorts": "#5B2C83", "socks": "#5B2C83" },
+      "thirdKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "goalkeeperKit": { "shirt": "#FACC15", "shorts": "#FACC15", "socks": "#FACC15" }
+    },
+    {
+      "teamId": "burnley",
+      "teamName": "Burnley",
+      "competition": "Premier League",
+      "season": "2025-26",
+      "aliases": ["burnley fc"],
+      "homeKit": { "shirt": "#6C1D45", "shorts": "#FFFFFF", "socks": "#6C1D45" },
+      "awayKit": { "shirt": "#FFFFFF", "shorts": "#6C1D45", "socks": "#FFFFFF" },
+      "thirdKit": { "shirt": "#111827", "shorts": "#111827", "socks": "#111827" },
+      "goalkeeperKit": { "shirt": "#FACC15", "shorts": "#FACC15", "socks": "#FACC15" }
+    }
+  ]
+}

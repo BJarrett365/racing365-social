@@ -93,21 +93,72 @@ function checkTeamPlayerMismatches(project: MatchReportProject, text: string, is
   }
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function teamTokens(team: string): string[] {
+  const short = team
+    .replace(/\bFootball Club\b/gi, "")
+    .replace(/\bFC\b/gi, "")
+    .trim();
+  const first = short.split(/\s+/)[0];
+  return [...new Set([team, short, first].filter((name) => name && name.length > 3))];
+}
+
+function scoreNorm(home: number, away: number): string {
+  return `${home} ${away}`;
+}
+
 function checkScore(project: MatchReportProject, text: string, issues: FactCheckIssue[]): void {
   if (project.homeScore == null || project.awayScore == null) return;
   const expected = `${project.homeScore}-${project.awayScore}`;
   const reverse = `${project.awayScore}-${project.homeScore}`;
-  if (text.includes(reverse) && reverse !== expected) {
-    addIssue(issues, {
-      severity: "high",
-      sourceTier: "tier1",
-      type: "tier1_contradiction",
-      title: "Possible reversed scoreline",
-      detail: `The report contains ${reverse}, but Tier 1 match data says ${project.homeTeam} ${expected} ${project.awayTeam}.`,
-      evidence: `${project.homeTeam} ${expected} ${project.awayTeam}`,
-      suggestion: `Use ${project.homeTeam} ${expected} ${project.awayTeam}.`,
-    });
-  }
+  if (reverse === expected) return;
+
+  const haystack = normalize(text);
+  const expectedNorm = scoreNorm(project.homeScore, project.awayScore);
+  const reverseNorm = scoreNorm(project.awayScore, project.homeScore);
+  if (!haystack.includes(reverseNorm)) return;
+
+  const canonicalPresent =
+    haystack.includes(expectedNorm) ||
+    teamTokens(project.homeTeam).some((name) =>
+      new RegExp(`${escapeRegex(normalize(name))}\\s+${expectedNorm.replace(" ", "\\s+")}`, "i").test(haystack),
+    ) ||
+    teamTokens(project.awayTeam).some((name) =>
+      new RegExp(`${expectedNorm.replace(" ", "\\s+")}\\s+${escapeRegex(normalize(name))}`, "i").test(haystack),
+    );
+
+  const homeTokens = teamTokens(project.homeTeam).map(normalize);
+  const reversePattern = reverseNorm.replace(" ", "\\s+");
+  const winnerPerspectiveOk = homeTokens.some((home) =>
+    new RegExp(
+      `(defeating|beat|beats|beating|overcame|saw off|downed|hammered|thumped|dismantled|despatched|defeated)\\s+${escapeRegex(home)}\\s+${reversePattern}`,
+      "i",
+    ).test(haystack),
+  );
+
+  const awayTokens = teamTokens(project.awayTeam).map(normalize);
+  const misleadingHomeWinner = homeTokens.some(
+    (home) =>
+      awayTokens.some((away) =>
+        new RegExp(`${escapeRegex(home)}\\s+${reversePattern}\\s+${escapeRegex(away)}`, "i").test(haystack),
+      ) ||
+      new RegExp(`(?:^|[.!?]\\s+)${escapeRegex(home)}\\s+${reversePattern}(?:\\s|$)`, "i").test(haystack),
+  );
+
+  if (canonicalPresent && (winnerPerspectiveOk || !misleadingHomeWinner)) return;
+
+  addIssue(issues, {
+    severity: "high",
+    sourceTier: "tier1",
+    type: "tier1_contradiction",
+    title: "Possible reversed scoreline",
+    detail: `The report contains ${reverse}, but Tier 1 match data says ${project.homeTeam} ${expected} ${project.awayTeam}.`,
+    evidence: `${project.homeTeam} ${expected} ${project.awayTeam}`,
+    suggestion: `Use ${project.homeTeam} ${expected} ${project.awayTeam}.`,
+  });
 }
 
 function checkGoalScorers(project: MatchReportProject, text: string, issues: FactCheckIssue[]): void {

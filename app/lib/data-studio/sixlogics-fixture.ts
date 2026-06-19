@@ -22,14 +22,49 @@ export class SixlogicsFetchError extends Error {
   }
 }
 
-function fixtureUrl(base: string, userID: string, pass: string, sportId: string, matchId: string): string {
+type SixlogicsEndpoint = "SportccFixture" | "Match";
+
+function sixlogicsUrl(
+  endpoint: SixlogicsEndpoint,
+  base: string,
+  userID: string,
+  pass: string,
+  sportId: string,
+  matchId: string,
+): string {
   const root = base.replace(/\/+$/, "");
-  const u = new URL(`${root}/SportccFixture`);
+  const u = new URL(`${root}/${endpoint}`);
   u.searchParams.set("userID", userID);
   u.searchParams.set("pass", pass);
   u.searchParams.set("sport_id", sportId);
   u.searchParams.set("match_id", matchId);
   return u.toString();
+}
+
+function getByPath(obj: unknown, path: string): unknown {
+  return path.split(".").reduce<unknown>((acc, key) => {
+    if (acc === null || acc === undefined || typeof acc !== "object") return undefined;
+    return (acc as Record<string, unknown>)[key];
+  }, obj);
+}
+
+/** SportccFixture can return sport:null for some fixtures; Match carries the full feed. */
+export function isUsableSportccPayload(payload: unknown): boolean {
+  const sport = getByPath(payload, "sportccbetdata.sport");
+  if (!sport || typeof sport !== "object") return false;
+  const categories = (sport as Record<string, unknown>).category;
+  if (!Array.isArray(categories) || categories.length === 0) return false;
+  for (const category of categories) {
+    if (!category || typeof category !== "object") continue;
+    const tournaments = (category as Record<string, unknown>).tournament;
+    if (!Array.isArray(tournaments)) continue;
+    for (const tournament of tournaments) {
+      if (!tournament || typeof tournament !== "object") continue;
+      const matches = (tournament as Record<string, unknown>).match;
+      if (Array.isArray(matches) && matches.length > 0) return true;
+    }
+  }
+  return false;
 }
 
 /** Dot-paths up to maxPaths (breadth-biased shallow keys first). */
@@ -58,22 +93,19 @@ export function flattenJsonKeyPaths(obj: unknown, maxPaths = 120): string[] {
 export type SportccFixtureFetchResult = {
   payload: unknown;
   keyPaths: string[];
+  /** Which SixLogics endpoint supplied the payload (Match is used when SportccFixture is empty). */
+  endpoint: SixlogicsEndpoint;
 };
 
-export async function fetchSportccFixture(params: {
-  sportId: string;
-  matchId: string;
-}): Promise<SportccFixtureFetchResult> {
-  const base = process.env.SIXLOGICS_FIXTURE_BASE?.trim() || DEFAULT_BASE;
-  const userID = process.env.SIXLOGICS_USER_ID?.trim();
-  const pass = process.env.SIXLOGICS_PASS?.trim();
-  if (!userID || !pass) {
-    throw new SixlogicsConfigError(
-      "Missing SixLogics credentials. Add SIXLOGICS_USER_ID and SIXLOGICS_PASS to .env.local (see .env.example).",
-    );
-  }
-
-  const url = fixtureUrl(base, userID, pass, params.sportId, params.matchId);
+async function fetchSixlogicsEndpoint(
+  endpoint: SixlogicsEndpoint,
+  base: string,
+  userID: string,
+  pass: string,
+  sportId: string,
+  matchId: string,
+): Promise<{ payload: unknown; endpoint: SixlogicsEndpoint }> {
+  const url = sixlogicsUrl(endpoint, base, userID, pass, sportId, matchId);
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
 
@@ -116,7 +148,33 @@ export async function fetchSportccFixture(params: {
     );
   }
 
+  return { payload, endpoint };
+}
+
+export async function fetchSportccFixture(params: {
+  sportId: string;
+  matchId: string;
+}): Promise<SportccFixtureFetchResult> {
+  const base = process.env.SIXLOGICS_FIXTURE_BASE?.trim() || DEFAULT_BASE;
+  const userID = process.env.SIXLOGICS_USER_ID?.trim();
+  const pass = process.env.SIXLOGICS_PASS?.trim();
+  if (!userID || !pass) {
+    throw new SixlogicsConfigError(
+      "Missing SixLogics credentials. Add SIXLOGICS_USER_ID and SIXLOGICS_PASS to .env.local (see .env.example).",
+    );
+  }
+
+  const primary = await fetchSixlogicsEndpoint("SportccFixture", base, userID, pass, params.sportId, params.matchId);
+  let { payload, endpoint } = primary;
+  if (!isUsableSportccPayload(payload)) {
+    const fallback = await fetchSixlogicsEndpoint("Match", base, userID, pass, params.sportId, params.matchId);
+    if (isUsableSportccPayload(fallback.payload)) {
+      payload = fallback.payload;
+      endpoint = fallback.endpoint;
+    }
+  }
+
   const keyPaths = typeof payload === "object" && payload !== null ? flattenJsonKeyPaths(payload) : [];
 
-  return { payload, keyPaths };
+  return { payload, keyPaths, endpoint };
 }

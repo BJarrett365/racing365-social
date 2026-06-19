@@ -1,5 +1,13 @@
 import { BRAND_HORSE_RACING_MARK, BRAND_MARK } from "@/app/lib/brand";
 import { decodeHtmlEntities } from "@/app/lib/html-entities";
+import {
+  computeF1ResultsLayout,
+  displayF1ResultsDriverName,
+} from "@/app/lib/f1-results-layout";
+import {
+  sanitizeSport365Scorers,
+  type Sport365MatchScorer,
+} from "@/app/lib/match-report/parse-sport365-match-page-summary";
 
 /** Inline SVG — jockey cap cue beside jockey name on classic racecard rows */
 const RC_CLASSIC_CAP_ICON = `<svg class="rc-classic-cap-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 14" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M2 10V7c0-3 3.5-5 8-5s8 2 8 5v3H2zm2-1h12V7.2C16 5.5 13.2 4 10 4S4 5.5 4 7.2V9z"/></svg>`;
@@ -23,6 +31,9 @@ import type {
 } from "@/types";
 import { raceSilkBadgeHtml } from "./race-silk-html";
 import { tryRenderFootballTemplate } from "./football-templates";
+import { tryRenderTeamLineUpTemplate } from "./team-line-up-templates";
+import { tryRenderTeamSheetTemplate } from "./team-sheet-templates";
+import { tryRenderScoreLineTemplate } from "./score-line-templates";
 import type { NewsShortHeadlineFontId } from "@/app/lib/news-short-fonts";
 import { resolveNewsShortFontBundle } from "@/app/lib/news-short-fonts";
 import {
@@ -47,6 +58,23 @@ import {
   type LeagueRow,
   type LeagueTableMode,
 } from "@/app/lib/league-table-card-config";
+import {
+  leagueTableBrandLogoSvg,
+  normalizePlanetFootballDisplayBrand,
+  planetFootballBrandDefaults,
+  planetFootballSurfaceTokens,
+  resolveLeagueBrandFromSceneData,
+} from "@/app/lib/planet-football-table-brands";
+import { PLANET_FOOTBALL_COLORS } from "@/app/lib/planet-football-brand";
+
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace("#", "").trim();
+  if (h.length !== 6) return `rgba(255,255,255,${alpha})`;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 function esc(s: unknown): string {
   return String(s ?? "")
@@ -59,8 +87,14 @@ function esc(s: unknown): string {
 /** Uniform black + readability gradient over motion when PNG uses alpha (editor video backdrop). */
 function editorMotionBackdropLayersHtml(data: Data): string {
   if (!data.editorTransparentBackground) return "";
-  const dimStrength = clampMotionBackdropDimStrength(data.motionBackdropDimStrength ?? 0.45);
-  const opaqueStrength = clampMotionBackdropOpaqueOpacity(data.motionBackdropOpaqueOpacity ?? 0.3);
+  const isSport365 = String(data.brand ?? "") === "sport365";
+  let dimStrength = clampMotionBackdropDimStrength(data.motionBackdropDimStrength ?? (isSport365 ? 0.32 : 0.45));
+  let opaqueStrength = clampMotionBackdropOpaqueOpacity(data.motionBackdropOpaqueOpacity ?? (isSport365 ? 0.22 : 0.3));
+  /** Sport365: enough dim for data legibility without killing motion punch. */
+  if (isSport365) {
+    dimStrength = Math.min(dimStrength, 0.38);
+    opaqueStrength = Math.min(opaqueStrength, 0.28);
+  }
   return `<div class="editor-motion-opaque" aria-hidden="true" style="position:absolute;left:0;top:0;width:100%;height:100%;z-index:0;pointer-events:none;background:rgba(0,0,0,${opaqueStrength.toFixed(3)});"></div><div class="editor-motion-dim" aria-hidden="true" style="position:absolute;left:0;top:0;width:100%;height:100%;z-index:1;pointer-events:none;background:${newsShortMotionFullFrameGradient(dimStrength)};"></div>`;
 }
 
@@ -1435,7 +1469,7 @@ function wrapLedBoard(inner: string, w: number, h: number, title: string, data: 
 }
 
 /** TEAMtalk News mint accent (brand reference) */
-const TT_NEON = "#23ff9f";
+const TT_NEON = "#70E1A1";
 
 function teamtalkNewsLayoutCss(w: number, h: number): string {
   const k = h > 1600 ? 1 : 0.82;
@@ -1784,6 +1818,22 @@ function f1ResolveDriverImage(raw: unknown): string {
   return `/grid/drivers/${s.replace(/^\.?\//, "")}`;
 }
 
+function f1FooterBrandLabel(raw: unknown): string {
+  const brand = decodeHtmlEntities(String(raw ?? "PLANETF1.com")).trim() || "PLANETF1.com";
+  if (/^planetf1\.com$/i.test(brand)) {
+    return `PLANET<span class="f1-footer-accent">F1</span>.COM`;
+  }
+  return esc(brand);
+}
+
+function f1FooterBrandHtml(data: Data): string {
+  const logoUrl = typeof data.logoUrl === "string" ? data.logoUrl.trim() : "";
+  if (logoUrl) {
+    return `<div class="f1-footer-logo"><img src="${esc(logoUrl)}" alt="PlanetF1" /></div>`;
+  }
+  return `<div class="f1-footer-logo">${f1FooterBrandLabel(data.footerBrand ?? "PLANETF1.com")}</div>`;
+}
+
 function f1GridLayoutCss(w: number, h: number): string {
   const fs = (n: number) => `${Math.round((n * h) / 1350)}px`;
   return `
@@ -1850,8 +1900,7 @@ function f1GridLayoutCss(w: number, h: number): string {
   .f1-sub,
   .f1-page,
   .f1-intro-sub,
-  .f1-intro-line,
-  .f1-footer-logo {
+  .f1-intro-line {
     display: inline-block;
     padding: ${fs(8)} ${fs(14)};
     border-radius: ${fs(10)};
@@ -1860,24 +1909,131 @@ function f1GridLayoutCss(w: number, h: number): string {
   .f1-outro-line {
     background: rgba(2, 6, 23, 0.9);
   }
-  .f1-outro-footer-bar { margin-top: auto; margin-left: -${fs(22)}; margin-right: -${fs(22)}; margin-bottom: -${fs(18)};
-    padding: ${fs(20)} ${fs(22)} ${fs(22)}; background: #000000; color: #ffffff; text-align: center;
-    font-family: "Roboto Condensed", sans-serif; font-size: ${fs(28)}; font-weight: 800; letter-spacing: ${fs(2)}; }
-  .f1-outro-footer-bar .f1-footer-logo { color: #ffffff; font-size: ${fs(28)}; font-weight: 800; letter-spacing: ${fs(2)}; }
-  .f1-outro-footer-bar .f1-footer-logo img { max-height: ${fs(44)}; display: inline-block; vertical-align: middle; }
-  .f1-footer { margin-top: auto; text-align: center; padding-top: ${fs(16)}; }
-  .f1-footer-logo { font-family: "Roboto Condensed", sans-serif; font-size: ${fs(26)}; font-weight: 800;
-    letter-spacing: ${fs(2)}; color: #f8fafc; }
-  .f1-footer-logo img { max-height: ${fs(40)}; display: inline-block; vertical-align: middle; }
+  .f1-footer {
+    margin-top: auto;
+    margin-left: -${fs(22)};
+    margin-right: -${fs(22)};
+    margin-bottom: -${fs(18)};
+    min-height: ${fs(60)};
+    padding: ${fs(14)} ${fs(22)} ${fs(16)};
+    background: #000000;
+    text-align: center;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.18);
+  }
+  .f1-footer-logo {
+    display: inline-block;
+    font-family: "Roboto Condensed", sans-serif;
+    font-size: ${fs(44)};
+    font-weight: 800;
+    letter-spacing: ${fs(5)};
+    color: #ffffff;
+    text-transform: uppercase;
+    line-height: 1;
+    text-shadow: 0 ${fs(1)} ${fs(5)} rgba(0, 0, 0, 0.75);
+    -webkit-font-smoothing: antialiased;
+  }
+  .f1-footer-accent { color: #e10600; }
+  .f1-footer-logo img {
+    max-height: ${fs(48)};
+    width: auto;
+    display: inline-block;
+    vertical-align: middle;
+    filter: drop-shadow(0 ${fs(1)} ${fs(4)} rgba(0, 0, 0, 0.55));
+  }
+  .f1-outro-footer-bar {
+    margin-top: auto;
+    margin-left: -${fs(22)};
+    margin-right: -${fs(22)};
+    margin-bottom: -${fs(18)};
+    min-height: ${fs(60)};
+    padding: ${fs(14)} ${fs(22)} ${fs(16)};
+    background: #000000;
+    color: #ffffff;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.18);
+  }
+  .f1-outro-footer-bar .f1-footer-logo {
+    font-size: ${fs(44)};
+    letter-spacing: ${fs(5)};
+  }
+  .f1-outro-footer-bar .f1-footer-logo img { max-height: ${fs(48)}; }
   .f1-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; color: #64748b;
     font-family: "Roboto Condensed", sans-serif; font-size: ${fs(26)}; padding: ${fs(24)}; padding-bottom: ${fs(48)}; }
   .f1-row.f1-row-results { min-height: ${fs(76)}; }
-  .f1-nameblk.f1-nameblk-stack { flex-direction: column; align-items: flex-start; justify-content: center;
-    gap: ${fs(4)}; padding-top: ${fs(6)}; padding-bottom: ${fs(6)}; }
+  .f1-board-results .f1-nameblk.f1-nameblk-stack {
+    flex: 0 0 var(--f1-name-col, ${fs(280)});
+    width: var(--f1-name-col, ${fs(280)});
+    min-width: var(--f1-name-col, ${fs(280)});
+    max-width: var(--f1-name-col, ${fs(280)});
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: ${fs(4)};
+    padding-top: ${fs(6)};
+    padding-bottom: ${fs(6)};
+    overflow: hidden;
+  }
+  .f1-board-results .f1-row-results .f1-name {
+    font-size: var(--f1-name-font, ${fs(36)});
+    letter-spacing: ${fs(0.5)};
+    overflow: visible;
+    text-overflow: unset;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  .f1-board-results .f1-row-results .f1-team {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .f1-board-results .f1-row-results .f1-photo {
+    flex: 0 0 var(--f1-photo-col, ${fs(58)});
+    width: var(--f1-photo-col, ${fs(58)});
+    margin-left: 0;
+    overflow: hidden;
+  }
+  .f1-board-results .f1-row-results .f1-face {
+    width: var(--f1-face-size, ${fs(66)});
+    height: var(--f1-face-size, ${fs(66)});
+  }
+  .f1-board-results .f1-timebar.f1-timebar-results {
+    flex: 0 0 var(--f1-time-col, ${fs(136)});
+    width: var(--f1-time-col, ${fs(136)});
+    min-width: var(--f1-time-col, ${fs(136)});
+    max-width: var(--f1-time-col, ${fs(136)});
+    padding: 0 ${fs(8)};
+  }
+  .f1-board-results .f1-row-results .f1-time { font-size: ${fs(30)}; letter-spacing: 0; }
+  .f1-board-results .f1-hdr-driver {
+    flex: 0 0 var(--f1-name-col, ${fs(280)});
+    width: var(--f1-name-col, ${fs(280)});
+    min-width: var(--f1-name-col, ${fs(280)});
+  }
+  .f1-board-results .f1-hdr-photo {
+    flex: 0 0 var(--f1-photo-col, ${fs(58)});
+    width: var(--f1-photo-col, ${fs(58)});
+    margin-left: 0;
+  }
+  .f1-board-results .f1-hdr-time {
+    flex: 0 0 var(--f1-time-col, ${fs(136)});
+    width: var(--f1-time-col, ${fs(136)});
+    min-width: var(--f1-time-col, ${fs(136)});
+    max-width: var(--f1-time-col, ${fs(136)});
+  }
   .f1-team { font-family: "Roboto Condensed", sans-serif; font-size: ${fs(22)}; font-weight: 600;
     color: #64748b; text-transform: uppercase; letter-spacing: ${fs(1)}; line-height: 1.1; }
   .f1-pos.f1-pos-letter { font-size: ${fs(30)}; letter-spacing: ${fs(-1)}; }
-  .f1-timebar.f1-timebar-results { width: auto; flex: 1 1 26%; min-width: ${fs(140)}; }
+  .f1-nameblk.f1-nameblk-stack { flex: 1 1 0; flex-direction: column; align-items: flex-start; justify-content: center;
+    gap: ${fs(4)}; padding-top: ${fs(6)}; padding-bottom: ${fs(6)}; min-width: 0; }
+  .f1-row-results .f1-name { font-size: ${fs(36)}; letter-spacing: ${fs(0.5)}; }
   .f1-stops { width: ${fs(52)}; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
     background: #0f172a; border-left: 1px solid rgba(255,255,255,0.18);
     font-family: "Roboto Condensed", sans-serif; font-size: ${fs(26)}; font-weight: 700; color: #e2e8f0; }
@@ -1889,9 +2045,9 @@ function f1GridLayoutCss(w: number, h: number): string {
   .f1-hdr-driver { flex: 1; display: flex; align-items: center; padding: 0 ${fs(10)}; padding-left: ${fs(12)}; min-width: 0;
     background: rgba(30,41,59,0.55);
     font-family: "Roboto Condensed", sans-serif; font-size: ${fs(19)}; font-weight: 800; letter-spacing: ${fs(2)}; color: #b6ff00; text-transform: uppercase; }
-  .f1-hdr-photo { width: ${fs(76)}; flex-shrink: 0; margin-left: ${fs(-12)}; background: rgba(30,41,59,0.55); }
-  .f1-hdr-time { flex: 1 1 26%; min-width: ${fs(140)}; display: flex; align-items: center; justify-content: flex-end;
-    padding: 0 ${fs(14)}; background: rgba(30,41,59,0.55); border-left: 1px solid rgba(255,255,255,0.12);
+  .f1-hdr-photo { width: ${fs(76)}; flex-shrink: 0; margin-left: ${fs(-6)}; background: rgba(30,41,59,0.55); }
+  .f1-hdr-time { flex: 0 0 ${fs(168)}; width: ${fs(168)}; min-width: ${fs(132)}; max-width: ${fs(188)}; display: flex; align-items: center; justify-content: flex-end;
+    padding: 0 ${fs(8)}; background: rgba(30,41,59,0.55); border-left: 1px solid rgba(255,255,255,0.12);
     font-family: "Roboto Condensed", sans-serif; font-size: ${fs(19)}; font-weight: 800; letter-spacing: ${fs(1)}; color: #b6ff00; text-transform: uppercase; }
   .f1-hdr-stops { width: ${fs(52)}; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
     background: #111827; border-left: 1px solid rgba(255,255,255,0.2);
@@ -1913,9 +2069,9 @@ function f1GridLayoutCss(w: number, h: number): string {
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .f1-fastest-team { font-family: "Roboto Condensed", sans-serif; font-size: ${fs(20)}; font-weight: 600;
     color: #64748b; text-transform: uppercase; margin-top: ${fs(2)}; }
-  .f1-fastest-timebar { flex: 1 1 28%; min-width: ${fs(120)}; display: flex; align-items: center; justify-content: flex-end;
-    padding: 0 ${fs(12)}; }
-  .f1-fastest-time { font-family: "Roboto Condensed", sans-serif; font-size: ${fs(30)}; font-weight: 800; font-style: italic; }
+  .f1-fastest-timebar { flex: 0 0 ${fs(168)}; width: ${fs(168)}; min-width: ${fs(132)}; max-width: ${fs(188)}; display: flex; align-items: center; justify-content: flex-end;
+    padding: 0 ${fs(8)}; }
+  .f1-fastest-time { font-family: "Roboto Condensed", sans-serif; font-size: ${fs(28)}; font-weight: 800; font-style: italic; }
   .f1-fastest-stops { width: ${fs(48)}; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
     background: #0f172a; border-left: 1px solid rgba(255,255,255,0.15);
     font-family: "Roboto Condensed", sans-serif; font-size: ${fs(24)}; font-weight: 700; color: #e2e8f0; }
@@ -1961,7 +2117,7 @@ function f1GridBoardRows(data: Data): string {
     .join("");
 }
 
-function f1ResultsBoardRows(data: Data): string {
+function f1ResultsBoardRows(data: Data, w: number, h: number): { html: string; boardStyle: string } {
   const drivers = (Array.isArray(data.resultDrivers) ? data.resultDrivers : []) as {
     position?: number;
     positionLabel?: string;
@@ -1973,8 +2129,16 @@ function f1ResultsBoardRows(data: Data): string {
     stops?: string | number;
   }[];
   const highlight = Boolean(data.highlightTop3);
+  const layout = computeF1ResultsLayout(
+    w,
+    h,
+    drivers.map((d) => String(d.name ?? "")),
+  );
   if (drivers.length === 0) {
-    return `<div class="f1-empty">No drivers on this page — add rows in the editor.</div>`;
+    return {
+      boardStyle: layout.boardStyle,
+      html: `<div class="f1-empty">No drivers on this page — add rows in the editor.</div>`,
+    };
   }
   const headerRow = `<div class="f1-results-header" role="row">
     <div class="f1-hdr-pos">POS</div>
@@ -1983,26 +2147,24 @@ function f1ResultsBoardRows(data: Data): string {
     <div class="f1-hdr-time">TIME</div>
     <div class="f1-hdr-stops">STOPS</div>
   </div>`;
-  return (
-    headerRow +
-    drivers
-      .map((d, idx) => {
-        const posNum = typeof d.position === "number" ? d.position : idx + 1;
-        const labelRaw = typeof d.positionLabel === "string" ? d.positionLabel.trim() : "";
-        const posDisplay = labelRaw ? esc(labelRaw) : esc(posNum);
-        const posClass = labelRaw ? "f1-pos f1-pos-letter" : "f1-pos";
-        const name = esc((d.name ?? "").toUpperCase() || "DRIVER");
-        const team = esc((d.team ?? "").trim() || "");
-        const time = esc(d.time ?? "—");
-        const stops = esc(String(d.stops ?? "—"));
-        const colRaw = f1SanitizeHexColor(d.teamColor);
-        const col = esc(colRaw);
-        const timeFg = esc(f1ContrastTextColor(colRaw));
-        const imgU = f1ResolveDriverImage(d.image);
-        const src = imgU || F1_PLACEHOLDER_IMAGE;
-        const face = `<img class="f1-face" src="${esc(src)}" alt="" />`;
-        const podium = highlight && idx < 3 ? " f1-row-podium" : "";
-        return `<div class="f1-row f1-row-results${podium}">
+  const rows = drivers
+    .map((d, idx) => {
+      const posNum = typeof d.position === "number" ? d.position : idx + 1;
+      const labelRaw = typeof d.positionLabel === "string" ? d.positionLabel.trim() : "";
+      const posDisplay = labelRaw ? esc(labelRaw) : esc(posNum);
+      const posClass = labelRaw ? "f1-pos f1-pos-letter" : "f1-pos";
+      const name = esc(displayF1ResultsDriverName(String(d.name ?? "DRIVER"), layout));
+      const team = esc((d.team ?? "").trim() || "");
+      const time = esc(d.time ?? "—");
+      const stops = esc(String(d.stops ?? "—"));
+      const colRaw = f1SanitizeHexColor(d.teamColor);
+      const col = esc(colRaw);
+      const timeFg = esc(f1ContrastTextColor(colRaw));
+      const imgU = f1ResolveDriverImage(d.image);
+      const src = imgU || F1_PLACEHOLDER_IMAGE;
+      const face = `<img class="f1-face" src="${esc(src)}" alt="" />`;
+      const podium = highlight && idx < 3 ? " f1-row-podium" : "";
+      return `<div class="f1-row f1-row-results${podium}">
         <div class="${posClass}">${posDisplay}</div>
         <div class="f1-nameblk f1-nameblk-stack">
           <span class="f1-name">${name}</span>
@@ -2014,9 +2176,9 @@ function f1ResultsBoardRows(data: Data): string {
         </div>
         <div class="f1-stops">${stops}</div>
       </div>`;
-      })
-      .join("")
-  );
+    })
+    .join("");
+  return { html: headerRow + rows, boardStyle: layout.boardStyle };
 }
 
 function f1FastestLapHtml(data: Data): string {
@@ -2367,19 +2529,18 @@ function planetRugbyBroadcastGridTemplate(visibleColumns: ReadonlyArray<{ key: s
     .join(" ");
 }
 
-function planetFootballIconSvg(className: string): string {
-  return `<svg class="${className}" viewBox="0 0 120 120" role="img" aria-label="Planet Football">
-    <path d="M36 18h49c10 0 18 8 18 18v53c0 10-8 18-18 18H43c-5 0-10-2-14-6L19 91c-4-4-6-9-6-14V41c0-13 10-23 23-23Z" fill="#0B0B0B" />
-    <path d="M35 32h18v62H35c-6 0-10-4-10-10V42c0-6 4-10 10-10Z" fill="#FFFFFF" />
-    <path d="M62 32h23c6 0 10 4 10 10v42c0 6-4 10-10 10H62V32Z" fill="#FFFFFF" />
-    <path d="M55 31h31v14H69v49H55V31Z" fill="#0B0B0B" />
-    <path d="M69 59H55v28h14V59Z" fill="#FFFFFF" />
-    <circle cx="84" cy="63" r="7" fill="#0B0B0B" />
+function sport365LogoSvg(className: string): string {
+  return `<svg class="${className}" viewBox="0 0 220 48" role="img" aria-label="Sport365">
+    <text x="0" y="34" font-family="Arial Black, Helvetica Neue, sans-serif" font-size="28" font-weight="900" fill="#FFFFFF">SPORT</text>
+    <text x="108" y="34" font-family="Arial Black, Helvetica Neue, sans-serif" font-size="28" font-weight="900" fill="#BD33B5">365</text>
   </svg>`;
 }
 
 function renderLeagueTableCardTemplate(data: Data, w: number, h: number): string {
-  const brand = leagueTableBrandToken("planetfootball");
+  const leagueBrand = resolveLeagueBrandFromSceneData(data);
+  const brand = leagueTableBrandToken(leagueBrand);
+  const pfSurfaceForCard = planetFootballSurfaceTokens(normalizePlanetFootballDisplayBrand(data.brand));
+  const isSport365 = leagueBrand === "sport365";
   const modeRaw = String(data.mode ?? "full").trim();
   const mode: LeagueTableMode =
     modeRaw === "top-half" ||
@@ -2416,8 +2577,12 @@ function renderLeagueTableCardTemplate(data: Data, w: number, h: number): string
   const configuredHighlight =
     typeof data.highlightColor === "string" && data.highlightColor.trim() ? data.highlightColor.trim() : "";
   const highlightColor = brandHighlight ? brand.primary : configuredHighlight || LEAGUE_TABLE_CARD_TOKENS.leaderHighlight.border;
-  const highlightBg = brandHighlight ? "rgba(183,255,0,0.12)" : LEAGUE_TABLE_CARD_TOKENS.leaderHighlight.background;
-  const highlightGlow = brandHighlight ? "rgba(183,255,0,0.35)" : LEAGUE_TABLE_CARD_TOKENS.leaderHighlight.glow;
+  const highlightBg = brandHighlight
+    ? hexToRgba(brand.primary, 0.14)
+    : LEAGUE_TABLE_CARD_TOKENS.leaderHighlight.background;
+  const highlightGlow = brandHighlight
+    ? hexToRgba(brand.primary, 0.35)
+    : LEAGUE_TABLE_CARD_TOKENS.leaderHighlight.glow;
   const highlightedTeam = typeof data.highlightedTeam === "string" ? data.highlightedTeam.trim().toLowerCase() : "";
   const selectedTeamA = typeof data.selectedTeamA === "string" ? data.selectedTeamA.trim().toLowerCase() : "";
   const selectedTeamB = typeof data.selectedTeamB === "string" ? data.selectedTeamB.trim().toLowerCase() : "";
@@ -2428,11 +2593,21 @@ function renderLeagueTableCardTemplate(data: Data, w: number, h: number): string
         ? data.editorBackgroundImageUrl.trim()
         : "";
   const transparentBg = Boolean(data.editorTransparentBackground);
+  const staticPng = Boolean(data.r365StaticPng);
   const bg = backgroundImageUrl ? esc(backgroundImageUrl) : "";
   const overlay = transparentBg ? "rgba(0,0,0,0)" : LEAGUE_TABLE_CARD_TOKENS.backgroundOverlay;
   const overlayStrength = Math.max(0.2, Math.min(0.9, Number(data.overlayStrength ?? 0.55)));
   const blur = Math.max(0, Math.min(20, Number(data.backgroundBlur ?? 0)));
-  const tableOpacity = Math.max(0.15, Math.min(0.9, Number(data.tablePanelOpacity ?? 0.84)));
+  const rawPanelOpacity = Number(data.tablePanelOpacity ?? (isSport365 ? 0.82 : 0.84));
+  let tableOpacity = Math.max(0.15, Math.min(0.95, rawPanelOpacity));
+  if (isSport365) {
+    const floor = transparentBg ? 0.9 : 0.82;
+    tableOpacity = Math.max(tableOpacity, floor);
+  }
+  const cardPlateOpacity = transparentBg ? 0.94 : Math.min(0.92, tableOpacity + 0.08);
+  const rowBg = isSport365
+    ? `rgba(52,14,48,${(0.42 + tableOpacity * 0.18).toFixed(3)})`
+    : `rgba(255,255,255,${(0.06 + tableOpacity * 0.1).toFixed(3)})`;
   const tableWidthPercent = Math.max(45, Math.min(100, Number(data.tableWidthPercent ?? 90)));
   const tableHeightPercent = Math.max(28, Math.min(88, Number(data.tableHeightPercent ?? 72)));
   const cardWidth = Math.round(w * (tableWidthPercent / 100));
@@ -2476,6 +2651,60 @@ function renderLeagueTableCardTemplate(data: Data, w: number, h: number): string
   const headline = typeof data.headline === "string" ? data.headline.trim() : "";
   const title = explicitTitle || (headline && !/^latest table$/i.test(headline) ? headline : "");
   const showBrandLogo = data.showLogo !== false;
+  const logoScale = Math.max(1, Math.min(3, Number(data.brandLogoScale ?? (isSport365 ? 1.85 : 1))));
+  const logoW = Math.round(112 * logoScale);
+  const logoH = Math.round(48 * logoScale);
+  const showStandingsTable = data.showStandingsTable !== false;
+  const matchRaw = data.matchContext as Record<string, unknown> | undefined;
+  const matchHome = typeof matchRaw?.homeTeam === "string" ? matchRaw.homeTeam.trim() : "";
+  const matchAway = typeof matchRaw?.awayTeam === "string" ? matchRaw.awayTeam.trim() : "";
+  const matchHomeScore = Number(matchRaw?.homeScore ?? NaN);
+  const matchAwayScore = Number(matchRaw?.awayScore ?? NaN);
+  const hasMatch = Boolean(matchHome && matchAway && Number.isFinite(matchHomeScore) && Number.isFinite(matchAwayScore));
+  const showMatchScore = hasMatch && data.showMatchScore !== false;
+  const showMatchScorers = hasMatch && data.showMatchScorers !== false;
+  const matchStatusLabel =
+    typeof matchRaw?.statusLabel === "string" && matchRaw.statusLabel.trim()
+      ? matchRaw.statusLabel.trim()
+      : typeof matchRaw?.status === "string" && matchRaw.status.trim()
+        ? matchRaw.status.trim()
+        : "";
+  const homeLogoUrl = typeof matchRaw?.homeLogoUrl === "string" ? matchRaw.homeLogoUrl.trim() : "";
+  const awayLogoUrl = typeof matchRaw?.awayLogoUrl === "string" ? matchRaw.awayLogoUrl.trim() : "";
+  const scorers = sanitizeSport365Scorers(
+    (Array.isArray(matchRaw?.scorers) ? matchRaw.scorers : []) as Sport365MatchScorer[],
+  );
+  const scoreHtml = showMatchScore
+    ? `<div class="lt-score">
+        <div class="lt-score-teams">
+          <div class="lt-score-side">
+            ${homeLogoUrl ? `<img class="lt-score-crest" src="${esc(homeLogoUrl)}" alt="" />` : `<span class="lt-score-crest-fallback">${esc(matchHome.slice(0, 3).toUpperCase())}</span>`}
+            <span class="lt-score-team">${esc(matchHome)}</span>
+          </div>
+          <span class="lt-score-line">${matchHomeScore}<span class="lt-score-sep">:</span>${matchAwayScore}</span>
+          <div class="lt-score-side lt-score-side--away">
+            <span class="lt-score-team">${esc(matchAway)}</span>
+            ${awayLogoUrl ? `<img class="lt-score-crest" src="${esc(awayLogoUrl)}" alt="" />` : `<span class="lt-score-crest-fallback">${esc(matchAway.slice(0, 3).toUpperCase())}</span>`}
+          </div>
+        </div>
+        ${matchStatusLabel ? `<div class="lt-score-status">${esc(matchStatusLabel)}</div>` : ""}
+      </div>`
+    : "";
+  const scorersHtml =
+    showMatchScorers && scorers.length > 0
+      ? `<div class="lt-scorers">${scorers
+          .map((row) => {
+            const r = row as Record<string, unknown>;
+            const player = typeof r.player === "string" ? r.player.trim() : "";
+            const minuteLabel = typeof r.minuteLabel === "string" ? r.minuteLabel.trim() : "";
+            const team = typeof r.team === "string" ? r.team.trim() : "";
+            const isOg = r.type === "own_goal";
+            if (!player) return "";
+            return `<div class="lt-scorer"><span class="lt-scorer-minute">${esc(minuteLabel)}</span><span class="lt-scorer-name">${esc(player)}${isOg ? " (OG)" : ""}</span><span class="lt-scorer-team">${esc(team)}</span></div>`;
+          })
+          .filter(Boolean)
+          .join("")}</div>`
+      : "";
   const rowsHtml = visibleRows
     .map((row, idx) => {
       const teamKey = row.team.toLowerCase();
@@ -2520,19 +2749,21 @@ function renderLeagueTableCardTemplate(data: Data, w: number, h: number): string
     .join("");
   const css = `
   @keyframes ltBgZoom{from{transform:scale(1)}to{transform:scale(1.06)}}
-  @keyframes ltFadeUp{from{opacity:0;transform:translate(-50%,-45%)}to{opacity:1;transform:translate(-50%,-50%)}}
+  @keyframes ltFadeUp{from{opacity:0;transform:translate(-50%,calc(-50% + 20px))}to{opacity:1;transform:translate(-50%,-50%)}}
   @keyframes ltRowIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
   @keyframes ltGlowPulse{0%,100%{box-shadow:0 0 14px ${highlightGlow}}50%{box-shadow:0 0 28px ${highlightGlow}}}
   .lt-stage{position:relative;width:${w}px;height:${h}px;overflow:hidden;background:${transparentBg ? "transparent" : brand.secondary};font-family:${LEAGUE_TABLE_CARD_TOKENS.fontFamily};color:${LEAGUE_TABLE_CARD_TOKENS.mainText}}
   .lt-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:${blur > 0 ? `blur(${blur}px)` : "none"};animation:ltBgZoom 12s ease-out both}
-  .lt-bg-fallback{position:absolute;inset:0;background:radial-gradient(circle at 70% 20%,#26311b 0%,#111 45%,#060606 100%)}
+  .lt-bg-fallback{position:absolute;inset:0;background:${pfSurfaceForCard.radialFallback}}
   .lt-overlay{position:absolute;inset:0;background:${transparentBg ? overlay : `rgba(0,0,0,${overlayStrength})`};z-index:2}
-  .lt-card{position:absolute;left:50%;top:${tableCenterY}px;z-index:4;width:min(${cardWidth}px,90%);max-width:920px;max-height:${cardMaxHeight}px;overflow:hidden;box-sizing:border-box;background:rgba(12,12,12,${tableOpacity.toFixed(3)});border-radius:18px;padding:${ultraCompact ? 16 : 24}px;box-shadow:0 12px 40px rgba(0,0,0,.35);animation:ltFadeUp .55s ease-out both}
-  .lt-title{font-size:${Math.round(34 * fontScale)}px;font-weight:800;line-height:${Math.round(38 * fontScale)}px;margin:0 0 16px;color:#fff}
+  .lt-card{position:absolute;left:50%;top:${tableCenterY}px;z-index:4;width:min(${cardWidth}px,90%);max-width:920px;max-height:${cardMaxHeight}px;overflow:hidden;box-sizing:border-box;transform:translate(-50%,-50%);background:${isSport365 ? `rgba(36,8,32,${tableOpacity.toFixed(3)})` : `rgba(12,12,12,${tableOpacity.toFixed(3)})`};border-radius:18px;padding:${ultraCompact ? 16 : 24}px;box-shadow:0 16px 48px rgba(0,0,0,.55);animation:ltFadeUp .55s ease-out both${isSport365 ? `;border:1px solid rgba(189,51,181,0.45)` : `;border:1px solid ${hexToRgba(brand.primary, 0.45)}`}${transparentBg ? ";backdrop-filter:blur(12px)" : ""}}
+  .lt-card-plate{position:absolute;inset:0;border-radius:18px;z-index:0;background:${isSport365 ? `rgba(14,3,12,${cardPlateOpacity.toFixed(3)})` : `rgba(8,8,8,${cardPlateOpacity.toFixed(3)})`}}
+  .lt-card-inner{position:relative;z-index:1}
+  .lt-title{font-size:${Math.round(34 * fontScale)}px;font-weight:800;line-height:${Math.round(38 * fontScale)}px;margin:0 0 16px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.45)}
   .lt-head{display:grid;grid-template-columns:${columnTemplate};height:${Math.round((ultraCompact ? 38 : 56) * rowScale)}px;align-items:center;border-bottom:1px solid ${LEAGUE_TABLE_CARD_TOKENS.headerDivider};color:${LEAGUE_TABLE_CARD_TOKENS.headerText};font-size:${Math.round((ultraCompact ? 14 : 18) * fontScale)}px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
   .lt-head span:not(.lt-head--team){text-align:center}
   .lt-rows{display:flex;flex-direction:column;gap:4px;margin-top:8px}
-  .lt-row{display:grid;grid-template-columns:${columnTemplate};align-items:center;min-height:${rowH}px;padding:0 16px;border:1px solid ${LEAGUE_TABLE_CARD_TOKENS.standardBorder};border-radius:12px;background:rgba(255,255,255,.02);box-sizing:border-box;animation:ltRowIn .42s ease-out both}
+  .lt-row{display:grid;grid-template-columns:${columnTemplate};align-items:center;min-height:${rowH}px;padding:0 16px;border:1px solid ${LEAGUE_TABLE_CARD_TOKENS.standardBorder};border-radius:12px;background:${rowBg};box-sizing:border-box;animation:ltRowIn .42s ease-out both}
   .lt-row--highlight{animation-name:ltRowIn,ltGlowPulse;animation-duration:.42s,2.4s;animation-timing-function:ease-out,ease-in-out;animation-iteration-count:1,infinite}
   .lt-rank{font-size:${Math.round((ultraCompact ? 20 : 28) * fontScale)}px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}
   .lt-team{min-width:0;display:flex;align-items:center;gap:14px}
@@ -2541,19 +2772,41 @@ function renderLeagueTableCardTemplate(data: Data, w: number, h: number): string
   .lt-team-name{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;line-height:${ultraCompact ? 22 : 30}px;color:#fff}
   .lt-stat{font-size:${Math.round((ultraCompact ? 18 : 24) * fontScale)}px;font-weight:600;text-align:center;color:${LEAGUE_TABLE_CARD_TOKENS.statsText};font-variant-numeric:tabular-nums}
   .lt-pts{font-size:${Math.round((ultraCompact ? 20 : 28) * fontScale)}px;font-weight:800;text-align:center;color:#fff;font-variant-numeric:tabular-nums}
-  .lt-pf-icon{position:absolute;right:54px;top:62px;z-index:5;width:112px;height:112px;display:block;filter:drop-shadow(0 10px 24px rgba(0,0,0,.32))}
+  .lt-score{margin:0 0 18px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.12)}
+  .lt-score-teams{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .lt-score-side{flex:1;display:flex;align-items:center;gap:12px;min-width:0}
+  .lt-score-side--away{justify-content:flex-end}
+  .lt-score-crest{width:${Math.round(44 * fontScale)}px;height:${Math.round(44 * fontScale)}px;object-fit:contain;flex:0 0 auto;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+  .lt-score-crest-fallback{width:${Math.round(44 * fontScale)}px;height:${Math.round(44 * fontScale)}px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;background:rgba(255,255,255,.12);font-size:12px;font-weight:900;color:#fff;flex:0 0 auto}
+  .lt-score-team{font-size:${Math.round(26 * fontScale)}px;font-weight:800;color:#fff;line-height:1.1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lt-score-line{flex:0 0 auto;font-size:${Math.round(52 * fontScale)}px;font-weight:900;color:#fff;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+  .lt-score-sep{opacity:.65;padding:0 6px}
+  .lt-score-status{margin-top:8px;font-size:${Math.round(18 * fontScale)}px;font-weight:600;color:${brand.primary};text-transform:uppercase;letter-spacing:.08em}
+  .lt-scorers{margin:0 0 16px;display:flex;flex-direction:column;gap:6px}
+  .lt-scorer{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;font-size:${Math.round(18 * fontScale)}px;color:#e5e7eb}
+  .lt-scorer-minute{font-weight:800;color:${brand.primary};font-variant-numeric:tabular-nums}
+  .lt-scorer-name{font-weight:700;color:#fff}
+  .lt-scorer-team{font-size:${Math.round(15 * fontScale)}px;color:#cbd5e1;text-align:right}
+  .lt-pf-icon{position:absolute;right:42px;top:48px;z-index:5;width:${logoW}px;height:${logoH}px;display:block;filter:drop-shadow(0 10px 24px rgba(0,0,0,.32))}
   .lt-footer{position:absolute;left:0;right:0;bottom:40px;height:100px;z-index:4;text-align:center;color:${brand.primary};font-size:24px;font-weight:700}
+  ${staticPng ? `body[data-r365-static-png="1"] .lt-card{animation:none!important;opacity:1!important;transform:translate(-50%,-50%)!important}body[data-r365-static-png="1"] .lt-row,body[data-r365-static-png="1"] .lt-score,body[data-r365-static-png="1"] .lt-title{animation:none!important;opacity:1!important;transform:none!important}` : ""}
   `;
-  return `<!doctype html><html><head><meta charset="utf-8"/><style>${css}</style></head><body style="margin:0"><div class="lt-stage">
+  const staticAttr = staticPng ? ' data-r365-static-png="1"' : "";
+  return `<!doctype html><html><head><meta charset="utf-8"/><style>${css}</style></head><body style="margin:0"${staticAttr}><div class="lt-stage">
     ${motionBackdropLayers}
     ${bg && !transparentBg ? `<img class="lt-bg" src="${bg}" alt="" />` : transparentBg ? "" : `<div class="lt-bg-fallback"></div>`}
     <div class="lt-overlay"></div>
     <div class="lt-card">
+      <div class="lt-card-plate" aria-hidden="true"></div>
+      <div class="lt-card-inner">
+      ${scoreHtml}
+      ${scorersHtml}
       ${title ? `<h1 class="lt-title">${esc(title)}</h1>` : ""}
-      <div class="lt-head">${safeColumnDefs.map((column) => `<span class="${column.key === "team" ? "lt-head--team" : ""}">${column.label}</span>`).join("")}</div>
-      <div class="lt-rows">${rowsHtml}</div>
+      ${showStandingsTable ? `<div class="lt-head">${safeColumnDefs.map((column) => `<span class="${column.key === "team" ? "lt-head--team" : ""}">${column.label}</span>`).join("")}</div>
+      <div class="lt-rows">${rowsHtml}</div>` : ""}
+      </div>
     </div>
-    ${showBrandLogo ? planetFootballIconSvg("lt-pf-icon") : ""}
+    ${showBrandLogo ? leagueTableBrandLogoSvg(leagueBrand, "lt-pf-icon") : ""}
     ${footerText ? `<div class="lt-footer">${esc(footerText)}</div>` : ""}
   </div></body></html>`;
 }
@@ -2570,16 +2823,32 @@ function renderPlanetRugbyTemplate(templateId: string, data: Data, w: number, h:
     return null;
   }
   const isPlanetFootball = templateId.startsWith("planet-football-");
-  const brandMark = isPlanetFootball ? "PF" : "PR";
-  const brandLogoHtml = isPlanetFootball ? planetFootballIconSvg("pf-icon-svg") : brandMark;
-  const brandFooter = isPlanetFootball ? "PLANET FOOTBALL" : "PLANET RUGBY";
+  const pfDisplayBrand = normalizePlanetFootballDisplayBrand(data.brand);
+  const pfSurface = isPlanetFootball ? planetFootballSurfaceTokens(pfDisplayBrand) : null;
+  const pfLeagueBrand = isPlanetFootball ? pfSurface!.leagueBrand : "planetrugby";
+  const pfBrandDefaults = isPlanetFootball ? planetFootballBrandDefaults(pfDisplayBrand) : null;
+  const pfLogoScale = Math.max(1, Math.min(3, Number(data.brandLogoScale ?? (pfLeagueBrand === "sport365" ? 1.85 : 1))));
+  const brandMark = isPlanetFootball ? (pfBrandDefaults?.brandFooter.slice(0, 2) ?? "PF") : "PR";
+  const brandLogoHtml = isPlanetFootball
+    ? leagueTableBrandLogoSvg(pfLeagueBrand, "pf-icon-svg")
+    : brandMark;
+  const brandFooter = isPlanetFootball ? (pfBrandDefaults?.brandFooter ?? "PLANET FOOTBALL") : "PLANET RUGBY";
   const brandSignoff = isPlanetFootball
-    ? "For more football coverage, head to Sport365.com"
+    ? (pfBrandDefaults?.outroLine ?? "For more football coverage, head to Sport365.com")
     : "For more rugby coverage, head to PlanetRugby.com";
-  const panelRgb = isPlanetFootball ? "12,12,12" : "8,39,34";
-  const accentColor = isPlanetFootball ? "#B7FF00" : "#d4b46a";
-  const stageBg = isPlanetFootball ? "#111111" : "#081525";
-  const broadcastBg = isPlanetFootball ? "#070907" : "#0a1f2e";
+  const panelRgb = isPlanetFootball ? (pfSurface?.panelRgb ?? "12,12,12") : "8,39,34";
+  const accentColor = isPlanetFootball ? (pfSurface?.accentColor ?? "#d4b46a") : "#d4b46a";
+  const stageBg = isPlanetFootball ? (pfSurface?.stageBg ?? "#111111") : "#081525";
+  const broadcastBg = isPlanetFootball ? (pfSurface?.broadcastBg ?? "#070907") : "#0a1f2e";
+  const pfHeroFallback = pfSurface?.heroFallback ?? "linear-gradient(160deg,#1b260f 0%,#090c06 100%)";
+  const pfRadialFallback = pfSurface?.radialFallback ?? "radial-gradient(circle at 70% 20%,#1f2b10 0%,#101608 45%,#050605 100%)";
+  const pfBrandLogoClass =
+    pfLeagueBrand === "planetfootball"
+      ? "pr-bc-brand--pf-symbol"
+      : pfLeagueBrand === "football365" || pfLeagueBrand === "teamtalk"
+        ? "pr-bc-brand--pf-wordmark"
+        : "pr-bc-brand--pf-sport365";
+  const pfLogoClassPr = pfBrandLogoClass.replace("pr-bc-brand--", "pr-logo--");
   const rows = (Array.isArray(data.rows) ? data.rows : []) as Array<Record<string, unknown>>;
   const allColumns = [
     { key: "position", label: "#" },
@@ -2798,7 +3067,7 @@ function renderPlanetRugbyTemplate(templateId: string, data: Data, w: number, h:
     ${bg ? `<img class="pr-bc-hero-img" src="${bg}" alt="" style="filter:${blur > 0 ? `blur(${blur}px)` : "none"}" />` : transparentBg ? "" : `<div class="pr-bc-hero-fallback"></div>`}
     <div class="pr-bc-hero-grad"></div>
   </div>
-  ${data.showLogo === false ? "" : `<div class="pr-bc-brand${isPlanetFootball ? " pr-bc-brand--pf" : ""}${pos.includes("right") ? " pr-bc-brand--corner-left" : ""}">${brandLogoHtml}</div>`}
+  ${data.showLogo === false ? "" : `<div class="pr-bc-brand${isPlanetFootball ? ` ${pfBrandLogoClass}` : ""}${pos.includes("right") ? " pr-bc-brand--corner-left" : ""}">${brandLogoHtml}</div>`}
   <div class="pr-bc-title-wrap" style="top:${heroH}px;">
     <div class="pr-bc-title">
       <div class="pr-bc-title-l1">${esc(titleLines.line1)}</div>
@@ -2829,7 +3098,7 @@ function renderPlanetRugbyTemplate(templateId: string, data: Data, w: number, h:
   ${motionBackdropLayers}
   ${bg ? `<img class="pr-bg" src="${bg}" alt="" />` : transparentBg ? "" : `<div class="pr-bg pr-bg-fallback"></div>`}
   <div class="pr-overlay"></div>
-  ${data.showLogo === false ? "" : `<div class="pr-logo${isPlanetFootball ? " pr-logo--pf" : ""}">${brandLogoHtml}</div>`}
+  ${data.showLogo === false ? "" : `<div class="pr-logo${isPlanetFootball ? ` ${pfLogoClassPr}` : ""}">${brandLogoHtml}</div>`}
   <div class="pr-panel pr-panel--table">
     <div class="pr-title">${headline}</div>
     ${subtitle ? `<div class="pr-sub">${subtitle}</div>` : ""}
@@ -2877,7 +3146,7 @@ function renderPlanetRugbyTemplate(templateId: string, data: Data, w: number, h:
   ${motionBackdropLayers}
   ${bg ? `<img class="pr-bg" src="${bg}" alt="" />` : transparentBg ? "" : `<div class="pr-bg pr-bg-fallback"></div>`}
   <div class="pr-overlay"></div>
-  ${data.showLogo === false ? "" : `<div class="pr-logo${isPlanetFootball ? " pr-logo--pf" : ""}">${brandLogoHtml}</div>`}
+  ${data.showLogo === false ? "" : `<div class="pr-logo${isPlanetFootball ? ` ${pfLogoClassPr}` : ""}">${brandLogoHtml}</div>`}
   <div class="pr-panel ${isIntroOrOutro ? "pr-panel--signoff" : ""}">
     ${showTopLine ? `<div class="pr-head">${competition}</div>` : ""}
     <div class="pr-title">${isOutro ? esc(outroTitle) : isIntro ? esc(introTitle) : headline}</div>
@@ -2890,10 +3159,12 @@ function renderPlanetRugbyTemplate(templateId: string, data: Data, w: number, h:
   const introCss = `
   .pr-stage{position:relative;width:${w}px;height:${h}px;overflow:hidden;background:${transparentBg ? "transparent" : stageBg};font-family:Inter,Arial,sans-serif}
   .pr-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(${blur}px)}
-  .pr-bg-fallback{background:${isPlanetFootball ? "radial-gradient(circle at 70% 20%,#1f2b10 0,#101608 45%,#050605 100%)" : "radial-gradient(circle at 70% 20%,#1e3a5f 0,#0d2238 45%,#071321 100%)"}}
+  .pr-bg-fallback{background:${isPlanetFootball ? pfRadialFallback : "radial-gradient(circle at 70% 20%,#1e3a5f 0,#0d2238 45%,#071321 100%)"}}
   .pr-overlay{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,${overlay}) 0%,rgba(0,0,0,${overlay * 0.7}) 42%,rgba(0,0,0,0.18) 100%)}
   .pr-logo{position:absolute;right:${safeX}px;top:${safeY}px;color:#fff;border:2px solid ${accentColor};border-radius:10px;padding:10px 16px;font-weight:900;font-size:${Math.round(28 * fontScale * sx)}px;line-height:1;letter-spacing:.08em;z-index:4;background:rgba(${panelRgb},.92)}
-  .pr-logo--pf{width:${Math.round(112 * sx)}px;height:${Math.round(112 * sx)}px;padding:0;border:0;background:transparent;box-shadow:none;letter-spacing:0}
+  .pr-logo--pf-sport365{width:${Math.round(112 * pfLogoScale * sx)}px;height:${Math.round(48 * pfLogoScale * sx)}px;padding:0;border:0;background:transparent;box-shadow:none;letter-spacing:0}
+  .pr-logo--pf-wordmark{width:${Math.round(150 * pfLogoScale * sx)}px;height:${Math.round(48 * pfLogoScale * sx)}px;padding:0;border:0;background:transparent;box-shadow:none;letter-spacing:0}
+  .pr-logo--pf-symbol{width:${Math.round(72 * pfLogoScale * sx)}px;height:${Math.round(72 * pfLogoScale * sx)}px;padding:0;border:0;background:transparent;box-shadow:none;letter-spacing:0}
   .pf-icon-svg{width:100%;height:100%;display:block;filter:drop-shadow(0 10px 24px rgba(0,0,0,.32))}
   .pr-panel{position:absolute;z-index:2;${panelPos}width:${Math.round(w * 0.58)}px;background:rgba(${panelRgb},.72);border:1px solid rgba(255,255,255,.28);border-radius:14px;padding:14px 14px 10px}
   .pr-panel--signoff{left:50%;top:50%;transform:translate(-50%,-50%);width:auto;max-width:${Math.round(w * 0.8)}px;display:flex;align-items:center;justify-content:center;min-height:${Math.round(h * 0.2)}px;text-align:center;padding:${Math.round(26 * rowScale)}px}
@@ -2905,10 +3176,12 @@ function renderPlanetRugbyTemplate(templateId: string, data: Data, w: number, h:
   const legacyTableCss = `
   .pr-stage{position:relative;width:${w}px;height:${h}px;overflow:hidden;background:${transparentBg ? "transparent" : stageBg};font-family:Inter,Arial,sans-serif}
   .pr-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(${blur}px)}
-  .pr-bg-fallback{background:${isPlanetFootball ? "radial-gradient(circle at 70% 20%,#1f2b10 0,#101608 45%,#050605 100%)" : "radial-gradient(circle at 70% 20%,#1e3a5f 0,#0d2238 45%,#071321 100%)"}}
+  .pr-bg-fallback{background:${isPlanetFootball ? pfRadialFallback : "radial-gradient(circle at 70% 20%,#1e3a5f 0,#0d2238 45%,#071321 100%)"}}
   .pr-overlay{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,${overlay}) 0%,rgba(0,0,0,${overlay * 0.7}) 42%,rgba(0,0,0,0.18) 100%)}
   .pr-logo{position:absolute;right:${safeX}px;top:${safeY}px;color:#fff;border:2px solid ${accentColor};border-radius:10px;padding:10px 16px;font-weight:900;font-size:${Math.round(28 * fontScale * sx)}px;line-height:1;letter-spacing:.08em;z-index:4;background:rgba(${panelRgb},.92)}
-  .pr-logo--pf{width:${Math.round(112 * sx)}px;height:${Math.round(112 * sx)}px;padding:0;border:0;background:transparent;box-shadow:none;letter-spacing:0}
+  .pr-logo--pf-sport365{width:${Math.round(112 * pfLogoScale * sx)}px;height:${Math.round(48 * pfLogoScale * sx)}px;padding:0;border:0;background:transparent;box-shadow:none;letter-spacing:0}
+  .pr-logo--pf-wordmark{width:${Math.round(150 * pfLogoScale * sx)}px;height:${Math.round(48 * pfLogoScale * sx)}px;padding:0;border:0;background:transparent;box-shadow:none;letter-spacing:0}
+  .pr-logo--pf-symbol{width:${Math.round(72 * pfLogoScale * sx)}px;height:${Math.round(72 * pfLogoScale * sx)}px;padding:0;border:0;background:transparent;box-shadow:none;letter-spacing:0}
   .pf-icon-svg{width:100%;height:100%;display:block;filter:drop-shadow(0 10px 24px rgba(0,0,0,.32))}
   .pr-panel{position:absolute;${panelPos}z-index:2;width:${legacyPanelW}px;max-width:calc(100% - ${Math.round(2 * legacyPanelMargin)}px);max-height:${tablePanelMaxH}px;box-sizing:border-box;background:rgba(${panelRgb},${tablePanelOpacity.toFixed(3)});border:1px solid rgba(255,255,255,.24);border-radius:14px;padding:14px 14px 12px;box-shadow:0 12px 30px rgba(0,0,0,.28);backdrop-filter:blur(2px);display:flex;flex-direction:column;min-height:0;overflow:hidden}
   .pr-title{margin-top:4px;font-size:${Math.round((legacyTableDense ? 44 : 52) * fontScale)}px;line-height:1.08;font-weight:800;color:#fff}
@@ -2936,17 +3209,19 @@ function renderPlanetRugbyTemplate(templateId: string, data: Data, w: number, h:
   .pr-bc-root{position:relative;width:${w}px;height:${h}px;overflow:hidden;background:${transparentBg ? "transparent" : broadcastBg};font-family:system-ui,"Segoe UI",Inter,Arial,sans-serif;color:#f8fafc}
   .pr-bc-hero{position:absolute;left:0;top:0;width:100%;height:${heroH}px;overflow:hidden}
   .pr-bc-hero-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top}
-  .pr-bc-hero-fallback{position:absolute;inset:0;background:${isPlanetFootball ? "linear-gradient(160deg,#1b260f 0%,#090c06 100%)" : "linear-gradient(160deg,#1a3a52 0%,#0d2238 100%)"}}
+  .pr-bc-hero-fallback{position:absolute;inset:0;background:${isPlanetFootball ? pfHeroFallback : "linear-gradient(160deg,#1a3a52 0%,#0d2238 100%)"}}
   .pr-bc-hero-grad{position:absolute;left:0;right:0;bottom:0;height:${Math.round(140 * sx)}px;background:linear-gradient(180deg,rgba(10,31,46,0) 0%,rgba(8,26,40,.55) 45%,rgba(6,20,34,.92) 100%);pointer-events:none}
   .pr-bc-style-full-block-background .pr-bc-hero-img{opacity:.22}
   .pr-bc-brand{position:absolute;right:${safeX}px;top:${safeY}px;z-index:6;color:#fff;border:2px solid ${accentColor};border-radius:10px;padding:10px 14px;font-weight:900;font-size:${Math.round(26 * fontScale * sx)}px;letter-spacing:.12em;background:rgba(${panelRgb},.92)}
-  .pr-bc-brand--pf{width:${Math.round(112 * sx)}px;height:${Math.round(112 * sx)}px;padding:0;border:0;background:transparent;box-shadow:none;letter-spacing:0}
-  .pr-bc-brand--pf .pf-icon-svg{width:100%;height:100%;display:block;filter:drop-shadow(0 10px 24px rgba(0,0,0,.32))}
+  .pr-bc-brand--pf-symbol{width:${Math.round(72 * sx)}px;height:${Math.round(72 * sx)}px;padding:0;border:0;background:transparent;box-shadow:none;letter-spacing:0}
+  .pr-bc-brand--pf-sport365{width:${Math.round(112 * sx)}px;height:${Math.round(48 * sx)}px;padding:0;border:0;background:transparent;box-shadow:none;letter-spacing:0}
+  .pr-bc-brand--pf-wordmark{width:${Math.round(150 * sx)}px;height:${Math.round(48 * sx)}px;padding:0;border:0;background:transparent;box-shadow:none;letter-spacing:0}
+  .pr-bc-brand--pf-symbol .pf-icon-svg,.pr-bc-brand--pf-sport365 .pf-icon-svg,.pr-bc-brand--pf-wordmark .pf-icon-svg{width:100%;height:100%;display:block;filter:drop-shadow(0 10px 24px rgba(0,0,0,.32))}
   .pr-bc-brand--corner-left{left:${safeX}px;right:auto}
   .pr-bc-title-wrap{position:absolute;left:${safeX}px;right:${safeX}px;transform:translateY(-50%);z-index:5;display:flex;justify-content:center;pointer-events:none}
-  .pr-bc-title{background:${isPlanetFootball ? "linear-gradient(165deg,#161b10 0%,#080908 100%)" : "linear-gradient(165deg,#0f2a3d 0%,#0a1f2e 100%)"};border:1px solid ${isPlanetFootball ? "rgba(183,255,0,.62)" : "rgba(212,180,106,.55)"};box-shadow:0 14px 40px rgba(0,0,0,.45);padding:${Math.round(18 * sx)}px ${Math.round(28 * sx)}px;max-width:min(94%,${Math.round(980 * sx)}px);text-align:center}
+  .pr-bc-title{background:${isPlanetFootball ? "linear-gradient(165deg,#161b10 0%,#080908 100%)" : "linear-gradient(165deg,#0f2a3d 0%,#0a1f2e 100%)"};border:1px solid ${isPlanetFootball ? "rgba(182,246,87,.62)" : "rgba(212,180,106,.55)"};box-shadow:0 14px 40px rgba(0,0,0,.45);padding:${Math.round(18 * sx)}px ${Math.round(28 * sx)}px;max-width:min(94%,${Math.round(980 * sx)}px);text-align:center}
   .pr-bc-title-l1{font-size:${titleFont}px;line-height:1.05;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:#fff}
-  .pr-bc-title-l2{margin-top:${Math.round(6 * sx)}px;font-size:${Math.round(titleFont * 0.88)}px;line-height:1.05;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:${isPlanetFootball ? "#B7FF00" : "#e8d5a0"}}
+  .pr-bc-title-l2{margin-top:${Math.round(6 * sx)}px;font-size:${Math.round(titleFont * 0.88)}px;line-height:1.05;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:${isPlanetFootball ? PLANET_FOOTBALL_COLORS.greenYellow : "#e8d5a0"}}
   .pr-bc-lower{position:absolute;left:0;right:0;bottom:0;padding:0 ${safeX}px ${footH + safeY}px;z-index:3}
   .pr-bc-lower-inner{width:min(100%,${tablePanelW}px);height:min(100%,${tablePanelMaxH}px);background:linear-gradient(180deg,rgba(${isPlanetFootball ? "12,12,12" : "11,36,54"},${tablePanelOpacity.toFixed(3)}) 0%,rgba(${isPlanetFootball ? "5,7,5" : "7,24,32"},${tablePanelOpacity.toFixed(3)}) 100%);border-top:3px solid ${accentColor};padding:${Math.round(10 * sx)}px ${Math.round(10 * sx)}px ${Math.round(8 * sx)}px;display:flex;flex-direction:column;min-height:0;box-sizing:border-box;backdrop-filter:blur(2px);overflow:hidden}
   .pr-bc-meta{text-align:center;font-size:${Math.round(18 * sx)}px;font-weight:700;color:#94a3b8;margin-bottom:${Math.round(4 * sx)}px}
@@ -2992,6 +3267,15 @@ export function renderHtmlTemplate(templateId: string, data: Data): string {
 
   const w = Number(data.width ?? 1080);
   const h = Number(data.height ?? 1920);
+  const teamLineUpHtml = tryRenderTeamLineUpTemplate(templateId, data, w, h);
+  if (teamLineUpHtml) return teamLineUpHtml;
+
+  const teamSheetHtml = tryRenderTeamSheetTemplate(templateId, data, w, h);
+  if (teamSheetHtml) return teamSheetHtml;
+
+  const scoreLineHtml = tryRenderScoreLineTemplate(templateId, data, w, h);
+  if (scoreLineHtml) return scoreLineHtml;
+
   const rugbyHtml = renderPlanetRugbyTemplate(templateId, data, w, h);
   if (rugbyHtml) return rugbyHtml;
 
@@ -3307,9 +3591,7 @@ export function renderHtmlTemplate(templateId: string, data: Data): string {
             ${sub ? `<div class="f1-intro-mid"><p class="f1-intro-sub">${sub}</p></div>` : ""}
             ${line ? `<p class="f1-intro-line">${line}</p>` : ""}
           </div>
-          <div class="f1-footer" style="margin-top:auto;flex-shrink:0">
-            <div class="f1-footer-logo">${esc(data.footerBrand ?? "PLANETF1.com")}</div>
-          </div>
+          <div class="f1-footer">${f1FooterBrandHtml(data)}</div>
         </div>`,
         w,
         h,
@@ -3320,11 +3602,7 @@ export function renderHtmlTemplate(templateId: string, data: Data): string {
       const title = esc(data.title ?? "STARTING GRID");
       const sub = esc(data.subtitle ?? "");
       const page = esc(data.pageLabel ?? "1/2");
-      const logoUrl = typeof data.logoUrl === "string" ? data.logoUrl.trim() : "";
-      const footerBrand = esc(data.footerBrand ?? "PLANETF1.com");
-      const logoHtml = logoUrl
-        ? `<img src="${esc(logoUrl)}" alt="" />`
-        : `<span>${footerBrand}</span>`;
+      const footerHtml = f1FooterBrandHtml(data);
       return wrapF1Grid(
         "f1-grid-board",
         `<div class="f1-head">
@@ -3336,7 +3614,7 @@ export function renderHtmlTemplate(templateId: string, data: Data): string {
           <span class="f1-page">${page}</span>
         </div>
         <div class="f1-board">${f1GridBoardRows(data)}</div>
-        <div class="f1-footer">${logoHtml}</div>`,
+        <div class="f1-footer">${footerHtml}</div>`,
         w,
         h,
         data,
@@ -3344,11 +3622,7 @@ export function renderHtmlTemplate(templateId: string, data: Data): string {
     }
     case "f1-grid-outro": {
       const line = esc(data.outroLine ?? "");
-      const logoUrl = typeof data.logoUrl === "string" ? data.logoUrl.trim() : "";
-      const footerBrand = esc(data.footerBrand ?? "PLANETF1.com");
-      const logoHtml = logoUrl
-        ? `<div class="f1-footer-logo"><img src="${esc(logoUrl)}" alt="" /></div>`
-        : `<div class="f1-footer-logo">${footerBrand}</div>`;
+      const logoHtml = f1FooterBrandHtml(data);
       return wrapF1Grid(
         "f1-grid-outro",
         `<div class="f1-outro-stack">
@@ -3376,9 +3650,7 @@ export function renderHtmlTemplate(templateId: string, data: Data): string {
             ${sub ? `<div class="f1-intro-mid"><p class="f1-intro-sub">${sub}</p></div>` : ""}
             ${line ? `<p class="f1-intro-line">${line}</p>` : ""}
           </div>
-          <div class="f1-footer" style="margin-top:auto;flex-shrink:0">
-            <div class="f1-footer-logo">${esc(data.footerBrand ?? "PLANETF1.com")}</div>
-          </div>
+          <div class="f1-footer">${f1FooterBrandHtml(data)}</div>
         </div>`,
         w,
         h,
@@ -3389,11 +3661,8 @@ export function renderHtmlTemplate(templateId: string, data: Data): string {
       const title = esc(data.title ?? "RACE RESULTS");
       const sub = esc(data.subtitle ?? "");
       const page = esc(data.pageLabel ?? "1/2");
-      const logoUrl = typeof data.logoUrl === "string" ? data.logoUrl.trim() : "";
-      const footerBrand = esc(data.footerBrand ?? "PLANETF1.com");
-      const logoHtml = logoUrl
-        ? `<img src="${esc(logoUrl)}" alt="" />`
-        : `<span>${footerBrand}</span>`;
+      const footerHtml = f1FooterBrandHtml(data);
+      const board = f1ResultsBoardRows(data, w, h);
       return wrapF1Grid(
         "f1-results-board",
         `<div class="f1-head">
@@ -3404,8 +3673,8 @@ export function renderHtmlTemplate(templateId: string, data: Data): string {
           </div>
           <span class="f1-page">${page}</span>
         </div>
-        <div class="f1-board">${f1ResultsBoardRows(data)}</div>
-        <div class="f1-footer">${logoHtml}</div>`,
+        <div class="f1-board f1-board-results" style="${board.boardStyle}">${board.html}</div>
+        <div class="f1-footer">${footerHtml}</div>`,
         w,
         h,
         data,
@@ -3413,11 +3682,7 @@ export function renderHtmlTemplate(templateId: string, data: Data): string {
     }
     case "f1-results-outro": {
       const line = esc(data.outroLine ?? "");
-      const logoUrl = typeof data.logoUrl === "string" ? data.logoUrl.trim() : "";
-      const footerBrand = esc(data.footerBrand ?? "PLANETF1.com");
-      const logoHtml = logoUrl
-        ? `<div class="f1-footer-logo"><img src="${esc(logoUrl)}" alt="" /></div>`
-        : `<div class="f1-footer-logo">${footerBrand}</div>`;
+      const logoHtml = f1FooterBrandHtml(data);
       const fastest = f1FastestLapHtml(data);
       return wrapF1Grid(
         "f1-results-outro",

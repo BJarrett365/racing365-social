@@ -11,6 +11,9 @@ type Props = {
   libraryRel?: string;
   /** Accessible label */
   label: string;
+  /** Custom placeholder when no preview video exists */
+  placeholderLabel?: string;
+  placeholderHint?: string;
 };
 
 /**
@@ -18,7 +21,13 @@ type Props = {
  * `public/templates/examples/{slug}.mp4` (e.g. muted H.264 Shorts export).
  * If the file is missing, shows a compact placeholder.
  */
-export function TemplateVideoThumbnail({ slug, libraryRel, label }: Props) {
+export function TemplateVideoThumbnail({
+  slug,
+  libraryRel,
+  label,
+  placeholderLabel,
+  placeholderHint,
+}: Props) {
   const fallbackSrc = `${EXAMPLES_BASE}/${slug}.mp4`;
   const candidates = [
     ...(libraryRel ? [`/api/file?rel=${encodeURIComponent(libraryRel)}`] : []),
@@ -43,8 +52,12 @@ export function TemplateVideoThumbnail({ slug, libraryRel, label }: Props) {
         }}
         title={`Add a library video or public/templates/examples/${slug}.mp4 to show a preview`}
       >
-        <span className="text-[9px] font-semibold uppercase tracking-wide">Example</span>
-        <span className="mt-1 text-[9px] leading-tight opacity-90">Video · coming soon</span>
+        <span className="text-[9px] font-semibold uppercase tracking-wide">
+          {placeholderLabel ?? "Example"}
+        </span>
+        <span className="mt-1 text-[9px] leading-tight opacity-90">
+          {placeholderHint ?? "Video · coming soon"}
+        </span>
       </div>
     );
   }

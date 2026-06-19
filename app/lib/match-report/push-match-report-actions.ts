@@ -20,8 +20,10 @@ import {
 } from "@/app/lib/match-report/language-studio-bridge";
 import { teamNamesMatch } from "@/app/lib/match-report/reconcile-player-ratings";
 import type { MatchReportPushAction, MatchReportPushActionResults } from "@/app/lib/match-report/match-report-distribution";
+import type { EditorialPublishOverride } from "@/app/lib/match-report/mio/types";
 import type { MatchReportProject } from "@/app/lib/match-report/types";
 import type { MatchReportRepository } from "@/app/lib/match-report/store";
+import { validateMatchReportPublish } from "@/app/lib/match-report/validate-publish";
 
 export type { MatchReportPushAction, MatchReportPushActionResults };
 
@@ -75,6 +77,7 @@ export async function runMatchReportPushActions(
   repo: MatchReportRepository,
   projectId: string,
   actions: MatchReportPushAction[],
+  options?: { editorOverride?: EditorialPublishOverride | null },
 ): Promise<{ project: MatchReportProject; results: MatchReportPushActionResults }> {
   let project = await repo.getProject(projectId);
   if (!project) throw new Error("Project not found.");
@@ -135,15 +138,24 @@ export async function runMatchReportPushActions(
   }
 
   if (requested.has("publish")) {
-    if (!project.imageIntelligence?.hero?.url) {
+    const publishValidation = validateMatchReportPublish(project, options?.editorOverride ?? project.editorialPublishOverride);
+    if (!publishValidation.ok) {
+      warnings.push(`Publish skipped — ${publishValidation.error}`);
+    } else if (!project.imageIntelligence?.hero?.url) {
       warnings.push("Publish skipped — add a hero image first.");
     } else {
+      if (options?.editorOverride && !publishValidation.gate.canPublishWithoutOverride) {
+        project = await repo.recordEditorialPublishOverride(project.id, options.editorOverride);
+      }
       const articleId = project.archive?.languageStudioArticleId ?? results.rewrite?.articleId;
+      const heroImageUrl = project.imageIntelligence?.hero?.url;
       if (!articleId) {
         warnings.push("Publish skipped — Language Studio article missing.");
+      } else if (!heroImageUrl) {
+        warnings.push("Publish skipped — add a hero image first.");
       } else {
         const synced = await syncMatchReportToLanguageStudio(project, {
-          heroImageUrl: project.imageIntelligence.hero.url,
+          heroImageUrl,
           queueForReview: true,
         });
         const now = new Date().toISOString();

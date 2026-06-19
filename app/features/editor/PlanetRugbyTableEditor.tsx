@@ -1,13 +1,27 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { R365Button } from "@/app/components/R365Button";
 import { applyTemplateWithPreferences } from "@/app/features/content/content-generator";
 import { EditorCollapsible } from "@/app/features/editor/EditorCollapsible";
 import { PLANET_FOOTBALL_TABLE_VIEWS, type PlanetFootballTableViewId } from "@/app/lib/planet-football-table-views";
+import {
+  applySport365CardContentMode,
+  SPORT365_CARD_CONTENT_OPTIONS,
+  sport365CardContentModeFromBundle,
+  type Sport365CardContentMode,
+} from "@/app/lib/sport365-card-content-mode";
+import { hasLegacySport365ScorerRows, sanitizeSport365Scorers } from "@/app/lib/match-report/parse-sport365-match-page-summary";
+import {
+  PLANET_FOOTBALL_DISPLAY_BRANDS,
+  leagueTableBrandAccentColor,
+  normalizePlanetFootballDisplayBrand,
+  planetFootballBrandDefaults,
+} from "@/app/lib/planet-football-table-brands";
 import type {
   GeneratedContent,
+  PlanetFootballDisplayBrand,
   PlanetFootballTableBundle,
   PlanetRugbyTableBackgroundStyle,
   PlanetRugbyTableBundle,
@@ -71,10 +85,10 @@ export function PlanetRugbyTableEditor({
   templateSectionUnstyled = false,
   brand = "rugby",
 }: Props) {
-  const brandName = brand === "football" ? "Planet Football" : "Planet Rugby";
+  const brandName = brand === "football" ? "Sport365" : "Planet Rugby";
   const defaultImportUrl =
     brand === "football"
-      ? "https://www.football365.com/premier-league/table"
+      ? "https://www.sport365.com/football/world-cup/group-stage/usa-vs-paraguay/1-4109485"
       : "https://www.planetrugby.com/tournament/premiership/table";
   const importRoute = brand === "football" ? "/api/import/planet-football/table" : "/api/import/planet-rugby/table";
   const push = (next: PlanetRugbyTableBundle) => commit(setContent, next, brand, onAfterTemplateCommit);
@@ -122,26 +136,172 @@ export function PlanetRugbyTableEditor({
   const [importBusy, setImportBusy] = useState(false);
   const [importErr, setImportErr] = useState<string | null>(null);
 
-  const importTable = async () => {
+  const footballBundle = brand === "football" ? (bundle as unknown as PlanetFootballTableBundle) : null;
+  const groupTables = footballBundle?.groupTables ?? [];
+  const matchBackfillAttempted = useRef<string | null>(null);
+
+  const applyFootballMatchContext = (matchContext: PlanetFootballTableBundle["matchContext"], sourceUrl?: string) => {
+    if (!matchContext?.homeTeam) return;
+    const fb = bundle as unknown as PlanetFootballTableBundle;
+    const withMatch: PlanetFootballTableBundle = {
+      ...fb,
+      displayBrand: normalizePlanetFootballDisplayBrand(fb.displayBrand),
+      highlightColor: fb.highlightColor ?? planetFootballBrandDefaults(normalizePlanetFootballDisplayBrand(fb.displayBrand)).highlightColor,
+      matchContext: {
+        ...matchContext,
+        scorers: sanitizeSport365Scorers(matchContext.scorers ?? []),
+      },
+      includeCommentaryInAi: fb.includeCommentaryInAi ?? true,
+      brandLogoScale: fb.brandLogoScale ?? 1.85,
+      table: {
+        ...(fb.table as PlanetFootballTableBundle["table"]),
+        sourceUrl: sourceUrl?.trim() || fb.table.sourceUrl,
+      },
+    };
+    push(
+      applySport365CardContentMode(
+        withMatch,
+        sport365CardContentModeFromBundle(withMatch),
+      ) as unknown as PlanetRugbyTableBundle,
+    );
+  };
+
+  const loadMatchSummary = async (url: string) => {
+    setImportBusy(true);
+    setImportErr(null);
+    try {
+      const res = await fetch("/api/import/planet-football/match-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+      const json = (await res.json()) as {
+        success?: boolean;
+        error?: string;
+        matchContext?: PlanetFootballTableBundle["matchContext"];
+      };
+      if (!res.ok || !json.success || !json.matchContext) {
+        throw new Error(json.error || "Could not load match score");
+      }
+      applyFootballMatchContext(json.matchContext, url);
+    } catch (e) {
+      setImportErr(e instanceof Error ? e.message : "Could not load match score");
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (brand !== "football") return;
+    const url = (importUrl || footballBundle?.table.sourceUrl || "").trim();
+    if (!/-vs-/i.test(url)) return;
+    const hasMatch = Boolean(footballBundle?.matchContext?.homeTeam);
+    const needsLegacyRepair = hasLegacySport365ScorerRows(footballBundle?.matchContext?.scorers ?? []);
+    if (hasMatch && !needsLegacyRepair) return;
+    const key = `${needsLegacyRepair ? "legacy" : "missing"}:${footballBundle?.id ?? "new"}:${url}`;
+    if (matchBackfillAttempted.current === key) return;
+    matchBackfillAttempted.current = key;
+
+    let cancelled = false;
+    void (async () => {
+      setImportBusy(true);
+      setImportErr(null);
+      try {
+        const res = await fetch("/api/import/planet-football/match-summary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        const json = (await res.json()) as {
+          success?: boolean;
+          error?: string;
+          matchContext?: PlanetFootballTableBundle["matchContext"];
+        };
+        if (cancelled) return;
+        if (!res.ok || !json.success || !json.matchContext) {
+          throw new Error(json.error || "Could not load match score");
+        }
+        applyFootballMatchContext(json.matchContext, url);
+      } catch (e) {
+        if (!cancelled) setImportErr(e instanceof Error ? e.message : "Could not load match score");
+      } finally {
+        if (!cancelled) setImportBusy(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    brand,
+    footballBundle?.id,
+    footballBundle?.matchContext?.homeTeam,
+    footballBundle?.matchContext?.scorers,
+    footballBundle?.table.sourceUrl,
+    importUrl,
+  ]);
+
+  const importTable = async (selectedGroupCode?: string) => {
     setImportBusy(true);
     setImportErr(null);
     try {
       const res = await fetch(importRoute, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: importUrl.trim(), tableView: brand === "football" ? footballTableView : undefined }),
+        body: JSON.stringify({
+          url: importUrl.trim(),
+          tableView: brand === "football" ? footballTableView : undefined,
+          ...(selectedGroupCode ? { selectedGroupCode } : {}),
+        }),
       });
       const json = (await res.json()) as {
         success?: boolean;
         error?: string;
         data?: PlanetRugbyTableBundle["table"];
+        groupTables?: PlanetFootballTableBundle["groupTables"];
+        selectedGroupCode?: string;
+        matchContext?: PlanetFootballTableBundle["matchContext"];
       };
       if (!res.ok || !json.success || !json.data) throw new Error(json.error || "Import failed");
-      push({
+      const tableData = json.data as unknown as PlanetFootballTableBundle["table"];
+      const hasMatch = Boolean(json.matchContext?.homeTeam);
+      const fb = brand === "football" ? (bundle as unknown as PlanetFootballTableBundle) : null;
+      const currentDisplay = normalizePlanetFootballDisplayBrand(fb?.displayBrand);
+      const brandDefaults = planetFootballBrandDefaults(currentDisplay);
+      const withFootballFields =
+        brand === "football"
+          ? applySport365CardContentMode(
+              {
+                ...(bundle as unknown as PlanetFootballTableBundle),
+                displayBrand: currentDisplay,
+                groupTables: json.groupTables,
+                selectedGroupCode: json.selectedGroupCode ?? tableData.groupCode,
+                highlightColor: fb?.highlightColor ?? brandDefaults.highlightColor,
+                matchContext: json.matchContext ?? fb?.matchContext,
+                includeCommentaryInAi: fb?.includeCommentaryInAi ?? true,
+                brandLogoScale: fb?.brandLogoScale ?? 1.85,
+                table: { ...tableData, sourceUrl: importUrl.trim() || tableData.sourceUrl },
+              },
+              hasMatch || fb?.matchContext
+                ? sport365CardContentModeFromBundle({
+                    ...(bundle as unknown as PlanetFootballTableBundle),
+                    matchContext: json.matchContext ?? fb?.matchContext,
+                  })
+                : "table-only",
+            )
+          : null;
+      const nextBundle = {
         ...bundle,
-        table: json.data,
-        headline: `${json.data.competition} Latest Table`,
-      });
+        ...(withFootballFields ?? {}),
+        ...(brand !== "football"
+          ? {
+              table: tableData,
+            }
+          : {}),
+        headline: tableData.competition,
+        outroLine: brand === "football" ? (fb?.outroLine ?? brandDefaults.outroLine) : bundle.outroLine,
+      } as unknown as PlanetRugbyTableBundle;
+      push(nextBundle);
     } catch (e) {
       setImportErr(e instanceof Error ? e.message : "Import failed");
     } finally {
@@ -149,23 +309,84 @@ export function PlanetRugbyTableEditor({
     }
   };
 
+  const selectDisplayGroup = (groupCode: string) => {
+    if (!footballBundle?.groupTables?.length) return;
+    const group = footballBundle.groupTables.find((row) => row.groupCode === groupCode);
+    if (!group) return;
+    push({
+      ...bundle,
+      selectedGroupCode: groupCode,
+      table: {
+        ...(bundle.table as unknown as PlanetFootballTableBundle["table"]),
+        groupCode,
+        competition: `${group.groupName} · ${bundle.table.competition.split(" · ").pop() ?? "Sport365"}`,
+        rows: group.rows,
+      },
+      headline: `${group.groupName} standings`,
+    } as unknown as PlanetRugbyTableBundle);
+  };
+
   const mode = (bundle.tableMode ?? "full-table") as PlanetRugbyTableDisplayMode;
   const hiddenColumns = bundle.hiddenColumns ?? [];
+
+  const applyDisplayBrand = (nextBrand: PlanetFootballDisplayBrand) => {
+    const defaults = planetFootballBrandDefaults(nextBrand);
+    push({
+      ...(bundle as unknown as PlanetFootballTableBundle),
+      displayBrand: nextBrand,
+      highlightColor: defaults.highlightColor,
+      outroLine: defaults.outroLine,
+      burnSubtitles: defaults.burnSubtitles,
+    } as unknown as PlanetRugbyTableBundle);
+  };
+
+  const activeDisplayBrand =
+    brand === "football" ? normalizePlanetFootballDisplayBrand(footballBundle?.displayBrand) : null;
 
   return (
     <EditorCollapsible title={`Template data — ${brandName} Table`} unstyled={templateSectionUnstyled}>
       <div className="space-y-3">
         <p className="text-xs text-amber-200/90">
-          {brandName} table Shorts. Import a standings URL, then adjust display mode, rows, and styling.
+          {brandName} table Shorts. Import standings from Sport365, pick a group if needed, then adjust display and styling.
         </p>
+        {brand === "football" && activeDisplayBrand ? (
+          <div className="rounded-lg border border-[#1f2d26] bg-black/30 p-3">
+            <p className={label}>Brand style</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {PLANET_FOOTBALL_DISPLAY_BRANDS.map((b) => {
+                const accent = leagueTableBrandAccentColor(b.id);
+                const active = activeDisplayBrand === b.id;
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    className="rounded-lg border px-3 py-2 text-xs font-bold transition-colors"
+                    style={{
+                      borderColor: active ? accent : "rgba(255,255,255,0.14)",
+                      background: active ? `${accent}22` : "rgba(0,0,0,0.35)",
+                      color: active ? accent : "rgba(255,255,255,0.82)",
+                      boxShadow: active ? `0 0 0 1px ${accent}55` : undefined,
+                    }}
+                    onClick={() => applyDisplayBrand(b.id)}
+                  >
+                    {b.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-[10px] font-normal normal-case tracking-normal text-slate-500">
+              Logo, accent colour, score line, table highlights, and subtitle outline follow the selected brand.
+            </p>
+          </div>
+        ) : null}
         <div className="rounded-lg border border-[#1f2d26] bg-black/25 p-3 space-y-2">
           <label className={label}>
-            {brandName} table URL
+            Sport365 {brand === "football" ? "URL" : "table URL"}
             <input className={`${input} mt-1 font-mono text-[11px]`} value={importUrl} onChange={(e) => setImportUrl(e.target.value)} />
           </label>
-          {brand === "football" ? (
+          {brand === "football" && groupTables.length === 0 ? (
             <label className={label}>
-              Football mode
+              League table view (Premier League only)
               <select className={`${input} mt-1`} value={footballTableView} onChange={(e) => setFootballTableView(e.target.value as PlanetFootballTableViewId)}>
                 {PLANET_FOOTBALL_TABLE_VIEWS.map((view) => (
                   <option key={view.id} value={view.id}>{view.label}</option>
@@ -173,8 +394,29 @@ export function PlanetRugbyTableEditor({
               </select>
             </label>
           ) : null}
+          {brand === "football" && groupTables.length > 0 ? (
+            <label className={label}>
+              Display group
+              <select
+                className={`${input} mt-1`}
+                value={
+                  footballBundle?.selectedGroupCode ??
+                  footballBundle?.table.groupCode ??
+                  groupTables[0]?.groupCode ??
+                  ""
+                }
+                onChange={(e) => selectDisplayGroup(e.target.value)}
+              >
+                {groupTables.map((group) => (
+                  <option key={group.groupCode} value={group.groupCode}>
+                    {group.groupName} ({group.rows.length} teams)
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <R365Button type="button" onClick={() => void importTable()} disabled={importBusy}>
-            {importBusy ? "Importing..." : "Import table"}
+            {importBusy ? "Importing from Sport365…" : "Import from Sport365"}
           </R365Button>
           {importErr ? <p className="text-xs text-red-400">{importErr}</p> : null}
         </div>
@@ -215,16 +457,45 @@ export function PlanetRugbyTableEditor({
             </select>
           </label>
           <label className={label}>
-            Table mode
-            <select className={`${input} mt-1`} value={mode} onChange={(e) => push({ ...bundle, tableMode: e.target.value as PlanetRugbyTableDisplayMode })}>
-              <option value="full-table">Full Table</option>
-              <option value="top-half">Top Half</option>
-              <option value="bottom-half">Bottom Half</option>
-              <option value="head-to-head">Head-to-Head Team v Team</option>
-              <option value="playoff-race">Playoff Race</option>
-              <option value="bottom-battle">Relegation / Bottom Battle</option>
-            </select>
+            {brand === "football" ? "On-screen content" : "Table mode"}
+            {brand === "football" ? (
+              <select
+                className={`${input} mt-1`}
+                value={sport365CardContentModeFromBundle(footballBundle ?? (bundle as unknown as PlanetFootballTableBundle))}
+                disabled={!footballBundle?.matchContext?.homeTeam}
+                onChange={(e) =>
+                  push(
+                    applySport365CardContentMode(
+                      bundle as unknown as PlanetFootballTableBundle,
+                      e.target.value as Sport365CardContentMode,
+                    ) as unknown as PlanetRugbyTableBundle,
+                  )
+                }
+              >
+                {SPORT365_CARD_CONTENT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <select className={`${input} mt-1`} value={mode} onChange={(e) => push({ ...bundle, tableMode: e.target.value as PlanetRugbyTableDisplayMode })}>
+                <option value="full-table">Full Table</option>
+                <option value="top-half">Top Half</option>
+                <option value="bottom-half">Bottom Half</option>
+                <option value="head-to-head">Head-to-Head Team v Team</option>
+                <option value="playoff-race">Playoff Race</option>
+                <option value="bottom-battle">Relegation / Bottom Battle</option>
+              </select>
+            )}
+            {brand === "football" && !footballBundle?.matchContext?.homeTeam ? (
+              <span className="mt-1 block text-[10px] font-normal normal-case tracking-normal text-amber-400/90">
+                Import a match URL to enable score line and scorers.
+              </span>
+            ) : null}
           </label>
+          {brand === "football" ? null : (
+          <>
           <label className={label}>
             Playoff rows
             <select className={`${input} mt-1`} value={bundle.playoffRows ?? 4} onChange={(e) => push({ ...bundle, playoffRows: Number(e.target.value) as 4 | 6 | 8 })}>
@@ -258,6 +529,8 @@ export function PlanetRugbyTableEditor({
               ))}
             </select>
           </label>
+          </>
+          )}
           <label className={label}>
             Highlight color
             <div className="mt-1 flex items-center gap-2">
@@ -410,8 +683,81 @@ export function PlanetRugbyTableEditor({
               checked={bundle.showLogo !== false}
               onChange={(e) => push({ ...bundle, showLogo: e.target.checked ? true : false })}
             />
-            Show PR corner mark
+            {brand === "football" ? "Show brand logo" : "Show PR corner mark"}
           </label>
+          {brand === "football" ? (
+            <div className="rounded-lg border border-[#1f2d26] bg-black/25 p-3 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Match result (Sport365)</p>
+              {footballBundle?.matchContext ? (
+                <>
+                  <p className="text-sm font-semibold text-white">
+                    {footballBundle.matchContext.homeTeam} {footballBundle.matchContext.homeScore}–
+                    {footballBundle.matchContext.awayScore} {footballBundle.matchContext.awayTeam}
+                    {footballBundle.matchContext.statusLabel || footballBundle.matchContext.status
+                      ? ` · ${footballBundle.matchContext.statusLabel ?? footballBundle.matchContext.status}`
+                      : ""}
+                  </p>
+                  {sanitizeSport365Scorers(footballBundle.matchContext.scorers).length > 0 ? (
+                    <p className="text-[11px] leading-snug text-slate-400">
+                      Goal scorers:{" "}
+                      {sanitizeSport365Scorers(footballBundle.matchContext.scorers)
+                        .map(
+                          (s) =>
+                            `${s.player}${s.type === "own_goal" ? " (OG)" : ""} ${s.minuteLabel}`,
+                        )
+                        .join(" · ")}
+                    </p>
+                  ) : null}
+                  <p className="text-[11px] leading-snug text-slate-500">
+                    Use <span className="text-slate-300">On-screen content</span> above to show the table, score line,
+                    and scorers on the card.
+                  </p>
+                  <label className="flex items-center gap-2 text-xs text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={footballBundle.includeCommentaryInAi !== false}
+                      onChange={(e) =>
+                        push({ ...bundle, includeCommentaryInAi: e.target.checked } as unknown as PlanetRugbyTableBundle)
+                      }
+                    />
+                    Include commentary in AI script
+                  </label>
+                  <label className={label}>
+                    Sport365 logo size
+                    <div className="mt-1 flex items-center gap-3">
+                      <span className="w-12 text-xs font-semibold text-slate-300">
+                        {Math.round((footballBundle.brandLogoScale ?? 1.85) * 100)}%
+                      </span>
+                      <input
+                        type="range"
+                        min={1}
+                        max={2.5}
+                        step={0.05}
+                        className="flex-1 accent-emerald-300"
+                        value={footballBundle.brandLogoScale ?? 1.85}
+                        onChange={(e) =>
+                          push({
+                            ...bundle,
+                            brandLogoScale: Number(e.target.value) || 1.85,
+                          } as unknown as PlanetRugbyTableBundle)
+                        }
+                      />
+                    </div>
+                  </label>
+                </>
+              ) : (
+                <>
+                  <p className="text-[11px] leading-snug text-amber-400/90">
+                    No match score loaded yet. Use a match URL (with <code className="text-amber-200">-vs-</code> in the
+                    path) and import — score, scorers and commentary load automatically.
+                  </p>
+                  <R365Button type="button" variant="ghost" disabled={importBusy} onClick={() => void loadMatchSummary(importUrl)}>
+                    {importBusy ? "Loading match…" : "Load match score & scorers"}
+                  </R365Button>
+                </>
+              )}
+            </div>
+          ) : null}
           <label className={label}>
             Intro duration
             <input type="number" step={0.1} min={1} max={10} className={`${input} mt-1`} value={bundle.introDurationSec ?? 2.2} onChange={(e) => push({ ...bundle, introDurationSec: Number(e.target.value) || 2.2 })} />

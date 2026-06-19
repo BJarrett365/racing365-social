@@ -28,10 +28,24 @@ import type {
   Result,
   RunnerSilks,
   SceneSpec,
+  ScoreLineBundle,
+  TeamSheetBundle,
   TeamtalkNewsBundle,
+  TeamLineUpBundle,
   TemplateSource,
   Tip,
 } from "@/types";
+import { buildTeamLineUpAiCaption } from "@/app/lib/match-report/parse-sport365-lineups";
+import { pickDefaultHeroPlayer } from "@/app/features/render/team-sheet-templates";
+import { buildScoreLineCaption } from "@/app/lib/score-line/build-bundle";
+import { teamLineUpBrand } from "@/app/lib/team-line-up/brand-styles";
+import { teamLineUpExportDimensions } from "@/app/lib/team-line-up/export-dimensions";
+import { mapStartersToCombinedHalf } from "@/app/lib/team-line-up/formation-layout";
+import { resolveStarterCollisions, collisionOptsForExport } from "@/app/lib/team-line-up/player-label-layout";
+import {
+  normalizePlanetFootballDisplayBrand,
+  planetFootballBrandDefaults,
+} from "@/app/lib/planet-football-table-brands";
 
 const SHORTS_W = 1080;
 const SHORTS_H = 1920;
@@ -712,6 +726,404 @@ export function generateFromFootballLineups(bundle: FootballLineupBundle): Gener
   };
 }
 
+/** Rebuild bundle from edited scene data (for persisting tpl-* templates). */
+export function footballLineupBundleFromContent(
+  content: GeneratedContent,
+  base: FootballLineupBundle,
+): FootballLineupBundle {
+  const pitch = content.scenes.find((s) => s.id === "board-1-lineup-home")?.data ?? {};
+  const subs = content.scenes.find((s) => s.id === "board-2-subs")?.data ?? {};
+  const inj = content.scenes.find((s) => s.id === "board-3-injuries")?.data ?? {};
+  return {
+    ...base,
+    league: String(pitch.league ?? base.league),
+    matchDate: String(pitch.matchDate ?? base.matchDate),
+    kickoff: String(pitch.kickoff ?? base.kickoff),
+    home: {
+      ...base.home,
+      name: String(pitch.homeName ?? base.home.name),
+      shortName: String(pitch.homeName ?? base.home.shortName ?? base.home.name),
+      formation: String(pitch.homeFormation ?? base.home.formation),
+      shirtColor: String(pitch.homeShirtColor ?? base.home.shirtColor),
+      numberColor: String(pitch.homeNumberColor ?? base.home.numberColor),
+      sleeveColor: String(pitch.homeSleeveColor ?? base.home.sleeveColor),
+      trimColor: String(pitch.homeTrimColor ?? base.home.trimColor),
+      gkShirtColor: String(pitch.homeGkShirtColor ?? base.home.gkShirtColor),
+      starters: Array.isArray(pitch.homeStarters) ? (pitch.homeStarters as FootballLineupSide["starters"]) : base.home.starters,
+    },
+    away: {
+      ...base.away,
+      name: String(pitch.awayName ?? base.away.name),
+      shortName: String(pitch.awayName ?? base.away.shortName ?? base.away.name),
+      formation: String(pitch.awayFormation ?? base.away.formation),
+      shirtColor: String(pitch.awayShirtColor ?? base.away.shirtColor),
+      numberColor: String(pitch.awayNumberColor ?? base.away.numberColor),
+      sleeveColor: String(pitch.awaySleeveColor ?? base.away.sleeveColor),
+      trimColor: String(pitch.awayTrimColor ?? base.away.trimColor),
+      gkShirtColor: String(pitch.awayGkShirtColor ?? base.away.gkShirtColor),
+      starters: Array.isArray(pitch.awayStarters) ? (pitch.awayStarters as FootballLineupSide["starters"]) : base.away.starters,
+    },
+    bench: {
+      home: Array.isArray(subs.homeBench) ? (subs.homeBench as FootballLineupBundle["bench"]["home"]) : base.bench.home,
+      away: Array.isArray(subs.awayBench) ? (subs.awayBench as FootballLineupBundle["bench"]["away"]) : base.bench.away,
+    },
+    injuries: {
+      home: Array.isArray(inj.homeInjuries) ? (inj.homeInjuries as FootballLineupBundle["injuries"]["home"]) : base.injuries.home,
+      away: Array.isArray(inj.awayInjuries) ? (inj.awayInjuries as FootballLineupBundle["injuries"]["away"]) : base.injuries.away,
+    },
+  };
+}
+
+function teamLineUpIntroPayload(
+  bundle: TeamLineUpBundle,
+  w: number,
+  h: number,
+): Record<string, unknown> {
+  return {
+    brandStyle: bundle.brandStyle,
+    homeName: bundle.home.name,
+    awayName: bundle.away.name,
+    introLine: bundle.introLine ?? "Line-ups",
+    competition: bundle.competition ?? bundle.league,
+    matchDate: bundle.matchDate,
+    lineupStatus: bundle.lineupStatus,
+    width: w,
+    height: h,
+  };
+}
+
+function teamLineUpCombinedPayload(
+  bundle: TeamLineUpBundle,
+  w: number,
+  h: number,
+): Record<string, unknown> {
+  return {
+    brandStyle: bundle.brandStyle,
+    homeName: bundle.home.name,
+    awayName: bundle.away.name,
+    lineupStatus: bundle.lineupStatus,
+    homeStarters: resolveStarterCollisions(
+      mapStartersToCombinedHalf(bundle.home.starters, "home"),
+      collisionOptsForExport(w, h),
+    ),
+    awayStarters: resolveStarterCollisions(
+      mapStartersToCombinedHalf(bundle.away.starters, "away"),
+      collisionOptsForExport(w, h),
+    ),
+    homeShirtColor: bundle.home.shirtColor,
+    homeSleeveColor: bundle.home.sleeveColor ?? bundle.home.trimColor ?? "#ffffff",
+    homeTrimColor: bundle.home.trimColor ?? "#ffffff",
+    homeGkShirtColor: bundle.home.gkShirtColor ?? "#111827",
+    awayShirtColor: bundle.away.shirtColor,
+    awaySleeveColor: bundle.away.sleeveColor ?? bundle.away.trimColor ?? "#ffffff",
+    awayTrimColor: bundle.away.trimColor ?? "#ffffff",
+    awayGkShirtColor: bundle.away.gkShirtColor ?? "#111827",
+    width: w,
+    height: h,
+  };
+}
+
+function teamLineUpOutroPayload(
+  bundle: TeamLineUpBundle,
+  w: number,
+  h: number,
+): Record<string, unknown> {
+  const brand = teamLineUpBrand(bundle.brandStyle ?? "sport365");
+  return {
+    brandStyle: bundle.brandStyle,
+    outroLine: bundle.outroLine ?? `For more coverage, head to ${brand.watermark}`,
+    width: w,
+    height: h,
+  };
+}
+
+function teamLineUpScenePayload(
+  bundle: TeamLineUpBundle,
+  side: "home" | "away",
+  w: number,
+  h: number,
+): Record<string, unknown> {
+  const team = side === "home" ? bundle.home : bundle.away;
+  const opponent = side === "home" ? bundle.away : bundle.home;
+  return {
+    brandStyle: bundle.brandStyle,
+    lineupSide: side,
+    lineupStatus: bundle.lineupStatus,
+    teamName: team.name,
+    opponentName: opponent.name,
+    homeName: bundle.home.name,
+    awayName: bundle.away.name,
+    shirtColor: team.shirtColor,
+    sleeveColor: team.sleeveColor ?? team.trimColor ?? "#ffffff",
+    trimColor: team.trimColor ?? "#ffffff",
+    gkShirtColor: team.gkShirtColor ?? "#111827",
+    starters: resolveStarterCollisions(team.starters, collisionOptsForExport(w, h)),
+    width: w,
+    height: h,
+  };
+}
+
+export function buildTeamLineUpScenes(bundle: TeamLineUpBundle): SceneSpec[] {
+  const { width: w, height: h } = teamLineUpExportDimensions(bundle.exportAspect ?? "portrait");
+  const status = bundle.lineupStatus === "confirmed" ? "Confirmed" : "Predicted";
+  const scenes: SceneSpec[] = [
+    scene("intro", "team-line-up-intro", 3, `${status} line-ups`, teamLineUpIntroPayload(bundle, w, h)),
+  ];
+
+  const showHome = bundle.teamView === "home" || bundle.teamView === "both";
+  const showAway = bundle.teamView === "away" || bundle.teamView === "both";
+
+  if (showHome) {
+    scenes.push(
+      scene(
+        "lineup-home",
+        "team-line-up-card",
+        5,
+        `${bundle.home.name} ${status} XI`,
+        teamLineUpScenePayload(bundle, "home", w, h),
+      ),
+    );
+  }
+  if (showAway) {
+    scenes.push(
+      scene(
+        "lineup-away",
+        "team-line-up-card",
+        5,
+        `${bundle.away.name} ${status} XI`,
+        teamLineUpScenePayload(bundle, "away", w, h),
+      ),
+    );
+  }
+  if (bundle.teamView === "both") {
+    scenes.push(
+      scene(
+        "lineup-combined",
+        "team-line-up-combined",
+        6,
+        `${bundle.home.name} v ${bundle.away.name}`,
+        teamLineUpCombinedPayload(bundle, w, h),
+      ),
+    );
+  }
+
+  scenes.push(scene("outro", "team-line-up-outro", 3, "Outro", teamLineUpOutroPayload(bundle, w, h)));
+  return scenes;
+}
+
+function teamSheetSidePayload(
+  bundle: TeamSheetBundle,
+  side: "home" | "away",
+  w: number,
+  h: number,
+): Record<string, unknown> {
+  const team = side === "home" ? bundle.home : bundle.away;
+  const opponent = side === "home" ? bundle.away : bundle.home;
+  const bench = side === "home" ? bundle.bench.home : bundle.bench.away;
+  const heroPlayerName =
+    bundle.heroPlayerName?.trim() ||
+    pickDefaultHeroPlayer(
+      team.starters.map((s) => ({
+        n: s.n,
+        name: s.name,
+        gk: s.gk,
+        surname: s.surname,
+      })),
+    );
+  return {
+    brandStyle: bundle.brandStyle,
+    lineupStatus: bundle.lineupStatus,
+    teamName: team.name,
+    opponentName: opponent.name,
+    competition: bundle.competition ?? bundle.league,
+    matchDate: bundle.matchDate,
+    formation: team.formation,
+    shirtColor: team.shirtColor,
+    starters: [...team.starters].sort((a, b) => {
+      if (a.gk && !b.gk) return -1;
+      if (!a.gk && b.gk) return 1;
+      return (a.n || 99) - (b.n || 99);
+    }),
+    subs: bench,
+    heroPlayerName,
+    width: w,
+    height: h,
+  };
+}
+
+function teamSheetCombinedPayload(bundle: TeamSheetBundle, w: number, h: number): Record<string, unknown> {
+  const sortXi = (starters: TeamSheetBundle["home"]["starters"]) =>
+    [...starters].sort((a, b) => {
+      if (a.gk && !b.gk) return -1;
+      if (!a.gk && b.gk) return 1;
+      return (a.n || 99) - (b.n || 99);
+    });
+  return {
+    brandStyle: bundle.brandStyle,
+    homeName: bundle.home.name,
+    awayName: bundle.away.name,
+    competition: bundle.competition ?? bundle.league,
+    matchDate: bundle.matchDate,
+    lineupStatus: bundle.lineupStatus,
+    homeStarters: sortXi(bundle.home.starters),
+    awayStarters: sortXi(bundle.away.starters),
+    homeSubs: bundle.bench.home,
+    awaySubs: bundle.bench.away,
+    width: w,
+    height: h,
+  };
+}
+
+export function buildTeamSheetScenes(bundle: TeamSheetBundle): SceneSpec[] {
+  const variant = bundle.sheetVariant;
+  const templateId = `team-sheet-${variant}`;
+  const { width: w, height: h } = teamLineUpExportDimensions(bundle.exportAspect ?? "portrait");
+  const status = bundle.lineupStatus === "confirmed" ? "Confirmed" : "Predicted";
+
+  if (variant === "combined") {
+    return [
+      scene(
+        "sheet-combined",
+        templateId,
+        5,
+        `${bundle.home.name} v ${bundle.away.name}`,
+        teamSheetCombinedPayload(bundle, w, h),
+      ),
+    ];
+  }
+
+  const scenes: SceneSpec[] = [];
+  const showHome = bundle.teamView === "home" || bundle.teamView === "both";
+  const showAway = bundle.teamView === "away" || bundle.teamView === "both";
+
+  if (showHome) {
+    scenes.push(
+      scene(
+        "sheet-home",
+        templateId,
+        5,
+        `${bundle.home.name} ${status} XI`,
+        teamSheetSidePayload(bundle, "home", w, h),
+      ),
+    );
+  }
+  if (showAway) {
+    scenes.push(
+      scene(
+        "sheet-away",
+        templateId,
+        5,
+        `${bundle.away.name} ${status} XI`,
+        teamSheetSidePayload(bundle, "away", w, h),
+      ),
+    );
+  }
+  return scenes;
+}
+
+export function buildTeamSheetCaption(bundle: TeamSheetBundle): string {
+  if (bundle.generateAiCaption && bundle.aiCaption?.trim()) return bundle.aiCaption.trim();
+  const side = bundle.teamView === "away" ? "away" : "home";
+  return buildTeamLineUpAiCaption(bundle.home, bundle.away, bundle.lineupStatus, side);
+}
+
+export function buildTeamSheetScript(bundle: TeamSheetBundle): string {
+  const side = bundle.teamView === "away" ? bundle.away : bundle.home;
+  const opp = bundle.teamView === "away" ? bundle.home : bundle.away;
+  return `${side.name} ${bundle.lineupStatus} team sheet against ${opp.name}. ${BRAND_FOLLOW}.`;
+}
+
+export function generateFromTeamSheet(bundle: TeamSheetBundle): GeneratedContent {
+  return {
+    format: "team-sheet",
+    headline: `${bundle.home.name} vs ${bundle.away.name} — Team Sheet`,
+    caption: buildTeamSheetCaption(bundle),
+    script: buildTeamSheetScript(bundle),
+    scenes: buildTeamSheetScenes(bundle),
+    cta: BRAND_FOLLOW,
+  };
+}
+
+function scoreLinePayload(bundle: ScoreLineBundle, w: number, h: number): Record<string, unknown> {
+  const ctx = bundle.matchContext;
+  return {
+    brandStyle: bundle.brandStyle,
+    homeTeam: ctx.homeTeam,
+    awayTeam: ctx.awayTeam,
+    homeScore: ctx.homeScore,
+    awayScore: ctx.awayScore,
+    status: ctx.status,
+    statusLabel: ctx.statusLabel,
+    statusDisplay: bundle.statusDisplay,
+    homeLogoUrl: ctx.homeLogoUrl,
+    awayLogoUrl: ctx.awayLogoUrl,
+    competition: bundle.competition,
+    matchDate: bundle.matchDate,
+    heroImageUrl: bundle.heroImageUrl,
+    width: w,
+    height: h,
+  };
+}
+
+export function buildScoreLineScenes(bundle: ScoreLineBundle): SceneSpec[] {
+  const { width: w, height: h } = teamLineUpExportDimensions(bundle.exportAspect ?? "portrait");
+  const ctx = bundle.matchContext;
+  return [
+    scene(
+      "score-main",
+      "score-line-full",
+      5,
+      `${ctx.homeTeam} ${ctx.homeScore}-${ctx.awayScore} ${ctx.awayTeam}`,
+      scoreLinePayload(bundle, w, h),
+    ),
+  ];
+}
+
+export function buildScoreLineCaptionFromBundle(bundle: ScoreLineBundle): string {
+  if (bundle.generateAiCaption && bundle.aiCaption?.trim()) return bundle.aiCaption.trim();
+  return buildScoreLineCaption(bundle.matchContext);
+}
+
+export function buildScoreLineScript(bundle: ScoreLineBundle): string {
+  const ctx = bundle.matchContext;
+  return `${ctx.homeTeam} ${ctx.homeScore}, ${ctx.awayTeam} ${ctx.awayScore}. ${buildScoreLineCaption(ctx)} ${BRAND_FOLLOW}`;
+}
+
+export function generateFromScoreLine(bundle: ScoreLineBundle): GeneratedContent {
+  const ctx = bundle.matchContext;
+  return {
+    format: "score-line",
+    headline: `${ctx.homeTeam} vs ${ctx.awayTeam} — Score Line`,
+    caption: buildScoreLineCaptionFromBundle(bundle),
+    script: buildScoreLineScript(bundle),
+    scenes: buildScoreLineScenes(bundle),
+    cta: BRAND_FOLLOW,
+  };
+}
+
+export function buildTeamLineUpCaption(bundle: TeamLineUpBundle): string {
+  if (bundle.generateAiCaption && bundle.aiCaption?.trim()) return bundle.aiCaption.trim();
+  const side = bundle.teamView === "away" ? "away" : "home";
+  return buildTeamLineUpAiCaption(bundle.home, bundle.away, bundle.lineupStatus, side);
+}
+
+export function buildTeamLineUpScript(bundle: TeamLineUpBundle): string {
+  const side = bundle.teamView === "away" ? bundle.away : bundle.home;
+  const opp = bundle.teamView === "away" ? bundle.home : bundle.away;
+  return `${side.name} ${bundle.lineupStatus} line-up against ${opp.name}. Formation ${side.formation}. ${BRAND_FOLLOW}.`;
+}
+
+export function generateFromTeamLineUp(bundle: TeamLineUpBundle): GeneratedContent {
+  return {
+    format: "team-line-up",
+    headline: `${bundle.home.name} vs ${bundle.away.name} — ${bundle.matchDate || bundle.competition || "Line-up"}`,
+    caption: buildTeamLineUpCaption(bundle),
+    script: buildTeamLineUpScript(bundle),
+    scenes: buildTeamLineUpScenes(bundle),
+    cta: BRAND_FOLLOW,
+  };
+}
+
 export function buildF1GridCaption(bundle: F1GridBundle): string {
   const sub = (bundle.subtitle ?? "").trim();
   return `${bundle.title}${sub ? ` — ${sub}` : ""}. ${bundle.drivers.length} drivers.`;
@@ -978,8 +1390,8 @@ export function buildPlanetRugbyTableScenes(bundle: PlanetRugbyTableBundle): Sce
     tablePosition: bundle.tablePosition ?? "lower-left",
     tableWidthPercent: bundle.tableWidthPercent ?? 94,
     tableHeightPercent: bundle.tableHeightPercent ?? 72,
-    tableBackgroundStyle: bundle.tableBackgroundStyle ?? "balanced",
-    tablePanelOpacity: bundle.tablePanelOpacity ?? 0.58,
+    tableBackgroundStyle: bundle.tableBackgroundStyle ?? "solid",
+    tablePanelOpacity: bundle.tablePanelOpacity ?? 0.82,
     backgroundImageUrl: bundle.backgroundImageUrl ?? "",
     backgroundBlur: bundle.backgroundBlur ?? 0,
     overlayStrength: bundle.overlayStrength ?? 0.55,
@@ -1050,6 +1462,19 @@ export function generateFromPlanetRugbyTable(bundle: PlanetRugbyTableBundle): Ge
 }
 
 export function generateFromPlanetFootballTable(bundle: PlanetFootballTableBundle): GeneratedContent {
+  const displayBrand = normalizePlanetFootballDisplayBrand(bundle.displayBrand);
+  const brandDefaults = planetFootballBrandDefaults(displayBrand);
+  const match = bundle.matchContext;
+  const matchSceneData = match
+    ? {
+        matchContext: match,
+        showMatchScore: bundle.showMatchScore !== false,
+        showMatchScorers: bundle.showMatchScorers !== false,
+        showStandingsTable: bundle.showStandingsTable !== false,
+        brandLogoScale: bundle.brandLogoScale ?? 1.85,
+      }
+    : { brandLogoScale: bundle.brandLogoScale ?? 1.85 };
+  const highlightColor = bundle.highlightColor ?? brandDefaults.highlightColor;
   const baseScenes = buildPlanetRugbyTableScenes(bundle as unknown as PlanetRugbyTableBundle).map((s) => ({
     ...s,
     templateId:
@@ -1060,22 +1485,30 @@ export function generateFromPlanetFootballTable(bundle: PlanetFootballTableBundl
           : "planet-football-table",
     data: {
       ...s.data,
-      brand: "planet-football",
+      ...matchSceneData,
+      brand: displayBrand,
       sourceUrl: bundle.table.sourceUrl,
+      highlightColor,
+      highlightMode: "brand",
     },
   }));
   const scenes = baseScenes;
+  const site = brandDefaults.cta;
+  const defaultScript = match
+    ? `${match.homeTeam} beat ${match.awayTeam} ${match.homeScore}-${match.awayScore}. Check the updated ${bundle.table.competition} standings. For more coverage, head to ${site}`
+    : `Latest ${bundle.table.competition} standings. For more coverage, head to ${site}`;
   return {
     format: "planet-football-table",
     headline: `${bundle.table.competition} - ${bundle.headline ?? "Latest Table"}`,
-    caption: `${bundle.table.competition} table update from Sport365.`,
+    caption: match
+      ? `${match.homeTeam} ${match.homeScore}-${match.awayScore} ${match.awayTeam} · ${bundle.table.competition}`
+      : `${bundle.table.competition} standings from ${brandDefaults.brandFooter}.`,
     script:
       bundle.voiceoverEnabled === false
         ? ""
-        : bundle.script ??
-          `Latest ${bundle.table.competition} table. For more football coverage, head to Sport365.com`,
+        : bundle.script ?? defaultScript,
     scenes,
-    cta: "Sport365.com",
+    cta: bundle.outroLine?.includes(".com") ? bundle.outroLine.replace(/^.*head to /i, "") : site,
     voiceGender: bundle.voiceGender ?? "male",
     voiceSpeed: bundle.voiceSpeed ?? 1,
   };
@@ -1092,7 +1525,10 @@ export function generateContent(
     | F1GridBundle
     | F1ResultsBundle
     | PlanetFootballTableBundle
-    | PlanetRugbyTableBundle,
+    | PlanetRugbyTableBundle
+    | TeamLineUpBundle
+    | TeamSheetBundle
+    | ScoreLineBundle,
 ): GeneratedContent {
   if (format === "next-off") return generateFromNextOff(payload as NextOffBundle);
   if (format === "fast-results") return generateFromFastResult(payload as FastResultBundle);
@@ -1113,6 +1549,15 @@ export function generateContent(
   }
   if (format === "planet-rugby-table") {
     return generateFromPlanetRugbyTable(payload as PlanetRugbyTableBundle);
+  }
+  if (format === "team-line-up") {
+    return generateFromTeamLineUp(payload as TeamLineUpBundle);
+  }
+  if (format === "team-sheet") {
+    return generateFromTeamSheet(payload as TeamSheetBundle);
+  }
+  if (format === "score-line") {
+    return generateFromScoreLine(payload as ScoreLineBundle);
   }
   return generateFromRacecard(payload as RacecardSnapshot);
 }
@@ -1137,6 +1582,12 @@ export function materializeFromTemplate(source: TemplateSource): GeneratedConten
       return generateFromPlanetFootballTable(source.bundle);
     case "planet-rugby-table":
       return generateFromPlanetRugbyTable(source.bundle);
+    case "team-line-up":
+      return generateFromTeamLineUp(source.bundle);
+    case "team-sheet":
+      return generateFromTeamSheet(source.bundle);
+    case "score-line":
+      return generateFromScoreLine(source.bundle);
   }
 }
 

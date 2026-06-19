@@ -811,19 +811,53 @@ export function normaliseSixLogicFoundation(params: {
   };
 }
 
-export function assessSixLogicHealth(foundation: SixLogicFoundation): {
+export function isPreMatchSixLogicStatus(status?: string): boolean {
+  if (!status?.trim()) return false;
+  const norm = status.trim().toUpperCase();
+  return (
+    norm === "NSY" ||
+    norm === "NOT STARTED" ||
+    norm === "NOTSTARTED" ||
+    norm === "SCHEDULED" ||
+    norm === "FIXTURE" ||
+    norm === "PREMATCH" ||
+    norm === "PRE-MATCH" ||
+    norm.includes("NOT START")
+  );
+}
+
+export function isPreMatchSixLogicFoundation(foundation: SixLogicFoundation): boolean {
+  const { homeScore, awayScore, status } = foundation.facts;
+  if (isPreMatchSixLogicStatus(status)) return true;
+  return homeScore === undefined && awayScore === undefined;
+}
+
+export type SixLogicHealthOptions = {
+  contentType?: "match_report" | "match_preview";
+};
+
+export function assessSixLogicHealth(
+  foundation: SixLogicFoundation,
+  options?: SixLogicHealthOptions,
+): {
   ok: boolean;
   missingCore: string[];
+  preMatch: boolean;
 } {
   const missingCore: string[] = [];
+  const preMatch = isPreMatchSixLogicFoundation(foundation);
+  const skipScoreRequirement = options?.contentType === "match_preview";
+
   if (!foundation.facts.homeTeam || foundation.facts.homeTeam === "Home") missingCore.push("homeTeam");
   if (!foundation.facts.awayTeam || foundation.facts.awayTeam === "Away") missingCore.push("awayTeam");
-  if (foundation.facts.homeScore === undefined) missingCore.push("homeScore");
-  if (foundation.facts.awayScore === undefined) missingCore.push("awayScore");
+  if (!skipScoreRequirement) {
+    if (foundation.facts.homeScore === undefined) missingCore.push("homeScore");
+    if (foundation.facts.awayScore === undefined) missingCore.push("awayScore");
+  }
   if (!foundation.facts.competition || foundation.facts.competition === "Unknown competition") {
     missingCore.push("competition");
   }
-  return { ok: missingCore.length === 0, missingCore };
+  return { ok: missingCore.length === 0, missingCore, preMatch };
 }
 
 export function buildMatchFoundationSummary(foundation: SixLogicFoundation): string {
@@ -875,7 +909,33 @@ export type FoundationImportPreview = {
     substituteCount: number;
   }>;
   commentaryNote: string;
+  preMatch: boolean;
+  previewFeedHighlights: Array<{ label: string; count: number }>;
 };
+
+const PREVIEW_FEED_SECTION_LABELS: Record<string, string> = {
+  headToHead: "Head-to-head",
+  lastHomeResults: "Home recent form",
+  lastAwayResults: "Away recent form",
+  upcomingHomeFixtures: "Home upcoming fixtures",
+  upcomingAwayFixtures: "Away upcoming fixtures",
+  odds: "Bookmaker odds",
+  leagueTable: "Group / league table",
+  streaks: "Form streaks",
+};
+
+function buildPreviewFeedHighlights(foundation: SixLogicFoundation): FoundationImportPreview["previewFeedHighlights"] {
+  const sections = foundation.availableData?.sections ?? [];
+  return sections
+    .filter((section): section is typeof section & { count: number } => {
+      const count = section.count ?? 0;
+      return section.key in PREVIEW_FEED_SECTION_LABELS && count > 0;
+    })
+    .map((section) => ({
+      label: PREVIEW_FEED_SECTION_LABELS[section.key] ?? section.title,
+      count: section.count,
+    }));
+}
 
 function eventCategory(type: string): "goal" | "yellow" | "red" | "substitution" | "other" {
   const t = type.toLowerCase();
@@ -911,6 +971,7 @@ function isNotableMoment(event: SixLogicEvent): boolean {
 
 export function buildFoundationImportPreview(foundation: SixLogicFoundation): FoundationImportPreview {
   const { facts, events, lineups, commentary } = foundation;
+  const preMatch = isPreMatchSixLogicFoundation(foundation);
   const counts = { goal: 0, yellow: 0, red: 0, substitution: 0, other: 0 };
   for (const event of events) {
     counts[eventCategory(event.type)] += 1;
@@ -918,8 +979,10 @@ export function buildFoundationImportPreview(foundation: SixLogicFoundation): Fo
 
   const matchDetails: FoundationImportPreview["matchDetails"] = [
     {
-      label: "Result",
-      value: `${facts.homeTeam} ${facts.homeScore ?? "?"}-${facts.awayScore ?? "?"} ${facts.awayTeam}`,
+      label: preMatch ? "Fixture" : "Result",
+      value: preMatch
+        ? `${facts.homeTeam} vs ${facts.awayTeam}`
+        : `${facts.homeTeam} ${facts.homeScore ?? "?"}-${facts.awayScore ?? "?"} ${facts.awayTeam}`,
     },
     { label: "Status", value: facts.status ?? "Unknown" },
     { label: "Competition", value: facts.competition },
@@ -973,8 +1036,11 @@ export function buildFoundationImportPreview(foundation: SixLogicFoundation): Fo
     substituteCount: lineup.substitutes.length,
   });
 
-  const commentaryNote =
-    commentary.length > 0
+  const commentaryNote = preMatch
+    ? commentary.length > 0
+      ? `${commentary.length} commentary lines in feed (unusual for a pre-match fixture).`
+      : "Pre-match fixture — no live commentary yet. Preview will use form, H2H, table stakes and odds from the feed."
+    : commentary.length > 0
       ? `${commentary.length} commentary lines included from SixLogics.`
       : "No live commentary in the SixLogics feed — the commentary import step will use match events if available.";
 
@@ -986,5 +1052,7 @@ export function buildFoundationImportPreview(foundation: SixLogicFoundation): Fo
     keyMoments,
     lineups: [lineupPreview("home", lineups.home), lineupPreview("away", lineups.away)],
     commentaryNote,
+    preMatch,
+    previewFeedHighlights: buildPreviewFeedHighlights(foundation),
   };
 }

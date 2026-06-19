@@ -108,7 +108,7 @@ describe("buildRss2ChannelXml", () => {
     });
     expect(xml).toContain("<enclosure ");
     expect(xml).toContain("audio.mp3");
-    expect(xml).not.toContain("<media:content ");
+    expect(xml).toContain('medium="audio"');
   });
 
   it("escapes literal ]]> inside description CDATA", () => {

@@ -59,3 +59,6 @@ yarn-error.log*
 # Admin UI — local API keys (never commit)
 /data/local/*
 !/data/local/.gitkeep
+
+# Local Netlify folder
+.netlify

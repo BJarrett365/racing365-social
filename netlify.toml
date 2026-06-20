@@ -16,9 +16,14 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  external_node_modules = ["ffmpeg-static"]
+  # Keep heavy native binaries out of every function bundle (especially ___netlify-server-handler).
+  external_node_modules = ["ffmpeg-static", "puppeteer", "@sparticuz/chromium"]
+
+[functions."___netlify-server-handler"]
+  external_node_modules = ["ffmpeg-static", "puppeteer", "@sparticuz/chromium"]
 
 [functions."build-short-background"]
+  external_node_modules = ["ffmpeg-static"]
   included_files = ["node_modules/ffmpeg-static/ffmpeg"]
   timeout = 900
 
@@ -26,6 +31,12 @@
   timeout = 900
 
 [functions."match-report-build-background"]
+  timeout = 900
+
+[functions."match-report-generate-media-background"]
+  timeout = 900
+
+[functions."match-report-player-intelligence-background"]
   timeout = 900
 
 # Long video builds use netlify/functions/build-short-background.mts (15 minute background limit).

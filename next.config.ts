@@ -13,11 +13,10 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   /** Dev: allow 127.0.0.1 vs localhost / ::1 host mix so `/_next/*` is not treated as cross-site. */
   allowedDevOrigins: ["127.0.0.1"],
-  outputFileTracingIncludes: {
-    "/api/**/*": ["./node_modules/ffmpeg-static/ffmpeg"],
-  },
   // Keep native/heavy deps and Supabase out of webpack vendor chunks — avoids missing
   // `./vendor-chunks/@supabase.js` when the dev bundle graph is interrupted or mismatched.
+  // Do not use outputFileTracingIncludes for ffmpeg-static here — it bloats ___netlify-server-handler
+  // past Netlify's 250 MB limit. Background functions ship the binary via netlify.toml included_files.
   serverExternalPackages: ["puppeteer", "@sparticuz/chromium", "ffmpeg-static", "@supabase/supabase-js"],
   onDemandEntries: {
     maxInactiveAge: 60 * 1000,

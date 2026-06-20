@@ -22,6 +22,8 @@
 [functions."___netlify-server-handler"]
   external_node_modules = ["ffmpeg-static", "puppeteer", "@sparticuz/chromium"]
 
+# FFmpeg binary only on the background function that runs video builds — never at [functions] scope
+# (a top-level included_files would inflate ___netlify-server-handler past Netlify's 250 MB limit).
 [functions."build-short-background"]
   external_node_modules = ["ffmpeg-static"]
   included_files = ["node_modules/ffmpeg-static/ffmpeg"]

@@ -17,6 +17,17 @@ const nextConfig: NextConfig = {
   // `./vendor-chunks/@supabase.js` when the dev bundle graph is interrupted or mismatched.
   // Do not use outputFileTracingIncludes for ffmpeg-static here — it bloats ___netlify-server-handler
   // past Netlify's 250 MB limit. Background functions ship the binary via netlify.toml included_files.
+  outputFileTracingExcludes: {
+    "*": [
+      "./node_modules/ffmpeg-static/**",
+      "./node_modules/@img/sharp-libvips-darwin-arm64/**",
+      "./node_modules/@img/sharp-libvips-darwin-x64/**",
+      "./output/**",
+      "./data/local/**",
+      "./public/brand-manuals/teamtalk-rebrand-v2.pptx",
+      "./public/brand-manuals/*.pdf",
+    ],
+  },
   serverExternalPackages: ["puppeteer", "@sparticuz/chromium", "ffmpeg-static", "@supabase/supabase-js"],
   onDemandEntries: {
     maxInactiveAge: 60 * 1000,
